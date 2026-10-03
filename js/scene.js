@@ -437,6 +437,12 @@ export function crearEscena(canvas) {
     return null;
   }
 
+  // rectángulo del hongo madre en px CSS (para anclar su ventana de mejoras al costado)
+  function rectMadre() {
+    const m = medidas(), k = S / dpr;
+    return { x0: (madre.x - m.w / 2) * k, x1: (madre.x + m.w / 2) * k, y0: (groundY - alturaMadre()) * k, y1: groundY * k };
+  }
+
   function pulsoMadre() {
     madre.pulso = 1;
     madre.brillo = 1;
@@ -444,5 +450,5 @@ export function crearEscena(canvas) {
     aroPart(madre.x, groundY - alturaMadre() * 0.6, 34, 0.5);
   }
 
-  return { resize, update, draw, toque, pulsoMadre };
+  return { resize, update, draw, toque, pulsoMadre, rectMadre };
 }

@@ -34,7 +34,7 @@ canvas.addEventListener("click", (e) => {
   const hit = escena.toque(e.clientX - r.left, e.clientY - r.top);
   if (hit && hit.quien === "madre") {
     escena.pulsoMadre();
-    ui.abrirMadre();
+    ui.abrirMadre(escena.rectMadre);
   }
 });
 

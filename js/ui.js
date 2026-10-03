@@ -21,14 +21,38 @@ export function crearUI(api) {
   const hojaCuerpo = $("hoja-cuerpo");
   let abierta = null; // "madre" | "ajustes" | null
   let filas = [];
+  let anclaFn = null; // () => rect del edificio tocado, o null (ventana abajo, ancho completo)
 
   function cerrar() {
     abierta = null;
     hoja.classList.remove("abierta");
   }
 
-  function abrir(cual, titulo, render) {
+  // Ventana de un edificio: aparece a su derecha, apoyada en el suelo. Si no entra, se corre
+  // hacia la derecha de la pantalla y pasa a layout angosto. Sin edificio: tarjeta abajo.
+  function colocar() {
+    hoja.style.cssText = "";
+    hoja.classList.remove("estrecha", "anclada");
+    if (!anclaFn) return;
+    const r = anclaFn();
+    const vw = window.innerWidth, margen = 10, minW = 150, maxW = 360;
+    let left = r.x1 + margen;
+    let w = Math.min(maxW, vw - left - margen);
+    if (w < minW) { w = minW; left = vw - margen - minW; }
+    hoja.classList.add("anclada");
+    hoja.classList.toggle("estrecha", w < 260);
+    hoja.style.left = left + "px";
+    hoja.style.right = "auto";
+    hoja.style.width = w + "px";
+    hoja.style.bottom = window.innerHeight - r.y1 + "px";
+    hoja.style.height = "auto";
+    hoja.style.maxHeight = Math.max(160, r.y1 - 90) + "px";
+  }
+
+  function abrir(cual, titulo, render, ancla = null) {
     abierta = cual;
+    anclaFn = ancla;
+    colocar();
     hojaTitulo.textContent = titulo;
     hojaCuerpo.replaceChildren();
     filas = [];
@@ -62,7 +86,7 @@ export function crearUI(api) {
   }
 
   // ---- Hongo madre: comprar honguitos y mejoras ----
-  function abrirMadre() {
+  function abrirMadre(ancla) {
     api.estado().flags.abrioMadre = true;
     abrir("madre", "Hongo madre", () => {
       seccion("Honguitos");
@@ -81,13 +105,13 @@ export function crearUI(api) {
           const f = fila(mj.nombre, mj.desc, () => {
             if (comprarMejora(api.estado(), mj.id)) {
               api.guardar();
-              abrirMadre();
+              abrirMadre(ancla);
             }
           });
           filas.push({ tipo: "mejora", mj, ...f });
         }
       }
-    });
+    }, ancla);
   }
 
   // ---- Ajustes ----
@@ -183,6 +207,7 @@ export function crearUI(api) {
     });
   }
 
+  window.addEventListener("resize", () => abierta && colocar());
   $("hoja-cerrar").addEventListener("click", cerrar);
   $("fondo-hoja").addEventListener("click", cerrar);
   $("btn-ajustes").addEventListener("click", abrirAjustes);
@@ -200,6 +225,7 @@ export function crearUI(api) {
     const puedeComprar = s.esporas.gte(costoHonguito(s, "basico"));
     elHint.classList.toggle("visible", puedeComprar && !s.flags.abrioMadre && abierta !== "madre");
 
+    if (abierta && anclaFn) colocar(); // sigue al edificio si cambia de tamaño
     if (abierta !== "madre" && !forzar) return;
     for (const f of filas) {
       if (f.tipo === "honguito") {

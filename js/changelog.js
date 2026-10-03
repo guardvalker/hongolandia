@@ -1,5 +1,13 @@
 export const CHANGELOG = [
   {
+    v: "0.6.0",
+    fecha: "2026-10-03",
+    cambios: [
+      "La ventana de mejoras de cada edificio aparece a su derecha, apoyada en el suelo (hoy el hongo madre; vale para los futuros).",
+      "En pantallas angostas la ventana se compacta y se corre para entrar.",
+    ],
+  },
+  {
     v: "0.5.0",
     fecha: "2026-10-03",
     cambios: [
