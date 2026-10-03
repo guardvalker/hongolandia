@@ -10,7 +10,7 @@ const cargar = (src) =>
 
 export async function cargarAssets(etapas) {
   const [honguito, ...madre] = await Promise.all([
-    cargar("assets/honguito.png"),
+    cargar("assets/honguito_sheet.png"),
     ...Array.from({ length: etapas }, (_, i) => cargar(`assets/madre_${i}.png`)),
   ]);
   return { honguito, madre };

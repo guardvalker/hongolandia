@@ -1,5 +1,14 @@
 export const CHANGELOG = [
   {
+    v: "0.3.0",
+    fecha: "2026-10-03",
+    cambios: [
+      "Honguitos animados de verdad: respiran, parpadean, caminan, saltan y levantan los brazos al entregar esporas.",
+      "Luces y efectos: ciclo de día y noche, brillo del hongo madre, luciérnagas, esporas con estela, destellos y ondas.",
+      "Fondo más simple (colinas, pasto y tierra) y hongo madre sin ventanas.",
+    ],
+  },
+  {
     v: "0.2.0",
     fecha: "2026-10-03",
     cambios: [

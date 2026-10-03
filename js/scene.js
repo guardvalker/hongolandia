@@ -1,13 +1,21 @@
-// Escena 2D vista lateral en pixel art.
+// Escena 2D vista lateral en pixel art, con ciclo día/noche y luces aditivas.
 // Todo se dibuja en un buffer chico (1 celda = 1 píxel del arte) y se escala con
 // un factor entero y sin suavizado, así los sprites nunca se ven borrosos.
-import { ETAPAS } from './data.js';
+import { ANIM } from './anims.js';
 
 const MAX_VISUALES = 24; // honguitos dibujados (el número real puede ser enorme)
-const MAX_PARTICULAS = 220;
+const MAX_PARTICULAS = 420;
 const ANCHO_REF = 390; // celdas del lado corto de la pantalla
 const GROSOR_PASTO = 46;
 const CARRILES = [10, 22, 34]; // y de los pies bajo el borde del pasto (profundidad)
+const CICLO = 300; // segundos que dura un día completo
+const VEL = 26; // celdas/seg al caminar
+const TAU = Math.PI * 2;
+
+const rgb = (c, a = 1) => `rgba(${c[0]},${c[1]},${c[2]},${a})`;
+const mezcla = (a, b, k) => a.map((v, i) => Math.round(v + (b[i] - v) * k));
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+const suave = (k) => k * k * (3 - 2 * k);
 
 function rng(seed) {
   let a = seed >>> 0;
@@ -19,142 +27,140 @@ function rng(seed) {
     return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
   };
 }
-const rgb = (c, a = 1) => `rgba(${c[0]},${c[1]},${c[2]},${a})`;
-const mezcla = (a, b, k) => a.map((v, i) => Math.round(v + (b[i] - v) * k));
+
+const CIELO_DIA = { top: [118, 150, 150], bot: [200, 216, 198] };
+const CIELO_NOCHE = { top: [16, 20, 52], bot: [62, 54, 100] };
+const TINTE_NOCHE = [18, 22, 72];
 
 export function crearEscena(canvas, assets) {
   const ctx = canvas.getContext("2d");
-  const lo = document.createElement("canvas"); // buffer en celdas
+  const lo = document.createElement("canvas");
   const g = lo.getContext("2d");
   let dpr = 1, S = 1, Wc = 0, Hc = 0, extra = 0, groundY = 0;
-  let cielo = null, frente = null;
+  let frente = null;
   let t = 0, cam = 0, etapaPrev = null, inicial = true;
+  let luz = 0.5;
+  let flash = 0;
+  const luzForzada = new URLSearchParams(location.search).get("luz");
 
-  const madre = { x: 0, pulso: 0 };
+  const madre = { x: 0, pulso: 0, brillo: 0 };
   const visuales = [];
   const particulas = [];
   const nubes = [];
+  const estrellas = [];
+  const luciernagas = [];
 
-  // ---------- fondo ----------
-  function pino(c, x, base, h, col, luz, tronco) {
-    const tw = Math.max(3, Math.round(h / 24));
-    const th = Math.round(h * 0.12);
-    c.fillStyle = rgb(tronco);
-    c.fillRect(Math.round(x - tw / 2), base - th, tw, th);
-    const y0 = base - Math.round(h * 0.08), y1 = base - h;
-    const maxW = h * 0.34, n = 4 + Math.round(h / 45);
-    for (let y = y0; y > y1; y -= 2) {
-      const f = (y0 - y) / (y0 - y1);
-      const saw = (f * n) % 1;
-      const w = Math.max(2, Math.round(maxW * (1 - f) * (0.5 + 0.5 * (1 - saw))));
-      c.fillStyle = rgb(col);
-      c.fillRect(Math.round(x - w), y, w * 2, 2);
-      if (saw > 0.78 || saw < 0.08) {
-        c.fillStyle = rgb(luz);
-        c.fillRect(Math.round(x - w), y, Math.max(2, Math.round(w * 0.5)), 2);
+  // ---------- versiones "de noche" de los sprites (tinte precalculado) ----------
+  const tinte = (img) => {
+    const c = document.createElement("canvas");
+    c.width = img.width; c.height = img.height;
+    const x = c.getContext("2d");
+    x.drawImage(img, 0, 0);
+    x.globalCompositeOperation = "source-atop";
+    x.fillStyle = rgb(TINTE_NOCHE, 0.5);
+    x.fillRect(0, 0, c.width, c.height);
+    return c;
+  };
+  const sheetNoche = tinte(assets.honguito);
+  const madreNoche = assets.madre.map(tinte);
+
+  // ---------- halos de luz (cacheados) ----------
+  const halos = new Map();
+  function haloImg(r, col) {
+    const key = r + "|" + col.join();
+    let c = halos.get(key);
+    if (c) return c;
+    c = document.createElement("canvas");
+    c.width = c.height = r * 2 + 1;
+    const x = c.getContext("2d");
+    const n = clamp(Math.round(r / 4), 6, 18); // más anillos = degradé más suave
+    x.fillStyle = rgb(col, 1.6 / n);
+    for (let i = 0; i < n; i++) {
+      const rr = Math.round(r * (1 - i / n));
+      for (let dy = -rr; dy <= rr; dy++) {
+        const w = Math.floor(Math.sqrt(rr * rr - dy * dy));
+        x.fillRect(r - w, r + dy, w * 2 + 1, 1);
       }
+    }
+    halos.set(key, c);
+    return c;
+  }
+  function luzHalo(x, y, r, col, alfa, achatado = 1) {
+    if (alfa <= 0.003) return;
+    g.globalCompositeOperation = "lighter";
+    g.globalAlpha = Math.min(1, alfa);
+    const im = haloImg(r, col);
+    g.drawImage(im, Math.round(x - r), Math.round(y - r * achatado), r * 2 + 1, Math.round((r * 2 + 1) * achatado));
+    g.globalAlpha = 1;
+    g.globalCompositeOperation = "source-over";
+  }
+  function aditivo(fn) {
+    g.globalCompositeOperation = "lighter";
+    fn();
+    g.globalCompositeOperation = "source-over";
+  }
+  function disco(x, y, r, color) {
+    g.fillStyle = color;
+    for (let dy = -r; dy <= r; dy++) {
+      const w = Math.floor(Math.sqrt(r * r - dy * dy));
+      g.fillRect(Math.round(x) - w, Math.round(y) + dy, w * 2 + 1, 1);
     }
   }
 
-  function montañas(c, r, base, amp, col, paso) {
-    const f1 = 0.011 + r() * 0.006, f2 = 0.031 + r() * 0.01, p1 = r() * 9, p2 = r() * 9;
+  // ---------- fondo estático: colinas, pasto y tierra (simple, formas planas) ----------
+  function colinas(c, r, base, amp, col) {
+    const f1 = 0.006 + r() * 0.004, f2 = 0.017 + r() * 0.006, p1 = r() * 9, p2 = r() * 9;
     c.fillStyle = rgb(col);
-    for (let x = 0; x < Wc; x += paso) {
-      const hgt = amp * (0.55 + 0.3 * Math.sin(x * f1 + p1) + 0.18 * Math.sin(x * f2 + p2)) + r() * 3;
-      const y = base - Math.round(hgt / 3) * 3;
-      c.fillRect(x, y, paso, base - y);
+    for (let x = 0; x < Wc; x += 2) {
+      const hgt = amp * (0.6 + 0.3 * Math.sin(x * f1 + p1) + 0.12 * Math.sin(x * f2 + p2));
+      const y = base - Math.round(hgt / 2) * 2;
+      c.fillRect(x, y, 2, base - y + 2);
     }
   }
 
   function pintarFondo() {
     const r = rng(11);
     const H = Hc + extra;
-    // cielo
-    cielo = document.createElement("canvas");
-    cielo.width = Wc; cielo.height = H;
-    const s = cielo.getContext("2d");
-    const top = [112, 142, 142], bot = [196, 212, 196];
-    const banda = 7;
-    for (let y = 0; y < groundY; y += banda) {
-      s.fillStyle = rgb(mezcla(top, bot, Math.pow(y / groundY, 0.85)));
-      s.fillRect(0, y, Wc, banda);
-    }
-    s.fillStyle = rgb(bot);
-    s.fillRect(0, groundY - 2, Wc, H);
-
-    // frente (transparente donde se ve el cielo)
     frente = document.createElement("canvas");
     frente.width = Wc; frente.height = H;
     const c = frente.getContext("2d");
-    montañas(c, r, groundY - 6, Hc * 0.2, [150, 172, 172], 3);
-    montañas(c, r, groundY - 2, Hc * 0.15, [126, 154, 152], 3);
-    // bruma
-    for (let i = 0; i < 5; i++) {
-      c.fillStyle = `rgba(226,236,226,${0.1})`;
-      c.fillRect(0, groundY - 70 + i * 12, Wc, 12 * (5 - i) * 0.4 + 8);
-    }
-    // pinos lejanos
-    for (let x = -10; x < Wc + 20; x += 22 + Math.floor(r() * 26)) {
-      pino(c, x, groundY + 2, 56 + r() * 60, [86, 124, 118], [104, 142, 134], [70, 90, 84]);
-    }
-    c.fillStyle = "rgba(226,236,226,0.22)";
-    c.fillRect(0, groundY - 40, Wc, 44);
-    // pinos grandes
-    pino(c, Wc * 0.1, groundY + 4, Math.min(Hc * 0.36, 300), [38, 112, 80], [62, 150, 98], [94, 52, 34]);
-    pino(c, Wc * 0.97, groundY + 4, Math.min(Hc * 0.3, 250), [38, 112, 80], [62, 150, 98], [94, 52, 34]);
-    // roca clara
-    c.fillStyle = "rgb(168,182,190)";
-    c.fillRect(Wc * 0.74, groundY - 14, 40, 16);
-    c.fillRect(Wc * 0.74 + 6, groundY - 22, 26, 10);
-    c.fillStyle = "rgb(204,214,220)";
-    c.fillRect(Wc * 0.74 + 6, groundY - 22, 14, 4);
-    c.fillRect(Wc * 0.74, groundY - 14, 10, 4);
-
-    // pasto
-    c.fillStyle = "rgb(66,142,86)";
+    colinas(c, r, groundY - 2, Hc * 0.14, [142, 170, 168]);
+    colinas(c, r, groundY + 2, Hc * 0.085, [108, 148, 128]);
+    // pasto plano
+    c.fillStyle = rgb([70, 146, 88]);
     c.fillRect(0, groundY, Wc, GROSOR_PASTO);
-    c.fillStyle = "rgb(96,176,98)";
-    c.fillRect(0, groundY, Wc, 4);
+    c.fillStyle = rgb([98, 176, 100]);
+    c.fillRect(0, groundY, Wc, 3);
     const rp = rng(5);
-    for (let i = 0; i < (Wc * GROSOR_PASTO) / 90; i++) {
-      const x = Math.floor(rp() * Wc), y = groundY + 6 + Math.floor(rp() * (GROSOR_PASTO - 8));
-      c.fillStyle = rp() < 0.5 ? "rgb(56,126,78)" : "rgb(82,158,92)";
-      c.fillRect(x, y, 3 + Math.floor(rp() * 4), 2);
-    }
-    for (let x = 0; x < Wc; x += 3) {
-      const h = 2 + Math.floor(rp() * 4);
-      c.fillStyle = rp() < 0.3 ? "rgb(120,196,108)" : "rgb(76,156,92)";
+    for (let x = 2; x < Wc; x += 7) {
+      const h = 2 + Math.floor(rp() * 3);
+      c.fillStyle = rgb([84, 160, 94]);
       c.fillRect(x, groundY - h, 1, h);
     }
-    const flores = ["rgb(255,244,190)", "rgb(255,196,214)", "rgb(255,255,255)", "rgb(214,200,255)"];
-    for (let i = 0; i < Wc / 14; i++) {
-      const x = Math.floor(rp() * Wc), y = groundY + 8 + Math.floor(rp() * (GROSOR_PASTO - 10));
-      c.fillStyle = flores[Math.floor(rp() * flores.length)];
+    const flores = [[255, 244, 190], [255, 196, 214], [255, 255, 255]];
+    for (let i = 0; i < 7; i++) {
+      const x = Math.floor(rp() * Wc), y = groundY + 10 + Math.floor(rp() * (GROSOR_PASTO - 14));
+      c.fillStyle = rgb(flores[i % 3]);
       c.fillRect(x, y - 1, 1, 3); c.fillRect(x - 1, y, 3, 1);
-      c.fillStyle = "rgb(242,179,61)";
-      c.fillRect(x, y, 1, 1);
     }
-    // tierra
+    // tierra plana con degradado por bandas
     const ys = groundY + GROSOR_PASTO;
-    c.fillStyle = "rgb(58,46,52)";
+    c.fillStyle = rgb([60, 48, 56]);
     c.fillRect(0, ys, Wc, H - ys);
-    c.fillStyle = "rgb(40,32,40)";
+    c.fillStyle = rgb([44, 35, 44]);
     c.fillRect(0, ys, Wc, 4);
-    for (let i = 0; i < (Wc * (H - ys)) / 420; i++) {
-      const x = Math.floor(rp() * Wc), y = ys + 6 + Math.floor(rp() * (H - ys - 6));
-      const w = 6 + Math.floor(rp() * 14), h = 4 + Math.floor(rp() * 6);
-      c.fillStyle = rp() < 0.55 ? "rgb(72,58,64)" : "rgb(46,36,44)";
-      c.fillRect(x, y, w, h);
-      c.fillRect(x + 2, y - 2, Math.max(2, w - 4), 2);
-    }
-    for (let y = ys; y < H; y += 8) {
-      c.fillStyle = `rgba(20,14,24,${Math.min(0.5, ((y - ys) / (H - ys)) * 0.5)})`;
+    for (let y = ys + 8; y < H; y += 8) {
+      c.fillStyle = `rgba(16,12,22,${Math.min(0.55, ((y - ys) / (H - ys)) * 0.55)})`;
       c.fillRect(0, y, Wc, 8);
     }
 
     nubes.length = 0;
-    for (let i = 0; i < 5; i++) {
-      nubes.push({ x: (Wc / 5) * i + r() * 40, y: groundY * (0.1 + r() * 0.45), w: 50 + r() * 70, v: 1.2 + r() * 2 });
+    for (let i = 0; i < 3; i++) nubes.push({ x: (Wc / 3) * i + r() * 60, y: groundY * (0.16 + r() * 0.34), w: 56 + r() * 60, v: 1 + r() * 1.6 });
+    estrellas.length = 0;
+    for (let i = 0; i < 60; i++) estrellas.push({ x: Math.floor(r() * Wc), y: Math.floor(r() * groundY * 0.7), ph: r() * TAU, g: r() < 0.15 });
+    luciernagas.length = 0;
+    for (let i = 0; i < 16; i++) {
+      luciernagas.push({ bx: r() * Wc, by: groundY - 150 + r() * 190, ax: 14 + r() * 30, ay: 8 + r() * 18, sp: 0.2 + r() * 0.4, ph: r() * TAU });
     }
   }
 
@@ -176,62 +182,62 @@ export function crearEscena(canvas, assets) {
   // ---------- helpers de entidades ----------
   const pies = (carril) => groundY + CARRILES[carril];
   const madreY = () => groundY + 16;
+  const imgMadre = () => assets.madre[etapaPrev ?? 0];
+  const FW = ANIM.fw, FH = ANIM.fh;
 
   function nuevoVisual(i, desdePuerta) {
-    const carril = i % CARRILES.length;
-    const mw = assets.madre[etapaPrev ?? 0].width;
-    const margen = 40;
-    let x = margen + Math.random() * (Wc - margen * 2);
-    if (desdePuerta) x = madre.x + (Math.random() - 0.5) * 24;
-    const v = {
-      i, carril, x, dx: 0, hop: 0, hopT: 1, hopDur: 0.34, x0: x, x1: x,
-      reposo: Math.random() * 1.5,
-      entrega: 4 + Math.random() * 6,
-      yendoAEntregar: false,
-      alfa: desdePuerta ? 0 : 1,
+    const x = desdePuerta ? madre.x + (Math.random() - 0.5) * 20 : 40 + Math.random() * (Wc - 80);
+    return {
+      i, carril: i % CARRILES.length, x, dir: Math.random() < 0.5 ? -1 : 1,
+      modo: "idle", anim: "idle", animT: Math.random() * 4, espera: desdePuerta ? 0.3 : 0.5 + Math.random() * 2,
+      meta: x, entrega: 5 + Math.random() * 7, llevando: false, parpadeo: 2 + Math.random() * 3, hop: 0,
+      alfa: desdePuerta ? 0 : 1, tDar: 0,
     };
-    return v;
   }
 
   function sincronizarVisuales(state) {
     const n = Math.min(state.honguitos.basico || 0, MAX_VISUALES);
     while (visuales.length < n) {
-      visuales.push(nuevoVisual(visuales.length, !inicial));
+      const v = nuevoVisual(visuales.length, !inicial);
+      if (!inicial) luzHalo(v.x, pies(v.carril) - 30, 26, [255, 214, 140], 1);
+      visuales.push(v);
     }
     inicial = false;
   }
 
-  function saltar(v, hacia) {
-    const d = Math.max(-26, Math.min(26, hacia - v.x));
-    v.x0 = v.x;
-    v.x1 = v.x + d;
-    v.hopT = 0;
-    v.hopDur = 0.3 + Math.random() * 0.1;
+  function poner(v, modo, anim) {
+    v.modo = modo; v.anim = anim; v.animT = 0;
   }
 
-  function mitadMadre() {
-    return assets.madre[etapaPrev ?? 0].width / 2;
-  }
-
-  function emitirEspora(v) {
-    if (particulas.length >= MAX_PARTICULAS) return;
-    const img = assets.madre[etapaPrev ?? 0];
-    particulas.push({
-      tipo: "viaje",
-      x0: v.x, y0: pies(v.carril) - assets.honguito.height - 4,
-      x1: madre.x + (Math.random() - 0.5) * img.width * 0.4,
-      y1: madreY() - img.height * 0.7,
-      t: 0, dur: 1.0 + Math.random() * 0.4,
-      arco: 30 + Math.random() * 30,
-    });
+  function pos(x, y, vx, vy, extraP) {
+    if (particulas.length < MAX_PARTICULAS) particulas.push({ x, y, vx, vy, t: 0, ...extraP });
   }
 
   function motas(x, y, n, fuerza = 1) {
-    for (let i = 0; i < n && particulas.length < MAX_PARTICULAS; i++) {
-      const a = -Math.PI / 2 + (Math.random() - 0.5) * 2.4;
-      const v = (18 + Math.random() * 40) * fuerza;
-      particulas.push({ tipo: "mota", x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v, t: 0, dur: 0.8 + Math.random() * 0.9 });
+    for (let i = 0; i < n; i++) {
+      const a = -Math.PI / 2 + (Math.random() - 0.5) * 2.6;
+      const v = (16 + Math.random() * 44) * fuerza;
+      pos(x, y, Math.cos(a) * v, Math.sin(a) * v, { tipo: "mota", dur: 0.8 + Math.random() * 1 });
     }
+  }
+  function anillo(x, y, r1, dur = 0.55, col = [255, 232, 160]) {
+    pos(x, y, 0, 0, { tipo: "anillo", r1, dur, col });
+  }
+  function chispas(x, y, n) {
+    for (let i = 0; i < n; i++) {
+      pos(x + (Math.random() - 0.5) * 30, y + (Math.random() - 0.5) * 22, 0, -6, { tipo: "chispa", dur: 0.5 + Math.random() * 0.5, L: 2 + Math.floor(Math.random() * 3) });
+    }
+  }
+
+  function emitirEspora(v) {
+    const img = imgMadre();
+    pos(v.x, pies(v.carril) - 84, 0, 0, {
+      tipo: "viaje",
+      x0: v.x, y0: pies(v.carril) - 84,
+      x1: madre.x + (Math.random() - 0.5) * img.width * 0.35,
+      y1: madreY() - img.height * 0.8,
+      dur: 1.0 + Math.random() * 0.4, arco: 30 + Math.random() * 40, estela: 0,
+    });
   }
 
   // ---------- update ----------
@@ -240,62 +246,87 @@ export function crearEscena(canvas, assets) {
     if (etapaPrev === null) etapaPrev = etapa;
     if (etapa !== etapaPrev) {
       etapaPrev = etapa;
+      const img = imgMadre();
+      const cy = madreY() - img.height * 0.55;
       madre.pulso = 1;
-      motas(madre.x, madreY() - assets.madre[etapa].height * 0.6, 50, 1.6);
+      flash = 1;
+      motas(madre.x, cy, 70, 1.8);
+      anillo(madre.x, cy, 150, 1.0, [255, 240, 190]);
+      setTimeout(() => anillo(madre.x, cy, 110, 0.8, [255, 200, 140]), 180);
+      chispas(madre.x, cy, 24);
     }
-    madre.pulso = Math.max(0, madre.pulso - dt * 3.5);
+    madre.pulso = Math.max(0, madre.pulso - dt * 3);
+    madre.brillo = Math.max(0, madre.brillo - dt * 1.6);
+    flash = Math.max(0, flash - dt * 1.4);
+
+    // día/noche: sigue el reloj, así no depende de cuánto tiempo lleves jugando
+    if (luzForzada !== null) luz = clamp(parseFloat(luzForzada) || 0, 0, 1);
+    else luz = 0.5 - 0.5 * Math.cos(TAU * (((Date.now() / 1000) % CICLO) / CICLO));
 
     // cámara: sube la escena para que el panel no tape el prado
     const hojaC = (alturaHojaCss * dpr) / S;
-    const objetivo = Math.max(0, Math.min(extra, groundY + 42 - (Hc - hojaC)));
+    const objetivo = clamp(groundY + 42 - (Hc - hojaC), 0, extra);
     cam += (objetivo - cam) * (1 - Math.exp(-dt * 6));
 
     sincronizarVisuales(state);
-    const mHalf = mitadMadre();
+    const mHalf = imgMadre().width / 2;
     for (const v of visuales) {
-      v.alfa = Math.min(1, v.alfa + dt * 3);
-      if (v.hopT < 1) {
-        v.hopT = Math.min(1, v.hopT + dt / v.hopDur);
-        v.x = v.x0 + (v.x1 - v.x0) * v.hopT;
-        v.hop = Math.sin(v.hopT * Math.PI) * 7;
-        continue;
-      }
+      v.alfa = Math.min(1, v.alfa + dt * 2.5);
+      v.animT += dt * ANIM.anims[v.anim].fps;
       v.hop = 0;
-      v.entrega -= dt;
-      v.reposo -= dt;
-      if (v.reposo > 0) continue;
-
-      if (v.yendoAEntregar) {
-        const meta = madre.x + (v.i % 2 ? -1 : 1) * (6 + (v.i % 5) * 4);
-        if (Math.abs(meta - v.x) < 3) {
-          v.yendoAEntregar = false;
-          v.entrega = 6 + Math.random() * 6;
-          v.reposo = 0.6 + Math.random();
-          emitirEspora(v);
-        } else {
-          saltar(v, meta);
-          v.reposo = 0.05 + Math.random() * 0.15;
+      v.parpadeo -= dt;
+      if (v.parpadeo < -0.14) v.parpadeo = 2.5 + Math.random() * 3.5;
+      if (v.modo === "idle") {
+        v.espera -= dt;
+        if (v.espera <= 0) {
+          if (v.entrega <= 0) {
+            v.llevando = true;
+            v.meta = madre.x + (v.i % 2 ? -1 : 1) * (4 + (v.i % 5) * 5);
+            v.dir = Math.sign(v.meta - v.x) || 1;
+            poner(v, "walk", "walk");
+          } else if (Math.random() < 0.18) {
+            poner(v, "salto", "salto");
+          } else {
+            let meta = v.x + (Math.random() < 0.5 ? -1 : 1) * (30 + Math.random() * 90);
+            meta = clamp(meta, 30, Wc - 30);
+            if (v.carril === 0 && Math.abs(meta - madre.x) < mHalf - 6) meta = madre.x + Math.sign(meta - madre.x || 1) * (mHalf + 12);
+            v.meta = meta;
+            v.dir = Math.sign(meta - v.x) || 1;
+            poner(v, "walk", "walk");
+          }
         }
-        continue;
+      } else if (v.modo === "walk") {
+        const d = v.meta - v.x;
+        const paso = VEL * dt;
+        if (Math.abs(d) <= paso) {
+          v.x = v.meta;
+          if (v.llevando) { poner(v, "dar", "dar"); v.tDar = 0; }
+          else { poner(v, "idle", "idle"); v.espera = Math.random() < 0.3 ? 0.4 : 1 + Math.random() * 3; }
+        } else v.x += Math.sign(d) * paso;
+      } else if (v.modo === "dar") {
+        v.tDar += dt;
+        if (v.tDar > 0.9) {
+          v.llevando = false;
+          v.entrega = 7 + Math.random() * 6;
+          emitirEspora(v);
+          poner(v, "idle", "idle");
+          v.espera = 0.5;
+        }
+      } else if (v.modo === "salto") {
+        const u = clamp((v.animT - 1) / 3, 0, 1);
+        v.hop = Math.sin(u * Math.PI) * 14;
+        if (v.animT >= ANIM.anims.salto.frames.length) {
+          poner(v, "idle", "idle");
+          v.espera = 0.4 + Math.random();
+        }
       }
-      if (v.entrega <= 0) {
-        v.yendoAEntregar = true;
-        continue;
-      }
-      // pasear
-      let meta = v.x + (Math.random() < 0.5 ? -1 : 1) * (20 + Math.random() * 70);
-      meta = Math.max(24, Math.min(Wc - 24, meta));
-      if (v.carril === 0 && Math.abs(meta - madre.x) < mHalf - 8) meta = madre.x + Math.sign(meta - madre.x || 1) * (mHalf + 14);
-      saltar(v, meta);
-      v.reposo = Math.random() < 0.35 ? 0.9 + Math.random() * 2 : 0.1 + Math.random() * 0.4;
     }
 
-    // nubes y motas ambientales
     for (const n of nubes) {
       n.x += n.v * dt;
-      if (n.x > Wc + 20) n.x = -n.w - 20;
+      if (n.x > Wc + 10) n.x = -n.w - 10;
     }
-    if (Math.random() < dt * 1.5) motas(Math.random() * Wc, groundY + 10, 1, 0.5);
+    if (Math.random() < dt * 2) motas(Math.random() * Wc, groundY + 8, 1, 0.45);
 
     for (let i = particulas.length - 1; i >= 0; i--) {
       const p = particulas[i];
@@ -303,86 +334,251 @@ export function crearEscena(canvas, assets) {
       if (p.t >= p.dur) {
         if (p.tipo === "viaje") {
           madre.pulso = Math.min(1, madre.pulso + 0.5);
-          motas(p.x1, p.y1, 4);
+          madre.brillo = 1;
+          motas(p.x1, p.y1, 6);
+          anillo(p.x1, p.y1, 26, 0.5);
+          chispas(p.x1, p.y1, 5);
         }
         particulas.splice(i, 1);
         continue;
       }
       if (p.tipo === "mota") {
-        p.x += p.vx * dt;
+        p.x += p.vx * dt; p.y += p.vy * dt; p.vy += 22 * dt;
+      } else if (p.tipo === "chispa") {
         p.y += p.vy * dt;
-        p.vy += 22 * dt;
+      } else if (p.tipo === "viaje") {
+        p.estela -= dt;
+        if (p.estela <= 0) {
+          p.estela = 0.03;
+          const q = puntoViaje(p);
+          pos(q.x, q.y, 0, 0, { tipo: "estela", dur: 0.4 });
+        }
       }
     }
   }
 
+  function puntoViaje(p) {
+    const k = p.t / p.dur, e = suave(k), u = 1 - e;
+    const cx = (p.x0 + p.x1) / 2, cy = Math.min(p.y0, p.y1) - p.arco;
+    return { x: u * u * p.x0 + 2 * u * e * cx + e * e * p.x1, y: u * u * p.y0 + 2 * u * e * cy + e * e * p.y1 };
+  }
+
   // ---------- draw ----------
-  function nube(n) {
-    const x = Math.round(n.x), y = Math.round(n.y), w = Math.round(n.w);
-    g.fillStyle = "rgba(236,242,238,0.8)";
-    g.fillRect(x, y + 10, w, 8);
-    g.fillRect(x + 8, y + 4, w - 22, 8);
-    g.fillRect(x + 20, y, Math.max(8, w - 50), 6);
-    g.fillStyle = "rgba(200,214,210,0.7)";
-    g.fillRect(x + 4, y + 16, w - 8, 3);
+  function cielo(oy) {
+    const k = luz;
+    const calido = Math.sin(Math.PI * k); // naranja en el horizonte al atardecer/amanecer
+    const top = mezcla(CIELO_DIA.top, CIELO_NOCHE.top, k);
+    let bot = mezcla(CIELO_DIA.bot, CIELO_NOCHE.bot, k);
+    bot = [bot[0] + calido * 70, bot[1] + calido * 18, bot[2] - calido * 26];
+    const banda = 8;
+    for (let y = 0; y < groundY + 4; y += banda) {
+      g.fillStyle = rgb(mezcla(top, bot, Math.pow(y / groundY, 0.9)));
+      g.fillRect(0, y + oy, Wc, banda);
+    }
+    // estrellas
+    if (k > 0.25) {
+      for (const s of estrellas) {
+        const a = clamp((k - 0.25) / 0.5, 0, 1) * (0.45 + 0.55 * Math.sin(t * 2 + s.ph));
+        if (a < 0.08) continue;
+        g.fillStyle = `rgba(255,255,235,${a})`;
+        g.fillRect(s.x, s.y + oy, 1, 1);
+        if (s.g && a > 0.6) { g.fillRect(s.x - 1, s.y + oy, 3, 1); g.fillRect(s.x, s.y + oy - 1, 1, 3); }
+      }
+    }
+    // sol y luna
+    g.save();
+    g.translate(0, oy);
+    const sol = clamp(1 - k * 1.7, 0, 1), luna = clamp((k - 0.35) * 1.7, 0, 1);
+    luzHalo(Wc * 0.78, groundY * 0.3, 64, [255, 214, 150], 0.5 * sol);
+    if (sol > 0.02) disco(Wc * 0.78, groundY * 0.3, 9, `rgba(255,238,190,${sol})`);
+    luzHalo(Wc * 0.2, groundY * 0.24, 42, [170, 190, 255], 0.5 * luna);
+    if (luna > 0.02) {
+      disco(Wc * 0.2, groundY * 0.24, 8, `rgba(236,242,255,${luna})`);
+      disco(Wc * 0.2 + 3, groundY * 0.24 - 2, 7, rgb(mezcla(top, bot, 0.25), luna)); // creciente
+    }
+    g.restore();
+    // nubes
+    for (const n of nubes) {
+      const x = Math.round(n.x), y = Math.round(n.y) + oy, w = Math.round(n.w);
+      g.fillStyle = `rgba(236,242,238,${0.78 - 0.55 * k})`;
+      g.fillRect(x, y + 8, w, 8);
+      g.fillRect(x + 10, y + 2, w - 24, 8);
+    }
+  }
+
+  function rayos(oy) {
+    const a = 0.07 * (1 - luz) * (0.75 + 0.25 * Math.sin(t * 0.4));
+    if (a < 0.005) return;
+    aditivo(() => {
+      for (let i = 0; i < 4; i++) {
+        const x0 = Wc * (0.45 + i * 0.12) + Math.sin(t * 0.2 + i) * 6;
+        const w = 22 + i * 7;
+        g.fillStyle = `rgba(255,236,170,${a * (1 - i * 0.15)})`;
+        for (let y = 0; y < groundY - 6; y += 2) {
+          const f = y / groundY;
+          g.fillRect(Math.round(x0 - f * 90), y + oy, Math.round(w * (0.5 + f)), 2);
+        }
+      }
+    });
   }
 
   function sombra(x, y, w) {
-    g.fillStyle = "rgba(20,40,24,0.28)";
+    g.fillStyle = "rgba(14,24,20,0.3)";
     g.fillRect(Math.round(x - w / 2), Math.round(y) - 1, w, 3);
     g.fillRect(Math.round(x - w / 2) + 3, Math.round(y) + 2, w - 6, 2);
   }
 
-  function draw() {
-    g.imageSmoothingEnabled = false;
-    g.clearRect(0, 0, Wc, Hc);
-    const oy = -Math.round(cam);
-    g.drawImage(cielo, 0, oy);
-    for (const n of nubes) nube({ ...n, y: n.y + oy });
-    g.drawImage(frente, 0, oy);
-    g.save();
-    g.translate(0, oy);
-
-    const cola = visuales.map((v) => ({ y: pies(v.carril), v }));
-    cola.push({ y: madreY(), madre: true });
-    cola.sort((a, b) => a.y - b.y);
-    const hw = assets.honguito.width, hh = assets.honguito.height;
-    for (const it of cola) {
-      if (it.madre) {
-        const img = assets.madre[etapaPrev ?? 0];
-        const sq = Math.round(madre.pulso * 3);
-        const dh = img.height - sq;
-        sombra(madre.x, madreY(), img.width - 10);
-        g.drawImage(img, Math.round(madre.x - img.width / 2), madreY() - dh, img.width, dh);
-      } else {
-        const v = it.v;
-        const fy = pies(v.carril);
-        g.globalAlpha = v.alfa;
-        sombra(v.x, fy, 30 - Math.round(v.hop * 0.6));
-        g.drawImage(assets.honguito, Math.round(v.x - hw / 2), Math.round(fy - hh - v.hop));
-        g.globalAlpha = 1;
-      }
+  // dibuja una imagen y encima su versión nocturna con alfa = luz
+  function conTinte(dia, noche, sx, sy, sw, sh, dx, dy, alfa = 1) {
+    g.globalAlpha = alfa;
+    g.drawImage(dia, sx, sy, sw, sh, dx, dy, sw, sh);
+    if (luz > 0.02) {
+      g.globalAlpha = alfa * luz;
+      g.drawImage(noche, sx, sy, sw, sh, dx, dy, sw, sh);
     }
+    g.globalAlpha = 1;
+  }
 
+  function dibujarHonguito(v) {
+    const fy = pies(v.carril);
+    const a = ANIM.anims[v.anim];
+    let nombre = v.anim, idx;
+    if (v.anim === "idle" && v.parpadeo < 0) idx = ANIM.anims.blink.frames[0];
+    else idx = a.loop ? a.frames[Math.floor(v.animT) % a.frames.length] : a.frames[Math.min(a.frames.length - 1, Math.floor(v.animT))];
+    const sy = Math.round(fy - FH - v.hop);
+    sombra(v.x, fy, 30 - Math.round(v.hop * 0.8));
+    g.save();
+    if (v.dir < 0) { g.translate(Math.round(v.x), 0); g.scale(-1, 1); g.translate(-Math.round(v.x), 0); }
+    conTinte(assets.honguito, sheetNoche, idx * FW, 0, FW, FH, Math.round(v.x - FW / 2), sy, v.alfa);
+    g.restore();
+    if (v.llevando) {
+      const ox = v.x, oy2 = fy - 90 + Math.sin(t * 5 + v.i) * 2;
+      luzHalo(ox, oy2, 11, [255, 240, 160], 0.8);
+      g.fillStyle = "rgb(255,252,224)";
+      g.fillRect(Math.round(ox) - 1, Math.round(oy2) - 1, 3, 3);
+    }
+  }
+
+  function dibujarMadre() {
+    const img = imgMadre();
+    const sq = Math.round(madre.pulso * 3);
+    const dh = img.height - sq;
+    const x = Math.round(madre.x - img.width / 2), y = madreY() - dh;
+    sombra(madre.x, madreY(), img.width - 10);
+    const idx = assets.madre.indexOf(img);
+    g.globalAlpha = 1;
+    g.drawImage(img, x, y, img.width, dh);
+    if (luz > 0.02) { g.globalAlpha = luz; g.drawImage(madreNoche[idx], x, y, img.width, dh); g.globalAlpha = 1; }
+  }
+
+  function luces() {
+    const img = imgMadre();
+    const cy = madreY() - img.height * 0.5;
+    const base = 0.18 + 0.4 * luz + madre.brillo * 0.5 + madre.pulso * 0.3;
+    // resplandor detrás del hongo
+    luzHalo(madre.x, cy, Math.round(img.width * 0.95), [255, 190, 110], base * 0.55);
+    // charco de luz en el pasto frente a la puerta + cono de luz
+    luzHalo(madre.x, madreY() + 6, Math.round(img.width * 0.75), [255, 205, 130], base * 0.9, 0.22);
+    aditivo(() => {
+      const a = (0.05 + 0.1 * luz) * (0.8 + madre.brillo);
+      for (let i = 0; i < 30; i += 2) {
+        const w = 10 + i * 1.6;
+        g.fillStyle = `rgba(255,214,140,${a * (1 - i / 34)})`;
+        g.fillRect(Math.round(madre.x - w / 2), madreY() - 2 + i, Math.round(w), 2);
+      }
+    });
+  }
+
+  function lucesSobre() {
+    const img = imgMadre();
+    const cy = madreY() - img.height * 0.5;
+    // brillo suave sobre todo lo que está cerca (ilumina a los honguitos)
+    luzHalo(madre.x, madreY() - 20, Math.round(img.width * 1.1), [255, 200, 130], (0.04 + 0.12 * luz) + madre.brillo * 0.12);
+    // esporas orbitando el sombrero
+    const n = 2 + (assets.madre.indexOf(img)) * 2;
+    for (let k = 0; k < n; k++) {
+      const a = t * 0.7 + (k * TAU) / n;
+      const x = madre.x + Math.cos(a) * img.width * 0.62;
+      const y = madreY() - img.height * 0.88 + Math.sin(a) * img.height * 0.1 - 4;
+      luzHalo(x, y, 6, [255, 238, 160], (0.35 + 0.5 * luz) * (0.6 + 0.4 * Math.sin(t * 3 + k)));
+      g.fillStyle = "rgba(255,252,230,0.9)";
+      g.fillRect(Math.round(x), Math.round(y), 2, 2);
+    }
+    // luciérnagas
+    for (const f of luciernagas) {
+      const x = f.bx + Math.sin(t * f.sp + f.ph) * f.ax;
+      const y = f.by + Math.sin(t * f.sp * 1.7 + f.ph * 2) * f.ay;
+      const a = (0.15 + 0.85 * luz) * (0.35 + 0.65 * Math.sin(t * 2.2 + f.ph) ** 2);
+      if (a < 0.06) continue;
+      luzHalo(x, y, 7, [196, 255, 150], a * 0.8);
+      g.fillStyle = `rgba(240,255,200,${Math.min(1, a * 1.4)})`;
+      g.fillRect(Math.round(x), Math.round(y), 2, 2);
+    }
+  }
+
+  function dibujarParticulas() {
     for (const p of particulas) {
+      const k = p.t / p.dur;
       if (p.tipo === "viaje") {
-        const k = p.t / p.dur, e = k * k * (3 - 2 * k), u = 1 - e;
-        const cx = (p.x0 + p.x1) / 2, cy = Math.min(p.y0, p.y1) - p.arco;
-        const x = u * u * p.x0 + 2 * u * e * cx + e * e * p.x1;
-        const y = u * u * p.y0 + 2 * u * e * cy + e * e * p.y1;
-        g.fillStyle = "rgba(255,245,170,0.35)";
-        g.fillRect(Math.round(x) - 2, Math.round(y) - 2, 6, 6);
-        g.fillStyle = "rgb(255,252,224)";
-        g.fillRect(Math.round(x), Math.round(y), 2, 2);
-      } else {
-        const k = p.t / p.dur;
+        const q = puntoViaje(p);
+        luzHalo(q.x, q.y, 12, [255, 240, 160], 0.9);
+        g.fillStyle = "rgb(255,252,226)";
+        g.fillRect(Math.round(q.x) - 1, Math.round(q.y) - 1, 3, 3);
+      } else if (p.tipo === "estela") {
+        luzHalo(p.x, p.y, 5, [255, 232, 150], 0.6 * (1 - k));
+      } else if (p.tipo === "mota") {
         g.fillStyle = `rgba(255,248,196,${0.9 * (1 - k)})`;
         const s = k < 0.5 ? 2 : 1;
         g.fillRect(Math.round(p.x), Math.round(p.y), s, s);
+      } else if (p.tipo === "anillo") {
+        const r = p.r1 * (1 - (1 - k) * (1 - k));
+        const n = Math.max(12, Math.round(r * 1.6));
+        aditivo(() => {
+          g.fillStyle = rgb(p.col, 0.85 * (1 - k));
+          for (let i = 0; i < n; i++) {
+            const a = (i / n) * TAU;
+            g.fillRect(Math.round(p.x + Math.cos(a) * r), Math.round(p.y + Math.sin(a) * r * 0.8), 2, 2);
+          }
+        });
+      } else if (p.tipo === "chispa") {
+        const a = (1 - k) * (0.6 + 0.4 * Math.sin(k * 30));
+        aditivo(() => {
+          g.fillStyle = `rgba(255,248,200,${a})`;
+          const x = Math.round(p.x), y = Math.round(p.y), L = p.L;
+          g.fillRect(x - L, y, L * 2 + 1, 1);
+          g.fillRect(x, y - L, 1, L * 2 + 1);
+        });
       }
     }
+  }
+
+  function draw() {
+    g.imageSmoothingEnabled = false;
+    g.globalAlpha = 1;
+    g.globalCompositeOperation = "source-over";
+    g.clearRect(0, 0, Wc, Hc);
+    const oy = -Math.round(cam);
+    cielo(oy);
+    g.drawImage(frente, 0, oy);
+    rayos(oy);
+    // noche: tinte sobre el fondo
+    if (luz > 0.01) {
+      g.fillStyle = rgb(TINTE_NOCHE, 0.5 * luz);
+      g.fillRect(0, 0, Wc, Hc);
+    }
+    g.save();
+    g.translate(0, oy);
+    luces();
+    const cola = visuales.map((v) => ({ y: pies(v.carril), v }));
+    cola.push({ y: madreY(), madre: true });
+    cola.sort((a, b) => a.y - b.y);
+    for (const it of cola) it.madre ? dibujarMadre() : dibujarHonguito(it.v);
+    lucesSobre();
+    dibujarParticulas();
     g.restore();
 
+    // pantalla: destello de etapa y viñeta
+    if (flash > 0.01) aditivo(() => { g.fillStyle = `rgba(255,244,210,${flash * 0.4})`; g.fillRect(0, 0, Wc, Hc); });
     ctx.imageSmoothingEnabled = false;
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.drawImage(lo, 0, 0, Wc * S, Hc * S);
@@ -392,17 +588,15 @@ export function crearEscena(canvas, assets) {
   function toque(px, py) {
     const cx = (px * dpr) / S;
     const cy = (py * dpr) / S + Math.round(cam);
-    const img = assets.madre[etapaPrev ?? 0];
+    const img = imgMadre();
     if (cx > madre.x - img.width / 2 && cx < madre.x + img.width / 2 && cy > madreY() - img.height && cy < madreY()) {
       return { quien: "madre" };
     }
     for (let i = visuales.length - 1; i >= 0; i--) {
       const v = visuales[i];
       const fy = pies(v.carril);
-      if (Math.abs(cx - v.x) < assets.honguito.width / 2 && cy > fy - assets.honguito.height && cy < fy + 2) {
-        if (v.hopT >= 1) {
-          v.x0 = v.x; v.x1 = v.x; v.hopT = 0; v.hopDur = 0.3;
-        }
+      if (Math.abs(cx - v.x) < 26 && cy > fy - 70 && cy < fy + 2) {
+        if (v.modo === "idle") poner(v, "salto", "salto");
         return { quien: "honguito", v };
       }
     }
@@ -410,8 +604,11 @@ export function crearEscena(canvas, assets) {
   }
 
   function pulsoMadre() {
+    const img = imgMadre();
     madre.pulso = 1;
-    motas(madre.x, madreY() - assets.madre[etapaPrev ?? 0].height * 0.7, 12);
+    madre.brillo = 1;
+    motas(madre.x, madreY() - img.height * 0.7, 14);
+    anillo(madre.x, madreY() - img.height * 0.5, 50, 0.5);
   }
 
   return { resize, update, draw, toque, pulsoMadre };
