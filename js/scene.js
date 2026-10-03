@@ -82,7 +82,10 @@ export function crearEscena(canvas) {
     c.width = HW; c.height = HH;
     const x = c.getContext("2d");
     const filas = [...HONGO, patas];
-    if (boca) filas[6] = ".wwmmmww.";
+    // boca al cantar: 1 = chica, 2 = ancha, 3 = abierta alta
+    if (boca === 1) filas[6] = ".wwwmwww.";
+    if (boca === 2) filas[6] = ".wwmmmww.";
+    if (boca === 3) { filas[6] = ".wwmmmww."; filas[7] = ".wwwmwww."; }
     filas.forEach((fila, y) => {
       for (let i = 0; i < HW; i++) {
         const ch = fila[i];
@@ -94,7 +97,7 @@ export function crearEscena(canvas) {
     return c;
   }
   const spritesHongo = PALETA.map((col) => [0, 1].map((pose) => hacerSprite(col, PATAS[pose], false)));
-  const spritesMusico = [hacerSprite(VIOLETA, PATAS[0], false), hacerSprite(VIOLETA, PATAS[1], false), hacerSprite(VIOLETA, PATAS[0], true)];
+  const spritesMusico = [hacerSprite(VIOLETA, PATAS[0], false), hacerSprite(VIOLETA, PATAS[1], false), hacerSprite(VIOLETA, PATAS[0], 1), hacerSprite(VIOLETA, PATAS[0], 2), hacerSprite(VIOLETA, PATAS[0], 3)];
   const spritesNota = PALETA.map((col) => {
     const c = document.createElement("canvas");
     c.width = 5; c.height = 6;
@@ -471,7 +474,7 @@ export function crearEscena(canvas) {
   function dibujarHonguito(v) {
     const base = Math.round(groundY - v.hop);
     const pose = v.modo === "walk" ? (Math.floor(v.animT * 11) % 2) : 0;
-    const spr = v.tipo === "musico" ? spritesMusico[v.modo === "canta" ? 2 : pose] : spritesHongo[v.col][pose];
+    const spr = v.tipo === "musico" ? spritesMusico[v.modo === "canta" ? 2 + [0, 1, 2, 1][Math.floor(v.tCanta * 9) % 4] : pose] : spritesHongo[v.col][pose];
     const alto = HH + Math.round(v.estira);
     const x = Math.round(v.x);
     g.globalAlpha = v.alfa;

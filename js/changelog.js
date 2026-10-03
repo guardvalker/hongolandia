@@ -1,5 +1,12 @@
 export const CHANGELOG = [
   {
+    v: "0.7.1",
+    fecha: "2026-10-03",
+    cambios: [
+      "El Músico ahora mueve la boca al cantar (chica, ancha y abierta), no solo una sonrisa fija.",
+    ],
+  },
+  {
     v: "0.7.0",
     fecha: "2026-10-03",
     cambios: [
