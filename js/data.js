@@ -10,6 +10,18 @@ export const ETAPAS = [
   { total: D(1.5e5) },
 ];
 
+// Edificios que el jugador compra en el hongo madre y ubica en el piso. `x` (fracción del
+// ancho de la pantalla) se guarda en state.edificios[id]. Cada uno tiene su propia ventana.
+export const EDIFICIOS = {
+  conservatorio: {
+    id: "conservatorio",
+    nombre: "Conservatorio hongil",
+    desc: "Un hongo con aires musicales. Hace crecer un 15% al hongo madre y habilita a los músicos.",
+    costo: D(1000),
+    crecimientoMadre: 1.15,
+  },
+};
+
 // Tipos de honguitos. `sprite` = archivo en assets/ (sin .png).
 export const HONGUITOS = {
   basico: {
@@ -20,6 +32,16 @@ export const HONGUITOS = {
     costoBase: D(8),
     crecimiento: 1.25,
     prod: D(0.1), // esporas/seg por unidad
+  },
+  musico: {
+    id: "musico",
+    nombre: "Músico",
+    sprite: "musico",
+    desc: "Canta cada tanto y su música rinde esporas.",
+    costoBase: D(500),
+    crecimiento: 1.35,
+    prod: D(0.4),
+    casa: "conservatorio", // se compra desde ese edificio, no desde el hongo madre
   },
 };
 

@@ -11,6 +11,7 @@ export function nuevoEstado() {
     total: D(0), // esporas ganadas en toda la partida (define la etapa)
     honguitos: { basico: 1 },
     mejoras: {},
+    edificios: {}, // id -> { x } (fracción del ancho de pantalla)
     flags: {},
     creado: Date.now(),
   };
@@ -44,6 +45,7 @@ function deserializar(raw) {
     total: new Dec(raw.total ?? 0),
     honguitos: { ...base.honguitos, ...raw.honguitos },
     mejoras: { ...raw.mejoras },
+    edificios: { ...raw.edificios },
     flags: { ...raw.flags },
   };
 }

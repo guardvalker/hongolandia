@@ -115,3 +115,9 @@ body.transp #hoja-cerrar { background: rgba(45, 45, 64, .6); }
 #hoja.anclada .comprar::before { width: 6px; height: 6px; margin-right: 5px; }
 #hoja.anclada .comprar { font-size: 9px; padding: 5px 6px; }
 #hoja.anclada .comprar::before { display: none; }
+
+/* barra de colocación de edificios */
+#colocar { display: none; position: fixed; left: 50%; bottom: calc(env(safe-area-inset-bottom) + 24px); transform: translateX(-50%); align-items: center; gap: 12px; padding: 10px 14px; max-width: calc(100vw - 24px); background: var(--panel); box-shadow: 0 0 0 2px var(--borde); font-size: 14px; }
+#colocar.visible { display: flex; }
+#colocar .btn { background: #ff5a14; color: #fff; padding: 8px 10px; font-size: 10px; flex: none; }
+#hoja.anclada h2 { flex: 1; min-width: 0; padding-right: 6px; }

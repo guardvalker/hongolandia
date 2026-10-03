@@ -1,4 +1,4 @@
-import { HONGUITOS, MEJORAS } from './data.js';
+import { HONGUITOS, MEJORAS, EDIFICIOS } from './data.js';
 import { fmt, fmtRate } from './format.js';
 import { produccionPorSeg, costoHonguito, comprarHonguito, comprarMejora } from './engine.js';
 import { exportar, importar, borrarGuardado } from './state.js';
@@ -84,18 +84,40 @@ export function crearUI(api) {
     hojaCuerpo.append(h);
   }
 
-  // ---- Hongo madre: comprar honguitos y mejoras ----
+  function filasHonguitos(casa) {
+    seccion("Honguitos");
+    for (const id in HONGUITOS) {
+      const tipo = HONGUITOS[id];
+      if (tipo.casa !== casa) continue;
+      const f = fila(tipo.nombre, tipo.desc, () => {
+        if (comprarHonguito(api.estado(), id)) api.guardar();
+        actualizar(true);
+      });
+      filas.push({ tipo: "honguito", id, ...f });
+    }
+  }
+
+  // ---- Edificio con casa propia (ej. conservatorio): comprar los honguitos de su tipo ----
+  function abrirCasa(id, ancla) {
+    abrir("casa", EDIFICIOS[id].nombre, () => filasHonguitos(id), ancla);
+  }
+
+  // ---- Hongo madre: comprar honguitos, edificios y mejoras ----
   function abrirMadre(ancla) {
     api.estado().flags.abrioMadre = true;
     abrir("madre", "Hongo madre", () => {
-      seccion("Honguitos");
-      for (const id in HONGUITOS) {
-        const tipo = HONGUITOS[id];
-        const f = fila(tipo.nombre, tipo.desc, () => {
-          if (comprarHonguito(api.estado(), id)) api.guardar();
-          actualizar(true);
-        });
-        filas.push({ tipo: "honguito", id, ...f });
+      filasHonguitos(undefined);
+      const edificios = Object.values(EDIFICIOS).filter((e) => !api.estado().edificios[e.id]);
+      if (edificios.length) {
+        seccion("Edificios");
+        for (const ed of edificios) {
+          const f = fila(ed.nombre, ed.desc, () => {
+            if (api.estado().esporas.lt(ed.costo)) return;
+            cerrar();
+            api.colocar(ed.id);
+          });
+          filas.push({ tipo: "edificio", ed, ...f });
+        }
       }
       const pendientes = MEJORAS.filter((mj) => !api.estado().mejoras[mj.id]);
       if (pendientes.length) {
@@ -225,13 +247,16 @@ export function crearUI(api) {
     elHint.classList.toggle("visible", puedeComprar && !s.flags.abrioMadre && abierta !== "madre");
 
     if (abierta && anclaFn) colocar(); // sigue al edificio si cambia de tamaño
-    if (abierta !== "madre" && !forzar) return;
+    if (abierta !== "madre" && abierta !== "casa" && !forzar) return;
     for (const f of filas) {
       if (f.tipo === "honguito") {
         const c = costoHonguito(s, f.id);
         f.titulo.textContent = `${HONGUITOS[f.id].nombre} ×${fmt(s.honguitos[f.id] || 0)}`;
         f.btn.textContent = fmt(c);
         f.btn.disabled = s.esporas.lt(c);
+      } else if (f.tipo === "edificio") {
+        f.btn.textContent = fmt(f.ed.costo);
+        f.btn.disabled = s.esporas.lt(f.ed.costo);
       } else {
         f.btn.textContent = fmt(f.mj.costo);
         f.btn.disabled = s.esporas.lt(f.mj.costo);
@@ -242,6 +267,12 @@ export function crearUI(api) {
   return {
     actualizar,
     abrirMadre,
+    abrirCasa,
+    mostrarColocar(texto) {
+      const el = $("colocar");
+      if (texto) $("colocar-texto").textContent = texto;
+      el.classList.toggle("visible", !!texto);
+    },
     cerrar,
     hojaAbierta: () => abierta !== null,
   };

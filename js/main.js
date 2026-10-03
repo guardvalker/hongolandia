@@ -1,9 +1,12 @@
 import { cargar, guardar, nuevoEstado, etapaDe } from './state.js';
-import { tick } from './engine.js';
+import { tick, colocarEdificio } from './engine.js';
 import { crearEscena } from './scene.js';
 import { crearUI } from './ui.js';
 
+import { EDIFICIOS } from './data.js';
+
 let state = cargar();
+let colocando = null; // id del edificio que se está ubicando
 
 const canvas = document.getElementById("juego");
 const escena = crearEscena(canvas);
@@ -15,6 +18,11 @@ const ui = crearUI({
     state = nuevo;
     guardar(state);
     ui.actualizar(true);
+  },
+  colocar(id) {
+    colocando = id;
+    escena.iniciarColocacion(id);
+    ui.mostrarColocar(`Tocá el piso para ubicar el ${EDIFICIOS[id].nombre}`);
   },
   reiniciar() {
     state = nuevoEstado();
@@ -28,13 +36,32 @@ function ajustarTamano() {
 window.addEventListener("resize", ajustarTamano);
 ajustarTamano();
 
+function terminarColocacion() {
+  colocando = null;
+  escena.cancelarColocacion();
+  ui.mostrarColocar(null);
+}
+document.getElementById("colocar-cancelar").addEventListener("click", terminarColocacion);
+window.addEventListener("keydown", (e) => { if (e.key === "Escape" && colocando) terminarColocacion(); });
+canvas.addEventListener("pointermove", (e) => {
+  if (colocando) escena.moverColocacion(e.clientX - canvas.getBoundingClientRect().left);
+});
+
 canvas.addEventListener("click", (e) => {
-  if (ui.hojaAbierta()) return;
   const r = canvas.getBoundingClientRect();
+  if (colocando) {
+    const x = escena.confirmarColocacion(e.clientX - r.left);
+    if (x !== null && colocarEdificio(state, colocando, x)) guardar(state);
+    terminarColocacion();
+    return;
+  }
+  if (ui.hojaAbierta()) return;
   const hit = escena.toque(e.clientX - r.left, e.clientY - r.top);
   if (hit && hit.quien === "madre") {
     escena.pulsoMadre();
     ui.abrirMadre(escena.rectMadre);
+  } else if (hit && hit.quien === "conservatorio") {
+    ui.abrirCasa("conservatorio", escena.rectConservatorio);
   }
 });
 

@@ -1,5 +1,14 @@
 export const CHANGELOG = [
   {
+    v: "0.7.0",
+    fecha: "2026-10-03",
+    cambios: [
+      "Nuevo edificio: Conservatorio hongil, un hongo musical que comprás en el hongo madre y ubicás donde quieras en el piso. Al instalarlo, el hongo madre crece un 15%.",
+      "Nuevo honguito: el Músico, que se compra desde el conservatorio. Canta cada tanto, le salen notitas musicales y su música rinde esporas.",
+      "Tocar el conservatorio abre su propia ventana, al costado, como la del hongo madre.",
+    ],
+  },
+  {
     v: "0.6.2",
     fecha: "2026-10-03",
     cambios: [

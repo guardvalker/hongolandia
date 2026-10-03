@@ -1,5 +1,5 @@
 import { D } from './decimal.js';
-import { HONGUITOS, MEJORAS } from './data.js';
+import { HONGUITOS, MEJORAS, EDIFICIOS } from './data.js';
 
 // Lógica pura del juego: nada de DOM ni canvas acá.
 
@@ -38,6 +38,15 @@ export function comprarHonguito(state, id) {
   if (state.esporas.lt(c)) return false;
   state.esporas = state.esporas.sub(c);
   state.honguitos[id] = (state.honguitos[id] || 0) + 1;
+  return true;
+}
+
+// Se paga al ubicarlo en el piso (x = fracción del ancho de pantalla).
+export function colocarEdificio(state, id, x) {
+  const e = EDIFICIOS[id];
+  if (!e || state.edificios[id] || state.esporas.lt(e.costo)) return false;
+  state.esporas = state.esporas.sub(e.costo);
+  state.edificios[id] = { x };
   return true;
 }
 
