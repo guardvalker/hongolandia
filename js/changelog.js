@@ -1,5 +1,16 @@
 export const CHANGELOG = [
   {
+    v: "0.4.0",
+    fecha: "2026-10-03",
+    cambios: [
+      "Cambio de estilo: fondo azul noche plano, contornos blancos y manchitas de colores (inspirado en Gnorp Apologue).",
+      "Honguitos y hongo madre dibujados por código, sin sprites: rebotan, caminan y saltan con movimientos simples.",
+      "Cada honguito tiene un sombrero de color; las esporas viajan como bolitas de colores hasta el hongo madre.",
+      "Se quitaron el ciclo día/noche, las luces y las luciérnagas.",
+      "Paneles y botones con borde blanco para combinar con el nuevo estilo.",
+    ],
+  },
+  {
     v: "0.3.0",
     fecha: "2026-10-03",
     cambios: [
