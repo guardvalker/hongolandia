@@ -46,7 +46,7 @@ function frame(ahora) {
   const dt = Math.min((ahora - ultimo) / 1000, 1);
   ultimo = ahora;
   tick(state, dt);
-  escena.update(dt, state, etapaDe(state), ui.alturaHoja());
+  escena.update(dt, state, etapaDe(state));
   escena.draw();
   if (ahora >= proximoHud) {
     ui.actualizar(false);

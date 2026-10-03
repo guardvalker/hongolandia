@@ -5,8 +5,8 @@
 
 const MAX_VISUALES = 28; // honguitos dibujados (el número real puede ser enorme)
 const MAX_PARTICULAS = 300;
-const ANCHO_REF = 150; // celdas del lado corto de la pantalla
-const VEL = 22; // celdas/seg al caminar
+const ANCHO_REF = 300; // celdas del lado corto de la pantalla
+const VEL = 28; // celdas/seg al caminar
 const TAU = Math.PI * 2;
 
 const BG = "#272736";
@@ -45,19 +45,19 @@ const PATAS = [".ww...ww.", "..ww.ww.."];
 
 // medidas del hongo madre por etapa: ancho del sombrero, alto del sombrero, ancho y alto del tallo
 const MADRE = [
-  { w: 34, ch: 18, sw: 16, sh: 14 },
-  { w: 46, ch: 24, sw: 20, sh: 18 },
-  { w: 60, ch: 31, sw: 26, sh: 24 },
-  { w: 80, ch: 40, sw: 34, sh: 32 },
+  { w: 30, ch: 17, sw: 14, sh: 12 },
+  { w: 46, ch: 26, sw: 20, sh: 18 },
+  { w: 66, ch: 38, sw: 28, sh: 26 },
+  { w: 92, ch: 54, sw: 38, sh: 36 },
 ];
 
 export function crearEscena(canvas) {
   const ctx = canvas.getContext("2d");
   const lo = document.createElement("canvas");
   const g = lo.getContext("2d");
-  let dpr = 1, S = 1, Wc = 0, Hc = 0, extra = 0, groundY = 0;
+  let dpr = 1, S = 1, Wc = 0, Hc = 0, groundY = 0;
   let fondo = null;
-  let t = 0, cam = 0, etapaPrev = null, inicial = true, flash = 0;
+  let t = 0, etapaPrev = null, inicial = true, flash = 0;
 
   const madre = { x: 0, pulso: 0, brillo: 0 };
   const visuales = [];
@@ -123,7 +123,7 @@ export function crearEscena(canvas) {
 
   function pintarFondo() {
     const r = rng(11);
-    const H = Hc + extra;
+    const H = Hc;
     fondo = document.createElement("canvas");
     fondo.width = Wc; fondo.height = H;
     const c = fondo.getContext("2d");
@@ -139,10 +139,10 @@ export function crearEscena(canvas) {
     estrellas.length = 0;
     for (let i = 0; i < 40; i++) estrellas.push({ x: Math.floor(r() * Wc), y: Math.floor(r() * groundY * 0.8), ph: r() * TAU });
     flotantes.length = 0;
-    for (let i = 0; i < 16; i++) {
+    for (let i = 0; i < 70; i++) {
       flotantes.push({
-        x: r() * Wc, y: r() * groundY, vy: 1.5 + r() * 3, ax: 3 + r() * 7, sp: 0.3 + r() * 0.5, ph: r() * TAU,
-        col: PALETA[Math.floor(r() * PALETA.length)], r: r() < 0.25 ? 3 : 2,
+        x: r() * Wc, y: r() * groundY, vy: 1 + r() * 2.5, ax: 3 + r() * 8, sp: 0.3 + r() * 0.5, ph: r() * TAU,
+        col: PALETA[Math.floor(r() * PALETA.length)], r: r() < 0.15 ? 2 : 1,
       });
     }
   }
@@ -156,7 +156,6 @@ export function crearEscena(canvas) {
     Wc = Math.ceil(canvas.width / S);
     Hc = Math.ceil(canvas.height / S);
     lo.width = Wc; lo.height = Hc;
-    extra = Math.round(Hc * 0.14);
     groundY = Math.round(Hc * 0.74);
     madre.x = Math.round(Wc / 2);
     pintarFondo();
@@ -217,7 +216,7 @@ export function crearEscena(canvas) {
   }
 
   // ---------- update ----------
-  function update(dt, state, etapa, alturaHojaCss = 0) {
+  function update(dt, state, etapa) {
     t += dt;
     if (etapaPrev === null) etapaPrev = etapa;
     if (etapa !== etapaPrev) {
@@ -232,11 +231,6 @@ export function crearEscena(canvas) {
     madre.pulso = Math.max(0, madre.pulso - dt * 3);
     madre.brillo = Math.max(0, madre.brillo - dt * 2);
     flash = Math.max(0, flash - dt * 2);
-
-    // cámara: sube la escena para que el panel no tape el prado
-    const hojaC = (alturaHojaCss * dpr) / S;
-    const objetivo = clamp(groundY + 22 - (Hc - hojaC), 0, extra);
-    cam += (objetivo - cam) * (1 - Math.exp(-dt * 6));
 
     sincronizarVisuales(state);
     const mHalf = medidas().w / 2;
@@ -331,18 +325,12 @@ export function crearEscena(canvas) {
     const rx = Math.round(m.w / 2);
     const idx = etapaPrev ?? 0;
 
-    // tallo: contorno blanco, interior oscuro, abierto hacia el sombrero
+    // tallo: contorno blanco, interior oscuro, abierto hacia el sombrero (liso, sin puerta)
     const sx = cx - Math.round(m.sw / 2);
     g.fillStyle = BLANCO;
     g.fillRect(sx, capBase, m.sw, m.sh);
     g.fillStyle = BG;
     g.fillRect(sx + 1, capBase, m.sw - 2, m.sh - 1);
-    // puerta
-    const dw = Math.max(6, Math.round(m.sw * 0.4)), dh = Math.round(m.sh * 0.7);
-    g.fillStyle = BLANCO;
-    g.fillRect(cx - Math.round(dw / 2), groundY - dh, dw, dh);
-    g.fillStyle = BG_SUELO;
-    g.fillRect(cx - Math.round(dw / 2) + 1, groundY - dh + 1, dw - 2, dh - 1);
 
     // sombrero: contorno blanco
     semi(cx, capBase, rx, ch, BLANCO);
@@ -412,10 +400,7 @@ export function crearEscena(canvas) {
     g.imageSmoothingEnabled = false;
     g.globalAlpha = 1;
     g.clearRect(0, 0, Wc, Hc);
-    const oy = -Math.round(cam);
-    g.drawImage(fondo, 0, oy);
-    g.save();
-    g.translate(0, oy);
+        g.drawImage(fondo, 0, 0);
     // estrellitas y manchas flotantes (fondo)
     for (const s of estrellas) {
       const a = 0.25 + 0.45 * Math.sin(t * 1.5 + s.ph) ** 2;
@@ -423,13 +408,12 @@ export function crearEscena(canvas) {
       g.fillRect(s.x, s.y, 1, 1);
     }
     g.globalAlpha = 0.55;
-    for (const f of flotantes) disco(f.x + Math.sin(t * f.sp + f.ph) * f.ax, f.y, f.r, f.col);
+    for (const f of flotantes) { g.fillStyle = f.col; g.fillRect(Math.round(f.x + Math.sin(t * f.sp + f.ph) * f.ax), Math.round(f.y), f.r, f.r); }
     g.globalAlpha = 1;
 
     dibujarMadre();
     for (const v of visuales) dibujarHonguito(v);
     dibujarParticulas();
-    g.restore();
 
     if (flash > 0.01) { g.globalAlpha = flash * 0.3; g.fillStyle = BLANCO; g.fillRect(0, 0, Wc, Hc); g.globalAlpha = 1; }
     ctx.imageSmoothingEnabled = false;
@@ -440,7 +424,7 @@ export function crearEscena(canvas) {
   // ---------- toques ----------
   function toque(px, py) {
     const cx = (px * dpr) / S;
-    const cy = (py * dpr) / S + Math.round(cam);
+    const cy = (py * dpr) / S;
     const m = medidas();
     if (Math.abs(cx - madre.x) < m.w / 2 && cy > groundY - alturaMadre() && cy < groundY + 2) return { quien: "madre" };
     for (let i = visuales.length - 1; i >= 0; i--) {

@@ -1,5 +1,16 @@
 export const CHANGELOG = [
   {
+    v: "0.5.0",
+    fecha: "2026-10-03",
+    cambios: [
+      "Vista más lejana: todo se ve más chico y entra más prado en pantalla.",
+      "El hongo madre ya no tiene puerta: es un hongo grande que crece con cada etapa.",
+      "La ventana de mejoras flota al frente y ya no mueve la pantalla.",
+      "Nuevo ajuste: Semitransparencia de ventanas (afecta a todas las ventanas de mejoras).",
+      "Esporas de colores del aire mucho más chicas y más numerosas.",
+    ],
+  },
+  {
     v: "0.4.0",
     fecha: "2026-10-03",
     cambios: [

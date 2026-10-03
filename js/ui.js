@@ -4,6 +4,14 @@ import { produccionPorSeg, costoHonguito, comprarHonguito, comprarMejora } from 
 import { exportar, importar, borrarGuardado } from './state.js';
 import { CHANGELOG } from './changelog.js';
 
+// Preferencias de interfaz (no forman parte de la partida): guardadas aparte.
+const KEY_AJ = "hongolandia-ajustes";
+const ajustes = (() => {
+  try { return { transparencia: false, ...JSON.parse(localStorage.getItem(KEY_AJ) || "{}") }; } catch (_) { return { transparencia: false }; }
+})();
+const aplicarAjustes = () => document.body.classList.toggle("transp", !!ajustes.transparencia);
+aplicarAjustes();
+
 const $ = (id) => document.getElementById(id);
 
 // `api`: { estado(), reemplazar(nuevo), guardar(), sonido... } — main.js lo provee.
@@ -89,6 +97,27 @@ export function crearUI(api) {
       ver.className = "nota";
       ver.textContent = "Versión " + window.APP_VERSION;
       hojaCuerpo.append(ver);
+
+      seccion("Ventanas");
+      const filaT = document.createElement("label");
+      filaT.className = "fila fila-check";
+      const txt = document.createElement("div");
+      txt.className = "fila-info";
+      const tt = document.createElement("b");
+      tt.textContent = "Semitransparencia";
+      const td = document.createElement("span");
+      td.textContent = "Las ventanas de mejoras dejan ver el prado de fondo.";
+      txt.append(tt, td);
+      const chk = document.createElement("input");
+      chk.type = "checkbox";
+      chk.checked = !!ajustes.transparencia;
+      chk.addEventListener("change", () => {
+        ajustes.transparencia = chk.checked;
+        try { localStorage.setItem(KEY_AJ, JSON.stringify(ajustes)); } catch (_) {}
+        aplicarAjustes();
+      });
+      filaT.append(txt, chk);
+      hojaCuerpo.append(filaT);
 
       seccion("Partida");
       const ta = document.createElement("textarea");
@@ -190,6 +219,5 @@ export function crearUI(api) {
     abrirMadre,
     cerrar,
     hojaAbierta: () => abierta !== null,
-    alturaHoja: () => (abierta !== null ? hoja.offsetHeight : 0),
   };
 }
