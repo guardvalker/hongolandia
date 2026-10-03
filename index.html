@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="es-AR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+  <title>Hongolandia</title>
+  <meta name="theme-color" content="#8fd081">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="Hongolandia">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <link rel="manifest" href="manifest.json">
+  <link rel="icon" href="icons/icon-192.png">
+  <link rel="apple-touch-icon" href="icons/icon-180.png">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <canvas id="juego"></canvas>
+
+  <div id="hud">
+    <div class="hud-esporas">
+      <span class="hud-label">Esporas</span>
+      <span id="esporas">0</span>
+      <span id="prod">+0/s</span>
+    </div>
+    <button id="btn-ajustes" aria-label="Ajustes">⚙</button>
+  </div>
+  <div id="hint">Tocá el hongo del medio</div>
+
+  <div id="fondo-hoja"></div>
+  <section id="hoja" aria-live="polite">
+    <header>
+      <h2 id="hoja-titulo"></h2>
+      <button id="hoja-cerrar" aria-label="Cerrar">✕</button>
+    </header>
+    <div id="hoja-cuerpo"></div>
+  </section>
+
+  <script>window.APP_VERSION = "0.1.0";</script>
+  <script src="vendor/break_eternity.min.js"></script>
+  <script type="module" src="js/main.js"></script>
+</body>
+</html>
