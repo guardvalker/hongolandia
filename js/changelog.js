@@ -1,5 +1,12 @@
 export const CHANGELOG = [
   {
+    v: "0.6.2",
+    fecha: "2026-10-03",
+    cambios: [
+      "La ventana de mejoras abre y cierra mucho más rápido.",
+    ],
+  },
+  {
     v: "0.6.1",
     fecha: "2026-10-03",
     cambios: [

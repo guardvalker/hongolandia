@@ -61,7 +61,7 @@ body:has(#hoja.abierta) #fondo-hoja { pointer-events: auto; }
 #hoja {
   position: fixed; left: 12px; right: 12px; bottom: calc(env(safe-area-inset-bottom) + 12px); height: 42vh; max-height: 42vh; display: flex; flex-direction: column;
   background: var(--panel); box-shadow: 0 0 0 2px var(--borde);
-  clip-path: inset(0 100% 0 0); visibility: hidden; transition: clip-path .22s steps(7), visibility 0s .22s;
+  clip-path: inset(0 100% 0 0); visibility: hidden; transition: clip-path .08s steps(3), visibility 0s .08s;
   max-width: 560px; margin: 0 auto;
 }
 #hoja.abierta { clip-path: inset(-4px); visibility: visible; transition-delay: 0s; }
