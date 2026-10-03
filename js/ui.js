@@ -32,21 +32,20 @@ export function crearUI(api) {
   // hacia la derecha de la pantalla y pasa a layout angosto. Sin edificio: tarjeta abajo.
   function colocar() {
     hoja.style.cssText = "";
-    hoja.classList.remove("estrecha", "anclada");
+    hoja.classList.remove("anclada");
     if (!anclaFn) return;
     const r = anclaFn();
-    const vw = window.innerWidth, margen = 10, minW = 150, maxW = 360;
+    const vw = window.innerWidth, margen = 10, minW = 140, maxW = 260;
     let left = r.x1 + margen;
     let w = Math.min(maxW, vw - left - margen);
     if (w < minW) { w = minW; left = vw - margen - minW; }
     hoja.classList.add("anclada");
-    hoja.classList.toggle("estrecha", w < 260);
     hoja.style.left = left + "px";
     hoja.style.right = "auto";
     hoja.style.width = w + "px";
     hoja.style.bottom = window.innerHeight - r.y1 + "px";
     hoja.style.height = "auto";
-    hoja.style.maxHeight = Math.max(160, r.y1 - 90) + "px";
+    hoja.style.maxHeight = Math.max(140, r.y1 - 90) + "px";
   }
 
   function abrir(cual, titulo, render, ancla = null) {
