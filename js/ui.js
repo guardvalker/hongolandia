@@ -185,5 +185,11 @@ export function crearUI(api) {
     }
   }
 
-  return { actualizar, abrirMadre, cerrar, hojaAbierta: () => abierta !== null };
+  return {
+    actualizar,
+    abrirMadre,
+    cerrar,
+    hojaAbierta: () => abierta !== null,
+    alturaHoja: () => (abierta !== null ? hoja.offsetHeight : 0),
+  };
 }

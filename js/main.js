@@ -2,11 +2,14 @@ import { cargar, guardar, nuevoEstado, etapaDe } from './state.js';
 import { tick } from './engine.js';
 import { crearEscena } from './scene.js';
 import { crearUI } from './ui.js';
+import { cargarAssets } from './assets.js';
+import { ETAPAS } from './data.js';
 
 let state = cargar();
 
 const canvas = document.getElementById("juego");
-const escena = crearEscena(canvas);
+const assets = await cargarAssets(ETAPAS.length);
+const escena = crearEscena(canvas, assets);
 
 const ui = crearUI({
   estado: () => state,
@@ -46,7 +49,7 @@ function frame(ahora) {
   const dt = Math.min((ahora - ultimo) / 1000, 1);
   ultimo = ahora;
   tick(state, dt);
-  escena.update(dt, state, etapaDe(state));
+  escena.update(dt, state, etapaDe(state), ui.alturaHoja());
   escena.draw();
   if (ahora >= proximoHud) {
     ui.actualizar(false);
