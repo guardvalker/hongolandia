@@ -553,7 +553,7 @@ export function crearEscena(canvas) {
   // Hongo de contorno blanco. Lo usan el hongo madre y los edificios.
   // acento = color del faldón (anillo bajo el sombrero); null = blanco.
   const TALLO_L = "#34344a", TALLO_D = "#2a2a3c", SOMBRERO = "#2e2e45", SOMBRERO_D = "#222233", LAMINA = "#3b3b58";
-  function hongoBase(cx, m, sq, brillo, acento = null) {
+  function hongoBase(cx, m, sq, brillo, acento = null, tinte = null) {
     const capBase = groundY - m.sh;
     const ch = m.ch - sq;
     const rx = Math.round(m.w / 2);
@@ -585,13 +585,13 @@ export function crearEscena(canvas) {
     semi(cx, capBase, rx, ch, BLANCO);
     g.fillStyle = BLANCO;
     g.fillRect(cx - rx, capBase - 1, rx * 2, 1);
-    semi(cx, capBase, rx, ch, SOMBRERO, 1);
+    semi(cx, capBase, rx, ch, tinte ? mezcla(SOMBRERO, tinte, 0.6) : SOMBRERO, 1);
     const ancho = (dy) => Math.round(rx * Math.sqrt(Math.max(0, 1 - (dy / ch) ** 2))) - 2;
     const banda = Math.max(3, Math.round(ch * 0.16));
     for (let dy = 0; dy < banda; dy++) {
       const w = ancho(dy);
       if (w <= 0) continue;
-      g.fillStyle = SOMBRERO_D;
+      g.fillStyle = tinte ? mezcla(SOMBRERO_D, tinte, 0.35) : SOMBRERO_D;
       g.fillRect(cx - w, capBase - 2 - dy, w * 2, 1);
       g.fillStyle = LAMINA;
       for (let x = -w + 1; x < w; x += 3) g.fillRect(cx + x, capBase - 2 - dy, 1, 1);
@@ -618,29 +618,61 @@ export function crearEscena(canvas) {
     return { capBase, ch, rx, mitad };
   }
 
-  // mancha de color con borde oscuro y un brillito
-  function mancha(x, y, r, col) {
-    disco(x, y, r + 1, SOMBRERO_D);
-    disco(x, y, r, col);
-    g.fillStyle = "rgba(255,255,255,0.7)";
-    g.fillRect(Math.round(x) - Math.floor(r / 2), Math.round(y) - Math.floor(r / 2), 1, 1);
+  function mezcla(c1, c2, t) {
+    const n = (c) => [1, 3, 5].map((i) => parseInt(c.slice(i, i + 2), 16));
+    const a = n(c1), b = n(c2);
+    return "#" + a.map((v, i) => Math.round(v + (b[i] - v) * t).toString(16).padStart(2, "0")).join("");
   }
 
-  // posiciones de las manchas en el sombrero (u: -1..1 a lo ancho, h: 0..1 en altura)
-  const SLOTS = [[0, 0.5], [-0.5, 0.32], [0.5, 0.32], [-0.22, 0.74], [0.24, 0.72], [-0.78, 0.14], [0.78, 0.14], [0, 0.2], [-0.4, 0.62], [0.42, 0.58]];
+  // mancha recortada al interior del sombrero (si cae en el borde queda cortada)
+  function manchaCap(cx, capBase, rx, ch, px, py, r, col, borde = true) {
+    const lim = (y) => { const dy = capBase - 2 - y; return dy < 0 ? -1 : Math.round(rx * Math.sqrt(Math.max(0, 1 - ((dy + 1) / ch) ** 2))) - 2; };
+    const fila = (yy, w, color) => {
+      const L = lim(yy);
+      if (L <= 0) return;
+      const x0 = Math.max(px - w, cx - L), x1 = Math.min(px + w, cx + L);
+      if (x1 < x0) return;
+      g.fillStyle = color;
+      g.fillRect(x0, yy, x1 - x0 + 1, 1);
+    };
+    for (const [rr, color] of borde ? [[r + 1, SOMBRERO_D], [r, col]] : [[r, col]]) {
+      for (let dy = -rr; dy <= rr; dy++) fila(py + dy, Math.floor(Math.sqrt(rr * rr - dy * dy + rr * 0.5)), color);
+    }
+    const hx = px - Math.floor(r / 2), hy = py - Math.floor(r / 2);
+    if (r >= 2 && Math.abs(hx - cx) <= lim(hy)) { g.fillStyle = "rgba(255,255,255,0.7)"; g.fillRect(hx, hy, 1, 1); }
+  }
+
+  // Posiciones aleatorias (deterministas por semilla) de manchas en el sombrero, en coordenadas
+  // normalizadas: u -1..1 a lo ancho, h 0..1 en alto, f = tamaño relativo. Pueden quedar en el borde.
+  const cacheManchas = {};
+  function manchasDe(clave, semilla, n) {
+    const lista = cacheManchas[clave] || (cacheManchas[clave] = []);
+    while (lista.length < n) {
+      const r2 = rng(semilla * 7919 + lista.length * 104729 + 17);
+      let mejor = null, mejorD = -1;
+      for (let i = 0; i < 14; i++) {
+        const ang = r2() * Math.PI, rad = Math.sqrt(r2()) * 1.02;
+        const u = Math.cos(ang) * rad, h = Math.sin(ang) * rad;
+        if (h < 0.12) continue;
+        const dmin = lista.reduce((d, q) => Math.min(d, Math.hypot(q.u - u, (q.h - h) * 1.4)), 9);
+        if (dmin > mejorD) { mejorD = dmin; mejor = { u, h }; }
+      }
+      lista.push({ ...(mejor || { u: 0, h: 0.5 }), f: 0.07 + r2() * 0.12, v: r2() });
+    }
+    return lista;
+  }
+
   let coloresMadre = ["#ff4d4d"];
 
   function dibujarMadre() {
     const m = medidas();
     const cx = Math.round(madre.x);
     const { capBase, ch, rx } = hongoBase(cx, m, Math.round(madre.pulso * 3), madre.brillo);
-    // un punto rojo al principio; cada edificio suma su color
-    const r = Math.max(2, Math.round(ch * 0.12));
+    // un punto rojo al principio; cada edificio suma su color. Posición y tamaño al azar (fijos por semilla)
+    const pos = manchasDe("madre", 31, coloresMadre.length);
     coloresMadre.forEach((col, k) => {
-      const [u, h] = SLOTS[k % SLOTS.length];
-      const px = cx + Math.round(u * rx * 0.78);
-      const py = capBase - 3 - Math.round(h * (ch - 8) * Math.sqrt(Math.max(0.2, 1 - (u * 0.78) ** 2)));
-      mancha(px, py, r, col);
+      const q = pos[k];
+      manchaCap(cx, capBase, rx, ch, cx + Math.round(q.u * rx), capBase - 2 - Math.round(q.h * ch), Math.max(1, Math.round(ch * q.f * 1.2)), col);
     });
     // brotecitos y pasto en la base, más con cada etapa
     const idx = etapaPrev ?? 0;
@@ -658,7 +690,11 @@ export function crearEscena(canvas) {
     const cx = Math.round(x);
     g.globalAlpha = alfa;
     const col = EDIFICIOS[id].color;
-    const { capBase, ch, rx, mitad } = hongoBase(cx, m, 0, brillos[id] || 0, col);
+    const { capBase, ch, rx, mitad } = hongoBase(cx, m, 0, brillos[id] || 0, col, col);
+    manchasDe(id, id === "conservatorio" ? 5 : 11, 7).forEach((q) => {
+      const c2 = q.v < 0.5 ? mezcla(col, "#ffffff", 0.35) : mezcla(col, "#000000", 0.45);
+      manchaCap(cx, capBase, rx, ch, cx + Math.round(q.u * rx), capBase - 2 - Math.round(q.h * ch), Math.max(1, Math.round(ch * q.f * 0.7)), c2, false);
+    });
     if (id === "conservatorio") {
       // pentagrama con notas de colores y una nota blanca arriba
       g.fillStyle = "#4a4a66";
@@ -668,8 +704,6 @@ export function crearEscena(canvas) {
         if (w > 2) g.fillRect(cx - w, capBase - h - 2, w * 2, 1);
       }
       [[-10, 1], [-3, 3], [4, 0], [11, 2]].forEach(([dx, linea], k) => disco(cx + dx, capBase - 6 - linea * 3, 1, PALETA[(k + 1) % PALETA.length]));
-      mancha(cx - 12, capBase - ch + 8, 2, col);
-      mancha(cx + 12, capBase - ch + 8, 2, col);
       g.drawImage(spritesNota[PALETA.length - 1], cx - 2, capBase - ch - 8);
       // tallo: ventanitas, puerta en arco que brilla y teclas de piano en la base
       g.fillStyle = col;
@@ -695,8 +729,6 @@ export function crearEscena(canvas) {
         g.fillRect(cx + dx - 1, capBase - 4 - h, 1, 1);
         g.fillRect(cx + dx + 1, capBase - 5 - h, 1, 1);
       });
-      mancha(cx - 13, capBase - ch + 7, 2, col);
-      mancha(cx + 13, capBase - ch + 7, 2, col);
       g.fillStyle = "#2eaaf5";
       const top = capBase - ch - 7;
       g.fillRect(cx, top, 1, 1); g.fillRect(cx - 1, top + 1, 3, 1); g.fillRect(cx - 2, top + 2, 5, 2); g.fillRect(cx - 1, top + 4, 3, 1);

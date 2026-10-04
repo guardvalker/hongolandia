@@ -1,5 +1,13 @@
 export const CHANGELOG = [
   {
+    v: "0.11.1",
+    fecha: "2026-10-03",
+    cambios: [
+      "Las manchas de colores del hongo madre ahora tienen lugar y tamaño al azar, y algunas quedan cortadas por el borde del sombrero.",
+      "El sombrero de cada edificio toma el color de su tipo de honguito (violeta el Conservatorio, verde el Vivero), con manchas propias al azar en tonos más claros y oscuros, en lugar de círculos copiados de uno a otro.",
+    ],
+  },
+  {
     v: "0.11.0",
     fecha: "2026-10-03",
     cambios: [
