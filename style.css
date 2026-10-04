@@ -54,7 +54,12 @@ html, body {
 /* contador de esporas/s por tipo de honguito */
 #dps { position: fixed; left: 12px; top: calc(env(safe-area-inset-top) + 104px); padding: 6px 8px; min-width: 150px; cursor: pointer; }
 .dps-titulo { font-size: 10px; letter-spacing: .14em; text-transform: uppercase; color: var(--ambar); margin-bottom: 4px; }
-.dps-fila { display: flex; align-items: center; gap: 6px; font-size: 12px; line-height: 1.6; }
+.dps-lista { display: flex; flex-direction: column; }
+.dps-fila { position: relative; padding: 0 3px; display: flex; align-items: center; gap: 6px; font-size: 12px; line-height: 1.6; }
+.dps-fila > * { position: relative; z-index: 1; }
+.dps-fila .dps-bar { position: absolute; z-index: 0; left: 0; top: 1px; bottom: 1px; width: 0; opacity: .3; transition: width .4s; }
+.dps-sub { margin-top: 8px; }
+#dps-inv-titulo[hidden] { display: none; }
 .dps-fila .dps-tipo { width: 8px; height: 8px; flex: none; }
 .dps-fila span:not(.dps-tipo) { flex: 1; }
 .dps-fila b { font-family: var(--num); font-weight: 400; font-size: 8px; font-variant-numeric: tabular-nums; }
@@ -174,7 +179,7 @@ body.transp #hoja-cerrar { background: rgba(45, 45, 64, .6); }
 /* contador de esporas/s plegable */
 .dps-titulo::after { content: " ▾"; }
 #dps.plegado .dps-titulo::after { content: " ▸"; }
-#dps.plegado #dps-filas { display: none; }
+#dps.plegado #dps-filas, #dps.plegado #dps-inv, #dps.plegado .dps-sub { display: none; }
 #dps.plegado .dps-total { margin-top: 0; padding-top: 0; border-top: 0; }
 #dps.plegado .dps-titulo { margin-bottom: 0; }
 

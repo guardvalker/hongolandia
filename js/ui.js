@@ -478,15 +478,18 @@ export function crearUI(api) {
     const el = document.createElement("div");
     el.className = "dps-fila";
     el.hidden = true;
+    const bar = document.createElement("i");
+    bar.className = "dps-bar";
+    bar.style.background = HONGUITOS[id].color;
     const sw = document.createElement("span");
     sw.className = "dps-tipo";
     sw.style.background = HONGUITOS[id].color;
     const nombre = document.createElement("span");
     nombre.textContent = HONGUITOS[id].nombre;
     const val = document.createElement("b");
-    el.append(sw, nombre, val);
-    $("dps-filas").append(el);
-    dpsFilas[id] = { el, val };
+    el.append(bar, sw, nombre, val);
+    $(HONGUITOS[id].invProd.gt(0) ? "dps-inv" : "dps-filas").append(el); // los científicos van en su propio ranking
+    dpsFilas[id] = { el, val, bar };
   }
 
   function actualizar(forzar) {
@@ -504,14 +507,35 @@ export function crearUI(api) {
     }
     puntosPrev = pr.puntos;
 
+    // rankings: esporas/s por tipo (de mayor a menor, con barras) y, aparte, investigación/s
+    const esp = [], inv = [];
     for (const id in dpsFilas) {
       const tiene = (s.honguitos[id] || 0) > 0;
       dpsFilas[id].el.hidden = !tiene;
-      if (tiene) {
-        dpsFilas[id].val.textContent = HONGUITOS[id].invProd.gt(0) ? fmt(invPorSeg(s)) + ' inv/s' : fmtRate(produccionPorTipo(s, id));
+      if (!tiene) continue;
+      if (HONGUITOS[id].invProd.gt(0)) {
+        const v = invPorSeg(s);
+        dpsFilas[id].val.textContent = fmt(v) + "/s";
+        inv.push({ id, v });
+      } else {
+        const v = produccionPorTipo(s, id);
+        dpsFilas[id].val.textContent = fmtRate(v);
         dpsFilas[id].val.style.color = factorAcido(id) < 1 ? "#9dff4a" : ""; // mojados por lluvia ácida
+        esp.push({ id, v });
       }
     }
+    const ordenar = (lista, num) => {
+      lista.sort((a, b) => (num ? b.v - a.v : b.v.cmp(a.v)));
+      const max = lista[0] ? lista[0].v : null;
+      lista.forEach((e, i) => {
+        dpsFilas[e.id].el.style.order = i;
+        const frac = num ? (max > 0 ? e.v / max : 0) : max.gt(0) ? e.v.div(max).toNumber() : 0;
+        dpsFilas[e.id].bar.style.width = Math.max(2, Math.min(100, frac * 100)) + "%";
+      });
+    };
+    ordenar(esp, false);
+    ordenar(inv, true);
+    $("dps-inv-titulo").hidden = inv.length === 0;
     elDpsTotal.textContent = fmtRate(produccionPorSeg(s));
 
     const puedeComprar = s.esporas.gte(costoHonguito(s, "basico"));

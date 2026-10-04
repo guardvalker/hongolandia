@@ -28,8 +28,10 @@
   </div>
   <div id="dps" class="px" role="button" aria-label="Mostrar u ocultar el detalle de esporas por segundo">
     <div class="dps-titulo">Esporas/s</div>
-    <div id="dps-filas"></div>
+    <div id="dps-filas" class="dps-lista"></div>
     <div class="dps-fila dps-total"><span>Total</span><b id="dps-total">0/s</b></div>
+    <div class="dps-titulo dps-sub" id="dps-inv-titulo" hidden>Investigación</div>
+    <div id="dps-inv" class="dps-lista"></div>
   </div>
   <div id="zoom"><button id="zoom-mas" aria-label="Acercar">+</button><button id="zoom-menos" aria-label="Alejar">−</button><button id="zoom-centro" aria-label="Centrar en el hongo madre">◎</button></div>
   <div id="toast"></div>
@@ -48,7 +50,7 @@
     <div id="hoja-cuerpo"></div>
   </section>
 
-  <script>window.APP_VERSION = "0.22.0";</script>
+  <script>window.APP_VERSION = "0.22.1";</script>
   <script src="vendor/break_eternity.min.js"></script>
   <script type="module" src="js/main.js"></script>
 </body>

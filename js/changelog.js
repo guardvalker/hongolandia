@@ -1,5 +1,13 @@
 export const CHANGELOG = [
   {
+    v: "0.22.1",
+    fecha: "2026-10-04",
+    cambios: [
+      "El contador de esporas/s ahora es un ranking: los tipos de honguito van ordenados de mayor a menor producción y cada uno tiene una barra horizontal de color proporcional a lo que produce (la más grande es la que más produce).",
+      "Los científicos tienen su propio ranking aparte, debajo, llamado Investigación (con puntos/s y su barra).",
+    ],
+  },
+  {
     v: "0.22.0",
     fecha: "2026-10-04",
     cambios: [
