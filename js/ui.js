@@ -37,17 +37,26 @@ export function crearUI(api) {
     hoja.classList.remove("anclada");
     if (!anclaFn) return;
     const r = anclaFn();
-    const vw = window.innerWidth, margen = 10, minW = 140, maxW = 260;
-    let left = r.x1 + margen;
-    let w = Math.min(maxW, vw - left - margen);
-    if (w < minW) { w = minW; left = vw - margen - minW; }
+    const vw = window.innerWidth, vh = window.innerHeight, margen = 10;
+    const w = Math.min(260, vw - 2 * margen); // siempre el mismo tamaño, sin importar el edificio ni el zoom
+    const left = r.x1 + margen;
     hoja.classList.add("anclada");
-    hoja.style.left = left + "px";
     hoja.style.right = "auto";
     hoja.style.width = w + "px";
-    hoja.style.bottom = window.innerHeight - r.y1 + "px";
     hoja.style.height = "auto";
-    hoja.style.maxHeight = Math.max(140, r.y1 - 90) + "px";
+    if (left + w <= vw - margen && r.y1 > 160 && r.y1 < vh + 40) {
+      // entra al costado del edificio: anclada a su base
+      hoja.style.left = left + "px";
+      hoja.style.bottom = Math.max(margen, vh - r.y1) + "px";
+      hoja.style.maxHeight = Math.max(140, Math.min(vh - 2 * margen, r.y1 - 90)) + "px";
+    } else {
+      // no entra (edificio muy grande, zoom o pantalla chica): se abre en el medio de la pantalla
+      hoja.style.left = Math.round((vw - w) / 2) + "px";
+      hoja.style.top = "50%";
+      hoja.style.bottom = "auto";
+      hoja.style.transform = "translateY(-50%)";
+      hoja.style.maxHeight = Math.max(160, vh - 100) + "px";
+    }
   }
 
   function abrir(cual, titulo, render, ancla = null) {

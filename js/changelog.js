@@ -1,5 +1,13 @@
 export const CHANGELOG = [
   {
+    v: "0.28.1",
+    fecha: "2026-10-04",
+    cambios: [
+      "Las ventanas de mejoras (la del hongo madre y las de cada edificio) ahora siempre tienen el mismo tamaño (260 px de ancho, o todo el ancho en pantallas chicas) y ya no se deforman cuando el edificio es enorme o hay mucho zoom.",
+      "Si la ventana no entra al costado del edificio (por ejemplo con el hongo madre gigante), se abre centrada en la pantalla.",
+    ],
+  },
+  {
     v: "0.28.0",
     fecha: "2026-10-04",
     cambios: [
