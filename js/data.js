@@ -121,6 +121,15 @@ const EDIF_DEF = [
     requiere: "carrera_finanzas",
   },
   {
+    id: "taberna",
+    tier: 10, // solo para ordenar; el costo es fijo
+    nombre: "Taberna hongil",
+    desc: "Un hongo con farol y jarra de cerveza. Acá se contratan los honguitos mercenarios que exploran la dungeon que encontraron los mineros.",
+    color: "#d9a441",
+    requiereFlag: "dungeon", // se desbloquea al encontrar la dungeon
+    costoFijo: 1e18,
+  },
+  {
     id: "astropuerto",
     tier: 9,
     nombre: "Astropuerto hongil",
@@ -130,7 +139,7 @@ const EDIF_DEF = [
 ];
 export const EDIFICIOS = Object.fromEntries(EDIF_DEF.map((e) => {
   const v = valoresTier(e.tier);
-  return [e.id, { ...e, costo: C(v.costoEdificio), desbloqueo: MODO_PRUEBA ? D(0) : D(v.desbloqueo) }];
+  return [e.id, { ...e, costo: C(e.costoFijo ?? v.costoEdificio), desbloqueo: e.costoFijo || MODO_PRUEBA ? D(0) : D(v.desbloqueo) }];
 }));
 
 // Bolsa (traders): sus ganancias no entran de a poco sino de golpe, cada `ciclo` segundos.

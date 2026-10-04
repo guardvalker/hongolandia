@@ -1,5 +1,17 @@
 export const CHANGELOG = [
   {
+    v: "0.35.0",
+    fecha: "2026-10-04",
+    cambios: [
+      "Nuevo edificio: Taberna hongil (1e18 esporas), que se desbloquea al encontrar la dungeon. Un hongo con pendón, cartel de jarra, ventanas cálidas y barriles. Ahí se contratan los honguitos mercenarios, que andan por la taberna cuando no están explorando.",
+      "10 clases de mercenarios, cada una con su aspecto y sus ataques: Caballero (espada, provoca), Arquero (flechas y lluvia de flechas), Mago (bola de fuego en área), Curandero (cura al más herido), Invocador (espíritus aliados), Pícaro (críticos y botín extra), Bárbaro (más daño cuanto más herido), Bardo (aura que acelera al party), Alquimista (veneno y salpicadura) y Paladín (escudos sagrados). Cada clase se contrata una vez; suben de nivel al explorar.",
+      "Exploración de la dungeon: sale un party de hasta 4 mercenarios sanos (los de más nivel), solo o automáticamente (se puede apagar). A la derecha de la mina se abre una ventana con la dungeon vista de costado: el party avanza de izquierda a derecha y pelea con lo que aparece, con una barra de 5 etapas. Al final de cada etapa encuentran un objeto al azar (espada, escudo, botas, poción, amuleto, casco, runa, capa) que mejora al party durante esa exploración; en la 5.ª está el Rey Moho. Con el party lleno hay más fuerza y la recompensa en esporas es mucho mayor.",
+      "Recompensas: esporas por cada etapa superada y, si cae el jefe, una chance de un cristal radiante que sube un 5% toda la producción y queda engarzado en el tronco del hongo madre. Cada jefe vencido hace a los enemigos un 12% más fuertes.",
+      "Nadie muere: el que cae queda herido y se sienta con una venda en la taberna hasta que se hagan 3 exploraciones más (con la mejora, menos), sin importar cómo les haya ido. Cuando termina la exploración se cierra la ventana, el party vuelve a la taberna y festeja si ganó algo.",
+      "Mejoras de la taberna: Botas de explorador (exploración más rápida), Mapa del tesoro (objetos raros y más chance de cristal) y Botiquín (cura a los heridos en menos exploraciones).",
+    ],
+  },
+  {
     v: "0.34.0",
     fecha: "2026-10-04",
     cambios: [

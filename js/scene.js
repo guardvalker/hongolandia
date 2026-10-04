@@ -70,6 +70,7 @@ const TAM_BASE = {
   fabrica: { w: 46, ch: 21, sw: 20, sh: 15 },
   universidad: { w: 44, ch: 21, sw: 20, sh: 16 },
   mina: { w: 42, ch: 18, sw: 18, sh: 15 },
+  taberna: { w: 46, ch: 20, sw: 20, sh: 16 },
   torre: { w: 34, ch: 15, sw: 12, sh: 26, extra: 20 }, // extra: alto del sombrero de mago sobre el sombrero
 };
 const NOTA = ["..##.", "..#.#", "..#..", "..#..", "###..", "###.."];
@@ -84,6 +85,8 @@ const MADRE = [
 
 import { EDIFICIOS, HONGUITOS, ACIDO, EVENTOS, EVENTO_CFG } from './data.js';
 import { improd, velocidad, eventos, buffTipoActivo, efectos, prestigio } from './engine.js';
+import { getRun } from './dungeon.js';
+import { dibujarMerc } from './dungeonVista.js';
 
 const MADRE_GRANDE = MADRE.map((m) => ({ w: Math.round(m.w * BONUS_CONSERV), ch: Math.round(m.ch * BONUS_CONSERV), sw: Math.round(m.sw * BONUS_CONSERV), sh: Math.round(m.sh * BONUS_CONSERV) }));
 
@@ -96,7 +99,9 @@ export function crearEscena(canvas, opciones = {}) {
   let groundRef = 220, S0 = 1, Wc0 = 300, Hc0 = 300, niveles = [1], zoomIdx = null, camX = C0, camY = 0, extent = 150;
   // mina: túneles bajo el piso (coordenadas relativas a la entrada: x al costado, y hacia abajo)
   let mina = null, minaKey = "", minaP = null, nMineros = 0, lastMx = 0;
-  let dungeonFlag = false, puertaT = -1, puertaAvisada = false; // puerta de la dungeon: aparece al cavar el 100% de la mina
+  let dungeonFlag = false, puertaT = -1, puertaAvisada = false;
+  // taberna: mercenarios que andan por ahí cuando no están explorando; cristales radiantes en el tronco del madre
+  let mercs = [], cristalesN = 0, mercInfo = {}; // puerta de la dungeon: aparece al cavar el 100% de la mina
   const LIM0 = () => C0 - extent, LIM1 = () => C0 + extent; // hasta dónde llega lo que hay en el mundo
   const offX = () => Math.round(Wc / 2 - camX);
   // camY = cuánto se bajó el mundo para ver más cielo: hasta la altura que se ve con el zoom más alejado
@@ -1229,6 +1234,69 @@ export function crearEscena(canvas, opciones = {}) {
     }
   }
 
+  // ---- Taberna: mercenarios ----
+  function sincronizarMercs(dt) {
+    const tab = edif.taberna;
+    if (!tab) { mercs = []; return; }
+    const run = getRun();
+    for (const id of Object.keys(mercInfo)) {
+      let m = mercs.find((q) => q.id === id);
+      if (!m) { m = { id, x: tab.x + (Math.random() - 0.5) * 50, dir: Math.random() < 0.5 ? -1 : 1, modo: "idle", t: Math.random() * 5, espera: Math.random() * 3, meta: 0, fiesta: 0, fuera: false }; mercs.push(m); }
+      const sale = !!run && run.fase !== "fin" && run.party.some((p) => p.id === id);
+      if (sale && !m.fuera) { m.fuera = true; m.modo = "idle"; motas(m.x, groundY - 6, 4, 0.6, "#c8c8dc"); }
+      if (!sale && m.fuera) { m.fuera = false; m.x = tab.x + (Math.random() - 0.5) * 6; m.alfa = 0; }
+      m.t += dt;
+      m.alfa = m.fuera ? 0 : Math.min(1, (m.alfa ?? 1) + dt * 2.5);
+      if (m.fuera) continue;
+      if (m.fiesta > 0) {
+        m.fiesta -= dt;
+        if (Math.random() < dt * 14) part(m.x + (Math.random() - 0.5) * 8, groundY - 14, (Math.random() - 0.5) * 24, -20 - Math.random() * 14, { tipo: "mota", dur: 0.9, col: PALETA[Math.floor(Math.random() * PALETA.length)], r: 1 });
+        continue;
+      }
+      if (mercInfo[id].herido > 0) continue; // los heridos descansan sentados con una venda
+      if (m.modo === "idle") {
+        m.espera -= dt;
+        if (m.espera <= 0) { m.meta = tab.x + (Math.random() - 0.5) * 100; m.dir = Math.sign(m.meta - m.x) || 1; m.modo = "walk"; }
+      } else {
+        const d = m.meta - m.x, paso = VEL * 0.5 * dt;
+        if (Math.abs(d) <= paso) { m.x = m.meta; m.modo = "idle"; m.espera = 1 + Math.random() * 4; } else m.x += Math.sign(d) * paso;
+      }
+    }
+    mercs = mercs.filter((m) => mercInfo[m.id]);
+  }
+  // el party vuelve a la taberna: los que están sanos festejan si ganaron algo
+  function festejarMercs(res) {
+    for (const m of mercs) {
+      if (mercInfo[m.id]?.herido > 0) continue;
+      if (res && (res.esporas?.gt?.(0) || res.cristal)) { m.fiesta = res.cristal ? 5 : 3; m.dir = Math.random() < 0.5 ? -1 : 1; }
+    }
+    if (edif.taberna) { brillos.taberna = 1; motas(edif.taberna.x, groundY - 18, 14, 1.2, "#ffd23f"); }
+  }
+  function dibujarMercs() {
+    for (const m of mercs) {
+      if (m.fuera || m.alfa <= 0) continue;
+      const herido = mercInfo[m.id]?.herido > 0, base = Math.round(groundY - (m.fiesta > 0 ? Math.abs(Math.sin(m.t * 9)) * 5 : 0));
+      g.globalAlpha = m.alfa;
+      dibujarMerc(g, m.id, Math.round(m.x), herido ? groundY : base, { dir: m.dir, pose: m.modo === "walk" && Math.floor(m.t * 9) % 2 ? 1 : 0, t: m.t, vendado: herido });
+      g.globalAlpha = 1;
+      if (herido) { g.fillStyle = "#c8c8dc"; const z = Math.floor(m.t * 1.5) % 3; g.fillRect(Math.round(m.x) + 4, groundY - 14 - z * 2, 2 + z, 1); }
+    }
+  }
+  // cristales radiantes engarzados en el tronco del hongo madre
+  function dibujarCristalesMadre() {
+    if (!cristalesN) return;
+    const m = medidas(), cx = Math.round(madre.x);
+    for (let k = 0; k < Math.min(cristalesN, 60); k++) {
+      const h1 = Math.imul(k + 1, 2654435761) >>> 0, h2 = Math.imul(k + 7, 1597334677) >>> 0;
+      const x = cx + Math.round(((h1 % 1000) / 1000 - 0.5) * (m.sw - 10)), y = groundY - 5 - Math.round(((h2 % 1000) / 1000) * Math.max(1, m.sh - 14));
+      const pulso = 0.5 + 0.5 * Math.sin(t * 2 + k);
+      g.globalAlpha = 0.07 + 0.07 * pulso; disco(x, y - 3, 5, "#bff7ff");
+      g.globalAlpha = 1;
+      g.drawImage(spritesCristal[k % CRISTALES.length], x - 3, y - 7, 7, 8);
+      g.fillStyle = "#fff"; g.fillRect(x - 1, y - 6, 1, 1);
+    }
+  }
+
   // ---- Mina hongil: nido de túneles bajo el piso, mineros y yacimientos de cristal ----
   // Los nodos son puntos del PISO del túnel (x al costado de la entrada, y hacia abajo). Los túneles
   // serpentean y se ramifican como un hormiguero; los nodos "cámara" son salas grandes con yacimientos.
@@ -1696,6 +1764,9 @@ export function crearEscena(canvas, opciones = {}) {
     nMagos = state.honguitos.mago || 0;
     nMineros = state.honguitos.minero || 0;
     dungeonFlag = !!state.flags?.dungeon;
+    cristalesN = state.dungeon?.cristales || 0;
+    mercInfo = state.dungeon?.merc || {};
+    sincronizarMercs(dtG);
     sincronizarMina(dtG);
     for (const v of visuales) {
       const dt = (v.acidoT > 0 ? dtG * 0.6 : dtG) * (velTipo[v.tipo] || 1); // mojados: más lentos; mejoras de velocidad: más rápidos
@@ -2128,6 +2199,20 @@ export function crearEscena(canvas, opciones = {}) {
       g.fillStyle = "#2a2a3c"; g.fillRect(px - 4, top + 3, 9, 3); g.fillRect(px - 3, top + 6, 7, 0);
       g.fillStyle = Math.floor(t * 1.5) % 2 ? "#7fff3a" : "#c06bff"; g.fillRect(px - 4, top + 1, 9, 1);
       g.fillStyle = "#e9ffd0"; const bb = Math.floor(t * 5); g.fillRect(px - 3 + (bb % 5), top - (bb % 2), 1, 1); g.fillRect(px + 2 - (bb % 4), top - 1 + (bb % 3 === 0 ? 1 : 0), 1, 1);
+    } else if (id === "taberna") {
+      // pendón en lo alto, cartel colgante con una jarra, ventanas cálidas, puerta doble y barriles
+      g.fillStyle = "#8a5a2a"; g.fillRect(cx, capBase - ch - 9, 1, 9);
+      g.fillStyle = "#e8362f"; g.fillRect(cx + 1, capBase - ch - 9, 6, 1); g.fillRect(cx + 1, capBase - ch - 8, 5, 1); g.fillRect(cx + 1, capBase - ch - 7, 3, 1);
+      const sx = cx + mitad + 3;
+      g.fillStyle = "#6a4a2a"; g.fillRect(cx + mitad, capBase + 3, 7, 1); g.fillRect(sx + 1, capBase + 4, 1, 2); g.fillRect(sx + 6, capBase + 4, 1, 2);
+      g.fillStyle = "#c28a4f"; g.fillRect(sx, capBase + 6, 9, 8);
+      g.fillStyle = "#8a5a2a"; g.fillRect(sx, capBase + 6, 9, 1); g.fillRect(sx, capBase + 13, 9, 1);
+      g.fillStyle = "#fff"; g.fillRect(sx + 2, capBase + 7, 4, 2); g.fillStyle = "#ffd23f"; g.fillRect(sx + 2, capBase + 9, 4, 4); g.fillStyle = "#fff"; g.fillRect(sx + 6, capBase + 9, 1, 3);
+      const cal = Math.floor(t * 2.5) % 5 === 0 ? "#fff6a8" : "#ffd23f";
+      g.fillStyle = cal; g.fillRect(cx - mitad + 2, capBase + 5, 3, 3); g.fillRect(cx - mitad + 2, capBase + 9, 3, 3);
+      g.fillStyle = "#3a2410"; g.fillRect(cx - 3, groundY - 9, 7, 9); g.fillStyle = "#8a5a2a"; g.fillRect(cx - 4, groundY - 9, 1, 9); g.fillRect(cx + 4, groundY - 9, 1, 9); g.fillRect(cx - 4, groundY - 10, 9, 1); g.fillRect(cx, groundY - 9, 1, 9);
+      const bx = cx - mitad - 9;
+      for (let k = 0; k < 2; k++) { g.fillStyle = "#8a5a2a"; g.fillRect(bx + k * 6, groundY - 7, 5, 7); g.fillStyle = "#4a3320"; g.fillRect(bx + k * 6, groundY - 5, 5, 1); g.fillRect(bx + k * 6, groundY - 2, 5, 1); }
     } else if (id === "mina") {
       // castillete sobre el sombrero: patas de madera y una rueda que gira (más rápido con más mineros)
       const wy = capBase - ch - 10, giro = t * (nMineros ? 2 + Math.min(4, Math.log2(nMineros + 1)) : 0.4);
@@ -2607,6 +2692,7 @@ export function crearEscena(canvas, opciones = {}) {
     dibujarNubes();
     dibujarMina();
     dibujarMadre();
+    dibujarCristalesMadre();
     for (const id in edif) if (!(colocando?.mover && colocando.id === id)) dibujarEdificio(id, edif[id].x);
     dibujarCoheteEnVuelo();
     for (const b of brotes) {
@@ -2617,6 +2703,7 @@ export function crearEscena(canvas, opciones = {}) {
       else g.drawImage(spritesBrote[b.col], b.x - 2, groundY - 4);
     }
     for (const v of visuales) dibujarHonguito(v);
+    dibujarMercs();
     dibujarParticulas();
     dibujarEventos();
     if (colocando) dibujarEdificio(colocando.id, xLibre(colocando.x, tam(colocando.id).w, obstaculos(altoEdif(colocando.id), false)), 0.55);
@@ -2712,5 +2799,5 @@ export function crearEscena(canvas, opciones = {}) {
     while (brotes.length > maxBrotes()) brotes.shift();
   }
 
-  return { tomarEvento: tomar, mostrarPuerta, zoom, pan, recentrar, setLimite, resize, update, draw, toque, pulsoMadre, rectMadre, rectEdificio, iniciarColocacion, moverColocacion, cancelarColocacion, confirmarColocacion };
+  return { tomarEvento: tomar, mostrarPuerta, festejarMercs, zoom, pan, recentrar, setLimite, resize, update, draw, toque, pulsoMadre, rectMadre, rectEdificio, iniciarColocacion, moverColocacion, cancelarColocacion, confirmarColocacion };
 }

@@ -1,3 +1,4 @@
+import { CLASES, TABERNA_MEJ, costoMerc, contratar, comprarTab, nivelTab, costoTab, sanos, iniciar as iniciarExploracion, getRun, PARTY_MAX, mercStats, CRISTAL_MULT } from './dungeon.js';
 import { HONGUITOS, MEJORAS, EDIFICIOS, TECNOLOGIAS, MEJ_EDIF, TEC_POR_ID, HITOS, NIVELES_TEC } from './data.js';
 import { fmt, fmtRate } from './format.js';
 import { factorAcido, produccionPorSeg, produccionPorTipo, prestigio, costoHonguito, costoHonguitos, maxHonguitos, comprarHonguitos, comprarMejora, tecDisponible, pctTec, invPorSeg, proximoHito, elegirInvestigacion, comprarMejoraEdificio, activarHabilidad, buffActivo, nivelMej, costoMej, durBuff, cdHabilidad, alternarSobrecarga, trabajoEf } from './engine.js';
@@ -306,6 +307,7 @@ export function crearUI(api) {
 
   // ---- Edificio: honguitos propios, mejoras, habilidades, investigación ----
   function abrirCasa(id, ancla) {
+    if (id === "taberna") { abrirTaberna(ancla); return; }
     const reabrir = () => abrirCasa(id, ancla);
     abrir("casa", EDIFICIOS[id].nombre, () => {
       const mv = $("hoja-mover");
@@ -323,12 +325,85 @@ export function crearUI(api) {
     }, ancla, EDIFICIOS[id].color);
   }
 
+  // ---- Taberna hongil: mercenarios, exploración de la dungeon y mejoras ----
+  function abrirTaberna(ancla) {
+    const reabrir = () => abrirTaberna(ancla);
+    const ed = EDIFICIOS.taberna;
+    abrir("casa", ed.nombre, () => {
+      const mv = $("hoja-mover");
+      mv.hidden = false;
+      mv.onclick = () => { cerrar(); api.mover("taberna"); };
+      seccion("Exploración");
+      const estado = nota("");
+      filas.push({ refresh: (st) => {
+        const run = getRun(), listos = sanos(st).length, n = Math.min(PARTY_MAX, listos);
+        const cr = st.dungeon.cristales;
+        estado.textContent = (run ? (run.fase === "fin" ? "Terminando la exploración…" : `Explorando: etapa ${Math.min(run.etapa + 1, 5)}/5 con ${run.n} ${run.n === 1 ? "honguito" : "honguitos"}.`)
+          : listos ? `Party listo: ${n}/${PARTY_MAX}.` + (n < PARTY_MAX ? " Con el party lleno hay muchas más chances de una mejor recompensa." : "") : "No hay mercenarios sanos para salir.")
+          + ` Cristales radiantes: ${cr}` + (cr ? ` (producción ×${(Math.pow(CRISTAL_MULT, cr)).toFixed(2).replace(".", ",")})` : "") + ` · exploraciones: ${st.dungeon.expediciones}.`;
+      } });
+      const caja = document.createElement("div");
+      caja.className = "botones";
+      const bExp = document.createElement("button");
+      bExp.className = "btn";
+      bExp.textContent = "Explorar ahora";
+      bExp.addEventListener("click", () => { if (iniciarExploracion(api.estado())) { actualizar(true); } });
+      const lbl = document.createElement("label");
+      lbl.className = "auto-chk";
+      const chk = document.createElement("input");
+      chk.type = "checkbox";
+      chk.checked = api.estado().dungeon.auto !== false;
+      chk.addEventListener("change", () => { api.estado().dungeon.auto = chk.checked; api.guardar(); });
+      lbl.append(chk, " Explorar automáticamente");
+      caja.append(bExp, lbl);
+      hojaCuerpo.append(caja);
+      filas.push({ refresh: (st) => { bExp.disabled = !!getRun() || !sanos(st).length; } });
+
+      seccion("Mercenarios");
+      nota("Cada clase se contrata una sola vez. Salen los " + PARTY_MAX + " sanos de más nivel. Si caen quedan heridos y se curan después de unas exploraciones.");
+      for (const c of CLASES) {
+        const f = fila(`${c.nombre} · ${c.rol}`, c.desc, () => { if (contratar(api.estado(), c.id)) { api.guardar(); reabrir(); } }, c.color);
+        const desc = f.el.querySelector(".fila-info span");
+        f.refresh = (st) => {
+          const m = st.dungeon.merc[c.id];
+          if (m) {
+            const e = mercStats(c.id, m.nivel);
+            f.btn.textContent = m.herido ? `Herido ×${m.herido}` : `Nv ${m.nivel}`;
+            f.btn.disabled = true;
+            f.btn.classList.toggle("activa", !m.herido);
+            f.el.classList.remove("caro"); f.el.classList.toggle("puede", !m.herido);
+            desc.textContent = `${c.desc} Vida ${Math.round(e.hp)} · ataque ${Math.round(e.atk)}.` + (m.herido ? ` Herido: se cura tras ${m.herido} ${m.herido === 1 ? "exploración" : "exploraciones"} más.` : "");
+            f.sinMarca = true;
+          } else {
+            const cs = costoMerc(st);
+            f.btn.textContent = fmt(cs);
+            f.btn.disabled = st.esporas.lt(cs);
+          }
+        };
+        filas.push(f);
+      }
+
+      seccion("Mejoras de la taberna");
+      for (const m of TABERNA_MEJ) {
+        const n = nivelTab(api.estado(), m.id);
+        if (n >= m.max) { nota("✓ " + m.nombre + ` (nivel ${m.max}) — ` + m.desc(m.max)).classList.add("hecha"); continue; }
+        const f = fila(`${m.nombre} · nivel ${n}/${m.max}`, m.desc(n), () => { if (comprarTab(api.estado(), m.id)) { api.guardar(); reabrir(); } }, ed.color);
+        const pips = document.createElement("div");
+        pips.className = "pips";
+        for (let k = 0; k < m.max; k++) { const q = document.createElement("i"); if (k < n) q.className = k === n - 1 && f.el.classList.contains("flash") ? "on nuevo" : "on"; pips.append(q); }
+        f.el.querySelector(".fila-info").append(pips);
+        f.refresh = (st) => { const c = costoTab(st, m); f.btn.textContent = fmt(c); f.btn.disabled = st.esporas.lt(c); };
+        filas.push(f);
+      }
+    }, ancla, ed.color);
+  }
+
   // ---- Hongo madre: comprar honguitos, edificios y mejoras ----
   function abrirMadre(ancla) {
     api.estado().flags.abrioMadre = true;
     abrir("madre", "Hongo madre", () => {
       filasHonguitos(undefined);
-      const edificios = Object.values(EDIFICIOS).filter((e) => !api.estado().edificios[e.id] && api.estado().total.gte(e.desbloqueo));
+      const edificios = Object.values(EDIFICIOS).filter((e) => !api.estado().edificios[e.id] && api.estado().total.gte(e.desbloqueo) && (!e.requiereFlag || api.estado().flags[e.requiereFlag]));
       if (edificios.length) {
         seccion("Edificios");
         for (const ed of edificios) {
@@ -600,7 +675,7 @@ export function crearUI(api) {
     if (abierta && anclaFn) colocar(); // sigue al edificio si cambia de tamaño
     if (abierta !== "madre" && abierta !== "casa" && !forzar) return;
     const marcar = (f) => { // fila en verde/brillante si podés comprarla; apagada si no; destello al pasar a "podés"
-      if (!f.el || !f.btn || f.btn.classList.contains("activa")) return;
+      if (!f.el || !f.btn || f.sinMarca || f.btn.classList.contains("activa")) return;
       const puede = !f.btn.disabled;
       f.el.classList.toggle("puede", puede);
       f.el.classList.toggle("caro", !puede);

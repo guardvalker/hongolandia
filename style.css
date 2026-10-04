@@ -228,3 +228,19 @@ body.transp #hoja-cerrar { background: rgba(45, 45, 64, .6); }
   #dps { top: calc(env(safe-area-inset-top) + 12px); }
 }
 .dps-fila[hidden] { display: none; }
+
+/* ventana de la exploración de la dungeon (a la derecha de la mina) */
+#dungeon-vista { position: fixed; z-index: 4; width: 408px; max-width: calc(100vw - 16px); padding: 6px; background: var(--panel); box-shadow: 0 0 0 2px #b06bff; pointer-events: none; }
+#dungeon-vista[hidden] { display: none; }
+#dungeon-vista canvas { display: block; width: 100%; image-rendering: pixelated; background: #14141d; }
+.dv-cab { display: flex; justify-content: space-between; align-items: baseline; padding: 0 2px 4px; }
+.dv-titulo { color: #c58aff; font-size: 16px; font-weight: 400; }
+.dv-estado { color: var(--dim); font-size: 13px; }
+.dv-barra { display: flex; gap: 3px; margin-bottom: 5px; }
+.dv-barra i { flex: 1; height: 8px; background: #12121c; box-shadow: 0 0 0 1px #3a3a50; }
+.dv-barra i u { display: block; height: 100%; width: 0; background: #b06bff; transition: width .15s steps(4); }
+.dv-barra i.jefe { box-shadow: 0 0 0 1px #ff5a5a; }
+.dv-barra i.jefe u { background: #ff5a5a; }
+.dv-pie { padding: 4px 2px 0; font-size: 12px; color: var(--dim); }
+.auto-chk { display: inline-flex; align-items: center; gap: 6px; font-size: 14px; color: var(--txt); cursor: pointer; }
+.auto-chk input { width: 18px; height: 18px; accent-color: #b5e61d; }

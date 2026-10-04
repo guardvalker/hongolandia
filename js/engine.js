@@ -103,6 +103,7 @@ export function multiplicador(state, tipoId) {
   if (bases) m *= 1 + bases * (state.luna?.bases.length || 0);
   m *= bonoSinergia(state, tipoId) * bonoSinergia(state, "todos") * eventoMult(state);
   m *= multHitos(cuenta(state, tipoId));
+  m *= Math.pow(1.05, state.dungeon?.cristales || 0); // cristales radiantes del jefe de la dungeon
   return D(m);
 }
 
@@ -367,6 +368,7 @@ export function colocarEdificio(state, id, dx) {
   const e = EDIFICIOS[id];
   if (!e || state.edificios[id] || state.esporas.lt(e.costo)) return false;
   if (e.requiere && !state.mejoras[e.requiere]) return false; // falta la carrera de la Universidad
+  if (e.requiereFlag && !state.flags[e.requiereFlag]) return false; // falta un hallazgo (la dungeon)
   state.esporas = state.esporas.sub(e.costo);
   state.edificios[id] = { dx }; // celdas respecto del hongo madre (puede ser negativo)
   agregarHongoFondo(state);

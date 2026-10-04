@@ -3,6 +3,8 @@ import { tick, colocarEdificio, revisarHitos, cobrarEvento, maxAusencia } from '
 import { fmt } from './format.js';
 import { crearEscena } from './scene.js';
 import { crearUI, ajustes } from './ui.js';
+import { tick as tickDungeon, consumirResultado } from './dungeon.js';
+import { crearVistaDungeon } from './dungeonVista.js';
 
 import { EDIFICIOS } from './data.js';
 
@@ -17,6 +19,7 @@ function aplicarEvento(tipo) {
   ui.toast(r.texto + (r.ganancia ? " +" + fmt(r.ganancia) + " esporas" : ""));
   guardar(state);
 }
+const vista = crearVistaDungeon({ rectMina: () => { try { return state.edificios.mina ? escena.rectEdificio("mina") : null; } catch (_) { return null; } } });
 const escena = crearEscena(canvas, {
   onEvento: aplicarEvento,
   // los mineros terminaron de cavar toda la mina: aparece la puerta de la dungeon (una sola vez por partida)
@@ -157,13 +160,23 @@ let ultimoEco = performance.now();
 function economia(ahora) {
   const dt = Math.min((ahora - ultimoEco) / 1000, maxAusencia(state));
   ultimoEco = ahora;
-  if (dt > 0) tick(state, dt);
+  if (dt > 0) { tick(state, dt); tickDungeon(state, dt); }
   return dt;
+}
+// la exploración de la dungeon terminó: aviso con lo que se ganó y los mercenarios vuelven festejando
+function resultadoDungeon() {
+  const r = consumirResultado();
+  if (!r) return;
+  ui.toast(r.victoria ? "¡Dungeon superada!" + (r.cristal ? " ¡Cristal radiante!" : "") + (r.esporas.gt(0) ? " +" + fmt(r.esporas) + " esporas" : "")
+    : "El party se retiró tras " + r.etapas + (r.etapas === 1 ? " etapa" : " etapas") + (r.esporas.gt(0) ? " · +" + fmt(r.esporas) + " esporas" : ""));
+  escena.festejarMercs(r);
+  guardar(state);
 }
 setInterval(() => {
   if (!document.hidden) return;
   economia(performance.now());
   revisarHitos(state);
+  resultadoDungeon();
 }, 1000);
 
 let proximoHud = 0;
@@ -171,6 +184,8 @@ function frame(ahora) {
   const dt = Math.min(economia(ahora), 1);
   escena.update(dt, state, etapaDe(state));
   escena.draw();
+  resultadoDungeon();
+  vista.actualizar(dt);
   if (ahora >= proximoHud) {
     revisarHitos(state);
     ui.actualizar(false);
