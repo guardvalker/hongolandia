@@ -283,3 +283,5 @@ body.transp #hoja-cerrar { background: rgba(45, 45, 64, .6); }
 .fila.plegable .fila-info b::before { content: "+"; display: inline-block; width: 12px; margin-right: 2px; color: var(--a); }
 .fila.plegable.desplegada .fila-info b::before { content: "-"; }
 .obj { cursor: pointer; }
+
+.fila.plegable .fila-info span { white-space: pre-line; }

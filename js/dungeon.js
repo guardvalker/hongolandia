@@ -83,7 +83,7 @@ export function contratar(state, id) {
   const c = costoMerc(state);
   if (state.esporas.lt(c)) return false;
   state.esporas = state.esporas.sub(c);
-  state.dungeon.merc[id] = { nivel: 1, herido: 0 };
+  state.dungeon.merc[id] = { nivel: 1, herido: 0, exp: 0 };
   return true;
 }
 // sanos, de más nivel a menos (el party lleva a los 4 primeros)
@@ -296,7 +296,7 @@ function cerrar(state, r, victoria) {
     const u = r.party.find((q) => q.id === id);
     if (u && u.ko) { m.herido = curacion; caidos.push(id); }
     else if (m.herido > 0) m.herido--;
-    if (participaron.has(id)) m.nivel = Math.min(60, m.nivel + 1 + (r.jefe ? 1 : 0));
+    if (participaron.has(id)) { m.nivel = Math.min(60, m.nivel + 1 + (r.jefe ? 1 : 0)); m.exp = (m.exp || 0) + 1; }
   }
   state.dungeon.expediciones++;
   if (victoria) state.dungeon.victorias = (state.dungeon.victorias || 0) + 1; else state.dungeon.derrotas = (state.dungeon.derrotas || 0) + 1;

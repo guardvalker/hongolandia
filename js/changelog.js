@@ -1,5 +1,13 @@
 export const CHANGELOG = [
   {
+    v: "0.38.0",
+    fecha: "2026-10-04",
+    cambios: [
+      "Luces del hongo madre rehechas (adiós a las luces LED pegadas): ahora los colores de los edificios se funden entre sí en un campo suave que fluye por todo el sombrero y el tronco, con patrones de luz que se turnan (una ola diagonal, anillos que salen del centro y rayos que giran). Todos los contornos del hongo (borde del sombrero, la línea de abajo, los costados del tronco y la base) se iluminan con los colores que van pasando. Alrededor hay esporas de colores que aparecen, brillan y se apagan, más densas y más intensas pegadas al hongo. Cuantos más edificios, más colores y más intensidad.",
+      "Los mercenarios ahora muestran en su descripción (al tocar el título) sus estadísticas: vida, ataque, defensa, ataques por segundo y alcance, con cuánto mejoraron respecto de su base (por ejemplo «Vida 198 (base 150, +32%)»), su nivel y en cuántas exploraciones los ganaron, y si están heridos. El nivel también aparece en el título.",
+    ],
+  },
+  {
     v: "0.37.0",
     fecha: "2026-10-04",
     cambios: [

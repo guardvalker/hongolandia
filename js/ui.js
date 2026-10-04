@@ -362,21 +362,28 @@ export function crearUI(api) {
       for (const c of CLASES) {
         const f = fila(`${c.nombre} · ${c.rol}`, c.desc, () => { if (contratar(api.estado(), c.id)) { api.guardar(); reabrir(); } }, c.color);
         const desc = f.el.querySelector(".fila-info span");
+        const pc = (v, base) => (v > base * 1.0005 ? ` (base ${Math.round(base)}, +${Math.round((v / base - 1) * 100)}%)` : "");
         f.refresh = (st) => {
-          const m = st.dungeon.merc[c.id];
+          const m = st.dungeon.merc[c.id], niv = m ? m.nivel : 1, e = mercStats(c.id, niv);
+          const lineas = [c.desc,
+            `Vida ${Math.round(e.hp)}${pc(e.hp, c.hp)} · Ataque ${e.atk.toFixed(1).replace(".", ",")}${pc(e.atk, c.atk)}`,
+            `Defensa ${c.def} · ${(1 / c.int).toFixed(1).replace(".", ",")} ataques/s · ${c.rango < 20 ? "cuerpo a cuerpo" : "a distancia"}`];
           if (m) {
-            const e = mercStats(c.id, m.nivel);
-            f.btn.textContent = m.herido ? `Herido ×${m.herido}` : `Nv ${m.nivel}`;
+            lineas.push(niv > 1 ? `Nivel ${niv}: mejoró ${niv - 1} ${niv === 2 ? "nivel" : "niveles"} en ${m.exp || 0} ${m.exp === 1 ? "exploración" : "exploraciones"} (+4% de vida y ataque por nivel).` : "Nivel 1: sube de nivel con cada exploración (+4% de vida y ataque).");
+            if (m.herido) lineas.push(`Herido: se cura tras ${m.herido} ${m.herido === 1 ? "exploración" : "exploraciones"} más.`);
+            f.titulo.textContent = `${c.nombre} · Nv ${niv}`;
+            f.btn.textContent = m.herido ? `Herido ×${m.herido}` : `Nv ${niv}`;
             f.btn.disabled = true;
             f.btn.classList.toggle("activa", !m.herido);
             f.el.classList.remove("caro"); f.el.classList.toggle("puede", !m.herido);
-            desc.textContent = `${c.desc} Vida ${Math.round(e.hp)} · ataque ${Math.round(e.atk)}.` + (m.herido ? ` Herido: se cura tras ${m.herido} ${m.herido === 1 ? "exploración" : "exploraciones"} más.` : "");
             f.sinMarca = true;
           } else {
+            lineas.push("Sube de nivel con cada exploración (+4% de vida y ataque).");
             const cs = costoMerc(st);
             f.btn.textContent = fmt(cs);
             f.btn.disabled = st.esporas.lt(cs);
           }
+          desc.textContent = lineas.join("\n");
         };
         filas.push(f);
       }

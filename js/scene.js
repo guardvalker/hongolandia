@@ -2054,7 +2054,7 @@ export function crearEscena(canvas, opciones = {}) {
       const q = pos[k];
       manchaCap(cx, capBase, rx, ch, cx + Math.round(q.u * rx), capBase - 2 - Math.round(q.h * ch), Math.max(1, Math.round(ch * q.f * 1.2)), col);
     });
-    lucesMadre(cx, capBase, rx, ch);
+    lucesMadre(cx, capBase, rx, ch, Math.round(m.sw / 2));
     // brotecitos y pasto en la base, más con cada etapa
     const idx = etapaPrev ?? 0;
     g.fillStyle = "#4a5a6a";
@@ -2065,51 +2065,81 @@ export function crearEscena(canvas, opciones = {}) {
     }
   }
 
-  // Luces y color del hongo madre: cuantos más edificios, más colores. Franjas de color que se deslizan
-  // por el sombrero, aura que respira, guirnalda de luces en el borde y chispas que suben.
-  function lucesMadre(cx, capBase, rx, ch) {
-    const cols = coloresMadre, n = cols.length; // el rojo del principio + el color de cada edificio
-    const pulso = 0.5 + 0.5 * Math.sin(t * 1.6);
-    if (n > 1) {
-      const seg = Math.max(8, Math.round(rx / 5));
-      g.globalAlpha = Math.min(0.17, 0.04 + 0.016 * n);
-      for (let dy = 0; dy < ch; dy += 3) {
-        const w = Math.floor(rx * Math.sqrt(Math.max(0, 1 - (dy / ch) ** 2))) - 1;
-        if (w < 3) continue;
-        for (let x = -w; x < w; x += seg) {
-          const idx = Math.floor((x + w) / seg + dy * 0.05 + t * 0.7);
-          g.fillStyle = cols[((idx % n) + n) % n];
-          g.fillRect(cx + x, capBase - 3 - dy, Math.min(seg, w - x), 3);
-        }
+  // Luces y color del hongo madre. Con cada edificio se suma un color: los colores se funden entre sí
+  // (campo suave que fluye), patrones de luz que se turnan (ola, anillos, rayos), todos los contornos
+  // del hongo se iluminan y hay esporas de colores que aparecen y se apagan, más cerca del hongo.
+  const esporasLuz = [];
+  function lucesMadre(cx, capBase, rx, ch, mitad) {
+    const cols = coloresMadre, n = cols.length;
+    // paleta que se funde: 96 pasos a lo largo del ciclo de colores
+    const LUT = [];
+    for (let k = 0; k < 96; k++) {
+      const pos = (k / 96) * n, i = Math.floor(pos);
+      LUT.push(n === 1 ? cols[0] : mezcla(cols[i % n], cols[(i + 1) % n], pos - i));
+    }
+    const pal = (fase) => LUT[Math.floor((((fase / n) % 1) + 1) % 1 * 96) % 96];
+    const fuerza = Math.min(1, 0.35 + n * 0.12);
+    // relleno del sombrero: campo de color que fluye + patrón de luz que va cambiando
+    const cs = Math.max(2, Math.round(rx / 42));
+    const modo = Math.floor(t / 7) % 3, env = Math.pow(Math.sin(Math.PI * ((t % 7) / 7)), 0.6);
+    const cy0 = capBase - ch * 0.3;
+    for (let dy = 0; dy < ch - 1; dy += cs) {
+      const w = Math.floor(rx * Math.sqrt(Math.max(0, 1 - (dy / ch) ** 2))) - 2;
+      if (w < 2) continue;
+      for (let x = -w; x < w; x += cs) {
+        const u = x / rx, v = dy / ch;
+        const fase = u * 0.9 + v * 0.8 + t * 0.22 + 0.6 * Math.sin(t * 0.35 + v * 3 + u * 2);
+        let luz = 0;
+        if (modo === 0) luz = Math.max(0, 1 - Math.abs(u + v * 0.7 - (((t * 0.13) % 1) * 3 - 1.3)) / 0.28);
+        else if (modo === 1) { const r = Math.hypot(x, (capBase - dy) - cy0) / rx; luz = Math.max(0, 1 - Math.abs(r - ((t * 0.11) % 1) * 1.5) / 0.14); }
+        else luz = Math.pow(0.5 + 0.5 * Math.sin(Math.atan2(cy0 - (capBase - dy), x) * 5 + t * 1.1), 3) * 0.7 * (1 - v * 0.4);
+        g.globalAlpha = (0.1 + 0.22 * fuerza) * (0.8 + 0.2 * Math.sin(t + u * 4));
+        g.fillStyle = pal(fase);
+        g.fillRect(cx + x, capBase - 3 - dy, cs, cs);
+        if (luz > 0.04) { g.globalAlpha = luz * env * 0.38 * fuerza; g.fillStyle = "#ffffff"; g.fillRect(cx + x, capBase - 3 - dy, cs, cs); }
       }
     }
-    // aura: arcos suaves fuera del borde, del color que toca en cada momento
-    for (let k = 0; k < 3; k++) {
-      g.globalAlpha = (0.14 - k * 0.035) * (0.5 + 0.5 * pulso) * Math.min(1, 0.5 + n * 0.12);
-      g.fillStyle = cols[Math.floor(t * 0.6 + k) % n];
-      const rr = rx + 2 + k * 2, hh = ch + 2 + k * 2, pasos = Math.round(rr * 1.6);
-      for (let i = 0; i <= pasos; i++) {
-        const a = (i / pasos) * Math.PI;
-        g.fillRect(Math.round(cx + Math.cos(a) * rr), Math.round(capBase - 2 - Math.sin(a) * hh), 2, 2);
-      }
+    // todos los contornos se iluminan: borde del sombrero, tallo y bordes de la base
+    g.globalAlpha = 0.5 + 0.4 * fuerza;
+    for (let dy = 0; dy < ch; dy++) {
+      const w1 = Math.round(rx * Math.sqrt(Math.max(0, 1 - (dy / ch) ** 2))), w2 = Math.round(rx * Math.sqrt(Math.max(0, 1 - ((dy + 1) / ch) ** 2)));
+      const ancho = Math.max(1, w1 - w2 + 1), y = capBase - dy - 1;
+      g.fillStyle = pal(dy / ch * 0.9 + t * 0.4);
+      g.fillRect(cx - w1, y, ancho, 1);
+      g.fillStyle = pal(1.5 - dy / ch * 0.9 + t * 0.4);
+      g.fillRect(cx + w1 - ancho, y, ancho, 1);
     }
-    // guirnalda de luces que corren por el borde del sombrero
-    const focos = 9 + n * 3;
-    for (let k = 0; k < focos; k++) {
-      const a = Math.PI * (0.04 + 0.92 * (k / (focos - 1)));
-      const x = Math.round(cx + Math.cos(a) * (rx - 1)), y = Math.round(capBase - 3 - Math.sin(a) * (ch - 1));
-      const col = cols[(k + Math.floor(t * 2.5)) % n], prendido = (k + Math.floor(t * 3.5)) % 3 !== 0;
-      if (!prendido) { g.globalAlpha = 0.5; g.fillStyle = "#3a3a52"; g.fillRect(x, y, 2, 2); continue; }
-      g.globalAlpha = 0.18; disco(x, y, 3, col);
-      g.globalAlpha = 1; g.fillStyle = col; g.fillRect(x, y, 2, 2);
-      g.fillStyle = "#fff"; g.fillRect(x, y, 1, 1);
+    for (let i = 0; i < rx * 2; i += 1) { g.fillStyle = pal(i / (rx * 2) * 1.6 + t * 0.4 + 0.5); g.fillRect(cx - rx + i, capBase - 1, 1, 1); }
+    for (let y = capBase + 1; y < groundY; y++) {
+      const flare = groundY - y <= 3 ? 3 - (groundY - y) + 1 : 0, wt = mitad + flare;
+      g.fillStyle = pal((y - capBase) / Math.max(1, groundY - capBase) * 0.9 + t * 0.4 + 0.2);
+      g.fillRect(cx - wt, y, 1, 1); g.fillRect(cx + wt - 1, y, 1, 1);
+    }
+    // el tronco también respira color por dentro (bandas verticales muy suaves)
+    g.globalAlpha = 0.04 + 0.05 * fuerza;
+    for (let y = capBase + 3; y < groundY - 1; y += 3) { g.fillStyle = pal((y - capBase) * 0.035 - t * 0.3); g.fillRect(cx - mitad + 1, y, mitad * 2 - 2, 3); }
+    g.globalAlpha = 1;
+    // esporas de luz alrededor: aparecen, brillan y se apagan; hay más (y más cerca) cuantos más colores
+    const meta = Math.min(90, 14 + n * 8);
+    while (esporasLuz.length < meta) esporasLuz.push({ dur: 0, t: 0 });
+    esporasLuz.length = Math.min(esporasLuz.length, meta);
+    for (const e of esporasLuz) {
+      e.t += luzDt;
+      if (e.t >= e.dur) {
+        const zona = Math.random(), cerca = Math.pow(Math.random(), 2.2); // más densas pegadas al hongo
+        if (zona < 0.6) { const a = -0.12 * Math.PI + Math.random() * 1.24 * Math.PI, d = 1 + cerca * 0.5; e.x = cx + Math.cos(a) * rx * d; e.y = capBase - 2 - Math.sin(a) * ch * d; }
+        else if (zona < 0.85) { const a = Math.random() * Math.PI, d = Math.random() * 0.9; e.x = cx + Math.cos(a) * rx * d; e.y = capBase - 3 - Math.sin(a) * ch * d; }
+        else { const lado = Math.random() < 0.5 ? -1 : 1; e.x = cx + lado * (mitad + 2 + cerca * mitad * 2.5); e.y = capBase + 3 + Math.random() * Math.max(1, groundY - capBase - 6); }
+        e.vx = (Math.random() - 0.5) * 3; e.vy = -1 - Math.random() * 3;
+        e.dur = 1.4 + Math.random() * 2.4; e.t = 0; e.col = cols[Math.floor(Math.random() * n)]; e.r = Math.random() < 0.25 ? 2 : 1; e.int = 0.6 + 0.4 * (1 - cerca);
+      }
+      e.x += e.vx * luzDt; e.y += e.vy * luzDt;
+      const k = Math.sin(Math.PI * (e.t / e.dur)) ** 2 * e.int;
+      g.globalAlpha = 0.16 * k; disco(Math.round(e.x), Math.round(e.y), 3 + e.r, e.col);
+      g.globalAlpha = Math.min(1, 1.1 * k); g.fillStyle = e.col; g.fillRect(Math.round(e.x), Math.round(e.y), e.r, e.r);
+      if (k > 0.55) { g.fillStyle = "#fff"; g.fillRect(Math.round(e.x), Math.round(e.y), 1, 1); }
     }
     g.globalAlpha = 1;
-    // chispas de colores que suben desde el sombrero
-    if (Math.random() < luzDt * (1 + n * 1.6)) {
-      const a = Math.random() * Math.PI, x = cx + Math.cos(a) * rx * Math.random(), y = capBase - 3 - Math.sin(a) * ch * Math.random();
-      part(x, y, (Math.random() - 0.5) * 6, -6 - Math.random() * 8, { tipo: "mota", dur: 1.1 + Math.random() * 0.8, col: cols[Math.floor(Math.random() * n)], r: 1 });
-    }
   }
 
   // Edificios: hongo con decoración propia en el sombrero y en el tallo.
