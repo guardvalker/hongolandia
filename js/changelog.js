@@ -1,5 +1,15 @@
 export const CHANGELOG = [
   {
+    v: "0.8.0",
+    fecha: "2026-10-03",
+    cambios: [
+      "Nuevo edificio: Vivero hongil (aparece en el hongo madre al juntar 2.500 esporas; se ubica en el piso como el conservatorio).",
+      "Nuevo honguito: el Jardinero, que se compra desde el vivero. Camina a un punto del piso, lo riega con su regadera y ahí brota un honguito pasajero.",
+      "Los brotes duran unos 12 a 18 segundos, titilan y se desvanecen convirtiéndose en una espora que viaja al hongo madre, así el piso nunca se llena.",
+      "Los edificios ahora se acomodan solos para no pisarse entre sí ni con el hongo madre.",
+    ],
+  },
+  {
     v: "0.7.3",
     fecha: "2026-10-03",
     cambios: [

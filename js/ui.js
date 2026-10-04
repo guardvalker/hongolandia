@@ -107,7 +107,7 @@ export function crearUI(api) {
     api.estado().flags.abrioMadre = true;
     abrir("madre", "Hongo madre", () => {
       filasHonguitos(undefined);
-      const edificios = Object.values(EDIFICIOS).filter((e) => !api.estado().edificios[e.id]);
+      const edificios = Object.values(EDIFICIOS).filter((e) => !api.estado().edificios[e.id] && api.estado().total.gte(e.desbloqueo));
       if (edificios.length) {
         seccion("Edificios");
         for (const ed of edificios) {

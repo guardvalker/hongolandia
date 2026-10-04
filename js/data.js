@@ -18,7 +18,15 @@ export const EDIFICIOS = {
     nombre: "Conservatorio hongil",
     desc: "Un hongo con aires musicales. Hace crecer un 15% al hongo madre y habilita a los músicos.",
     costo: D(1000),
+    desbloqueo: D(0), // total de esporas a partir del cual aparece en el hongo madre
     crecimientoMadre: 1.15,
+  },
+  vivero: {
+    id: "vivero",
+    nombre: "Vivero hongil",
+    desc: "Un hongo con invernadero. Habilita a los jardineros, que riegan el piso y hacen brotar honguitos pasajeros.",
+    costo: D(8000),
+    desbloqueo: D(2500),
   },
 };
 
@@ -42,6 +50,16 @@ export const HONGUITOS = {
     crecimiento: 1.35,
     prod: D(0.4),
     casa: "conservatorio", // se compra desde ese edificio, no desde el hongo madre
+  },
+  jardinero: {
+    id: "jardinero",
+    nombre: "Jardinero",
+    sprite: "jardinero",
+    desc: "Riega el piso y brotan honguitos que se desvanecen y se vuelven esporas.",
+    costoBase: D(3000),
+    crecimiento: 1.4,
+    prod: D(2),
+    casa: "vivero",
   },
 };
 

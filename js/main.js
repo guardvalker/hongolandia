@@ -60,8 +60,8 @@ canvas.addEventListener("click", (e) => {
   if (hit && hit.quien === "madre") {
     escena.pulsoMadre();
     ui.abrirMadre(escena.rectMadre);
-  } else if (hit && hit.quien === "conservatorio") {
-    ui.abrirCasa("conservatorio", escena.rectConservatorio);
+  } else if (hit && EDIFICIOS[hit.quien]) {
+    ui.abrirCasa(hit.quien, () => escena.rectEdificio(hit.quien));
   }
 });
 

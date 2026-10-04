@@ -3,8 +3,9 @@
 // del arte) y se escala con un factor entero sin suavizado. No hay sprites ni fotogramas:
 // los honguitos son un bitmap diminuto que se mueve con rebotes y estiramientos por código.
 
-const MAX_VISUALES = { basico: 28, musico: 16 }; // honguitos dibujados por tipo (el número real puede ser enorme)
+const MAX_VISUALES = { basico: 28, musico: 16, jardinero: 10 }; // honguitos dibujados por tipo (el número real puede ser enorme)
 const MAX_PARTICULAS = 300;
+const MAX_BROTES = 40; // honguitos pasajeros que dejan los jardineros
 const ANCHO_REF = 300; // celdas del lado corto de la pantalla
 const VEL = 28; // celdas/seg al caminar
 const TAU = Math.PI * 2;
@@ -45,7 +46,12 @@ const PATAS = [".ww...ww.", "..ww.ww.."];
 
 const VIOLETA = "#a77bff";
 const BONUS_CONSERV = 1.15; // el conservatorio agranda al hongo madre
-const CONS = { w: 36, ch: 19, sw: 15, sh: 13 }; // conservatorio hongil
+const VERDE = "#2fa84f";
+// medidas de los edificios (mismo formato que MADRE)
+const TAM = {
+  conservatorio: { w: 36, ch: 19, sw: 15, sh: 13 },
+  vivero: { w: 38, ch: 20, sw: 16, sh: 14 },
+};
 const NOTA = ["..##.", "..#.#", "..#..", "..#..", "###..", "###.."];
 
 // medidas del hongo madre por etapa: ancho del sombrero, alto del sombrero, ancho y alto del tallo
@@ -55,6 +61,8 @@ const MADRE = [
   { w: 66, ch: 38, sw: 28, sh: 26 },
   { w: 92, ch: 54, sw: 38, sh: 36 },
 ];
+
+import { EDIFICIOS, HONGUITOS } from './data.js';
 
 const MADRE_GRANDE = MADRE.map((m) => ({ w: Math.round(m.w * BONUS_CONSERV), ch: Math.round(m.ch * BONUS_CONSERV), sw: Math.round(m.sw * BONUS_CONSERV), sh: Math.round(m.sh * BONUS_CONSERV) }));
 
@@ -67,9 +75,10 @@ export function crearEscena(canvas) {
   let t = 0, etapaPrev = null, inicial = true, flash = 0;
 
   const madre = { x: 0, pulso: 0, brillo: 0 };
-  let conservatorio = null; // { x } en celdas, cuando está construido
+  const edif = {}; // id -> { x } en celdas, para los edificios construidos
+  const brillos = {}; // id -> destello del edificio (0..1)
+  const brotes = []; // honguitos pasajeros regados por los jardineros
   let bonusMadre = false;
-  let consBrillo = 0;
   let colocando = null; // { id, x } mientras el jugador elige dónde ponerlo
   const visuales = [];
   const particulas = [];
@@ -98,6 +107,15 @@ export function crearEscena(canvas) {
   }
   const spritesHongo = PALETA.map((col) => [0, 1].map((pose) => hacerSprite(col, PATAS[pose], false)));
   const spritesMusico = [hacerSprite(VIOLETA, PATAS[0], false), hacerSprite(VIOLETA, PATAS[1], false), hacerSprite(VIOLETA, PATAS[0], 1), hacerSprite(VIOLETA, PATAS[0], 2)];
+  const spritesJard = [0, 1].map((pose) => hacerSprite(VERDE, PATAS[pose], 0));
+  const BROTE = [".ccc.", "ccccc", ".www.", ".www."];
+  const spritesBrote = PALETA.map((col) => {
+    const c = document.createElement("canvas");
+    c.width = 5; c.height = 4;
+    const x = c.getContext("2d");
+    BROTE.forEach((fila, y) => { for (let i = 0; i < 5; i++) { if (fila[i] === ".") continue; x.fillStyle = fila[i] === "c" ? col : BLANCO; x.fillRect(i, y, 1, 1); } });
+    return c;
+  });
   const spritesNota = PALETA.map((col) => {
     const c = document.createElement("canvas");
     c.width = 5; c.height = 6;
@@ -189,8 +207,9 @@ export function crearEscena(canvas) {
   const alturaMadre = () => { const m = medidas(); return m.ch + m.sh; };
 
   function nuevoVisual(i, tipo, desdePuerta) {
-    const origen = tipo === "musico" ? conservatorio.x : madre.x;
-    const x = desdePuerta ? origen + (Math.random() - 0.5) * 12 : tipo === "musico" ? origen + (Math.random() - 0.5) * 50 : 14 + Math.random() * (Wc - 28);
+    const casa = HONGUITOS[tipo].casa;
+    const origen = casa ? edif[casa].x : madre.x;
+    const x = desdePuerta ? origen + (Math.random() - 0.5) * 12 : casa ? origen + (Math.random() - 0.5) * 50 : 14 + Math.random() * (Wc - 28);
     return {
       i, tipo, cantaEn: 2 + Math.random() * 4, tCanta: 0, notaT: 0, x, dir: Math.random() < 0.5 ? -1 : 1, col: i % PALETA.length,
       modo: "idle", animT: Math.random() * 4, espera: desdePuerta ? 0.3 : 0.5 + Math.random() * 2,
@@ -200,8 +219,9 @@ export function crearEscena(canvas) {
   }
 
   function sincronizarVisuales(state) {
-    for (const tipo of ["basico", "musico"]) {
-      if (tipo === "musico" && !conservatorio) continue;
+    for (const tipo of Object.keys(MAX_VISUALES)) {
+      const casa = HONGUITOS[tipo].casa;
+      if (casa && !edif[casa]) continue;
       const n = Math.min(state.honguitos[tipo] || 0, MAX_VISUALES[tipo]);
       let cuenta = visuales.filter((v) => v.tipo === tipo).length;
       while (cuenta < n) {
@@ -228,11 +248,12 @@ export function crearEscena(canvas) {
   }
   function aroPart(x, y, r1, dur = 0.5) { part(x, y, 0, 0, { tipo: "aro", r1, dur }); }
 
-  function emitirEspora(v) {
+  const emitirEspora = (v) => lanzarEspora(v.x, groundY - 14, PALETA[v.col]);
+  function lanzarEspora(x, y, col) {
     const m = medidas();
-    part(v.x, groundY - 14, 0, 0, {
-      tipo: "viaje", col: PALETA[v.col],
-      x0: v.x, y0: groundY - 14,
+    part(x, y, 0, 0, {
+      tipo: "viaje", col,
+      x0: x, y0: y,
       x1: madre.x + (Math.random() - 0.5) * m.w * 0.5, y1: groundY - m.sh - m.ch * 0.5,
       dur: 0.8 + Math.random() * 0.3, arco: 20 + Math.random() * 24, estela: 0,
     });
@@ -244,11 +265,65 @@ export function crearEscena(canvas) {
     return { x: u * u * p.x0 + 2 * u * e * cx + e * e * p.x1, y: u * u * p.y0 + 2 * u * e * cy + e * e * p.y1 };
   }
 
-  // Posición válida de un edificio: dentro de la pantalla y sin pisar al hongo madre.
-  function xValida(x, ancho) {
-    const mitad = ancho / 2, hueco = medidas().w / 2 + mitad + 6, lim = mitad + 4;
-    if (Math.abs(x - madre.x) < hueco) x = madre.x + (x >= madre.x ? hueco : -hueco);
-    return clamp(x, lim, Wc - lim);
+  // Posición libre de algo de `ancho` celdas: dentro de la pantalla y sin pisar a los obstáculos
+  // (hongo madre y edificios), corriéndolo al lado libre más cercano.
+  function xLibre(x, ancho, obst) {
+    const lim = ancho / 2 + 4;
+    x = clamp(x, lim, Wc - lim);
+    for (let pasada = 0; pasada < 4; pasada++) {
+      let movido = false;
+      for (const o of obst) {
+        const hueco = o.w / 2 + ancho / 2 + 6;
+        if (Math.abs(x - o.x) >= hueco) continue;
+        const der = o.x + hueco, izq = o.x - hueco;
+        const okDer = der <= Wc - lim, okIzq = izq >= lim;
+        x = okDer && (!okIzq || Math.abs(der - x) <= Math.abs(izq - x)) ? der : izq;
+        x = clamp(x, lim, Wc - lim);
+        movido = true;
+      }
+      if (!movido) break;
+    }
+    return x;
+  }
+  const obstaculos = () => [{ x: madre.x, w: medidas().w }, ...Object.entries(edif).map(([id, e]) => ({ x: e.x, w: TAM[id].w }))];
+
+  // Jardinero: camina a un punto libre del piso, lo riega y ahí brota un honguito pasajero.
+  function actualizarJardinero(v, dt) {
+    v.alfa = Math.min(1, v.alfa + dt * 2.5);
+    v.animT += dt;
+    v.hop = 0;
+    v.estira = 0;
+    if (v.modo === "idle") {
+      v.estira = Math.sin(v.animT * 3 + v.i) * 0.5;
+      v.espera -= dt;
+      if (v.espera <= 0) {
+        if (brotes.length >= MAX_BROTES) { v.espera = 2; return; }
+        v.meta = xLibre(12 + Math.random() * (Wc - 24), 30, obstaculos());
+        v.dir = Math.sign(v.meta - v.x) || 1;
+        v.modo = "walk";
+      }
+    } else if (v.modo === "walk") {
+      v.hop = Math.abs(Math.sin(v.animT * 11)) * 1.5;
+      const d = v.meta - v.x, paso = VEL * 0.8 * dt;
+      if (Math.abs(d) <= paso) { v.x = v.meta; v.modo = "riega"; v.tRiega = 0; v.gotaT = 0; }
+      else v.x += Math.sign(d) * paso;
+    } else if (v.modo === "riega") {
+      v.tRiega += dt;
+      v.gotaT -= dt;
+      if (v.gotaT <= 0) {
+        v.gotaT = 0.07;
+        part(v.x + v.dir * 12, groundY - 5, v.dir * (4 + Math.random() * 4), 8, { tipo: "gota", dur: 1 });
+      }
+      if (v.tRiega > 1.5) {
+        brotes.push({ x: Math.round(v.x + v.dir * 12), t: 0, vida: 12 + Math.random() * 6, col: Math.floor(Math.random() * PALETA.length) });
+        motas(v.x + v.dir * 12, groundY - 3, 4, 0.4, PALETA[brotes[brotes.length - 1].col]);
+        v.modo = "idle"; v.espera = 2 + Math.random() * 3;
+      }
+    } else if (v.modo === "salto") {
+      const u = clamp(v.animT / 0.5, 0, 1);
+      v.hop = Math.sin(u * Math.PI) * 9;
+      if (u >= 1) { v.modo = "idle"; v.espera = 0.4 + Math.random(); }
+    }
   }
 
   function actualizarMusico(v, dt) {
@@ -264,7 +339,7 @@ export function crearEscena(canvas) {
         v.modo = "canta"; v.tCanta = 0; v.notaT = 0;
         emitirEspora(v);
       } else if (v.espera <= 0) {
-        v.meta = clamp(conservatorio.x + (Math.random() - 0.5) * 80, 12, Wc - 12);
+        v.meta = clamp(edif.conservatorio.x + (Math.random() - 0.5) * 80, 12, Wc - 12);
         v.dir = Math.sign(v.meta - v.x) || 1;
         v.modo = "walk";
       }
@@ -276,7 +351,7 @@ export function crearEscena(canvas) {
     } else if (v.modo === "canta") {
       v.tCanta += dt;
       v.hop = Math.abs(Math.sin(v.tCanta * 7)) * 1.5;
-      consBrillo = Math.max(consBrillo, 0.5);
+      brillos.conservatorio = Math.max(brillos.conservatorio || 0, 0.5);
       v.notaT -= dt;
       if (v.notaT <= 0) {
         v.notaT = 0.42;
@@ -308,26 +383,34 @@ export function crearEscena(canvas) {
     flash = Math.max(0, flash - dt * 2);
 
     // edificios (el jugador los ubica; la posición se guarda como fracción del ancho)
-    const ec = state.edificios.conservatorio;
-    if (ec) {
-      const nuevo = !conservatorio;
-      bonusMadre = true;
-      conservatorio = { x: xValida(ec.x * Wc, CONS.w) };
+    bonusMadre = Object.keys(state.edificios).some((id) => EDIFICIOS[id]?.crecimientoMadre);
+    const obst = [{ x: madre.x, w: medidas().w }];
+    for (const id of Object.keys(EDIFICIOS)) {
+      const ec = state.edificios[id];
+      if (!ec) { delete edif[id]; continue; }
+      const nuevo = !edif[id];
+      const x = xLibre(ec.x * Wc, TAM[id].w, obst);
+      edif[id] = { x };
+      obst.push({ x, w: TAM[id].w });
       if (nuevo && !inicial) {
-        const cy = groundY - CONS.ch - CONS.sh * 0.5;
-        madre.pulso = 1; flash = 0.6;
-        motas(conservatorio.x, cy, 40, 1.4);
-        aroPart(conservatorio.x, cy, 50, 0.7);
-        aroPart(madre.x, groundY - alturaMadre() * 0.6, 70, 0.8);
-        motas(madre.x, groundY - alturaMadre(), 30, 1.4);
+        const cy = groundY - TAM[id].ch - TAM[id].sh * 0.5;
+        flash = 0.6;
+        motas(x, cy, 40, 1.4);
+        aroPart(x, cy, 50, 0.7);
+        if (EDIFICIOS[id].crecimientoMadre) {
+          madre.pulso = 1;
+          aroPart(madre.x, groundY - alturaMadre() * 0.6, 70, 0.8);
+          motas(madre.x, groundY - alturaMadre(), 30, 1.4);
+        }
       }
-    } else { conservatorio = null; bonusMadre = false; }
-    consBrillo = Math.max(0, consBrillo - dt * 2);
+    }
+    for (const id in brillos) brillos[id] = Math.max(0, brillos[id] - dt * 2);
 
     sincronizarVisuales(state);
     const mHalf = medidas().w / 2;
     for (const v of visuales) {
       if (v.tipo === "musico") { actualizarMusico(v, dt); continue; }
+      if (v.tipo === "jardinero") { actualizarJardinero(v, dt); continue; }
       v.alfa = Math.min(1, v.alfa + dt * 2.5);
       v.animT += dt;
       v.hop = 0;
@@ -376,6 +459,16 @@ export function crearEscena(canvas) {
       }
     }
 
+    // los brotes se desvanecen con el tiempo y se vuelven una espora que viaja al hongo madre
+    for (let i = brotes.length - 1; i >= 0; i--) {
+      const b = brotes[i];
+      b.t += dt;
+      if (b.t < b.vida) continue;
+      lanzarEspora(b.x, groundY - 4, PALETA[b.col]);
+      motas(b.x, groundY - 3, 4, 0.5, PALETA[b.col]);
+      brotes.splice(i, 1);
+    }
+
     for (const f of flotantes) {
       f.y -= f.vy * dt;
       if (f.y < -6) { f.y = groundY - 2; f.x = Math.random() * Wc; }
@@ -397,6 +490,9 @@ export function crearEscena(canvas) {
       }
       if (p.tipo === "mota") {
         p.x += p.vx * dt; p.y += p.vy * dt; p.vy += 90 * dt;
+      } else if (p.tipo === "gota") {
+        p.x += p.vx * dt; p.y += p.vy * dt; p.vy += 140 * dt;
+        if (p.y >= groundY) p.t = p.dur;
       } else if (p.tipo === "nota") {
         p.x += p.vx * dt; p.y += p.vy * dt;
       } else if (p.tipo === "viaje") {
@@ -454,27 +550,42 @@ export function crearEscena(canvas) {
     }
   }
 
-  // Conservatorio hongil: hongo con un pentagrama y notas de colores en el sombrero.
-  function dibujarConservatorio(x, alfa = 1) {
+  // Edificios: hongo de contorno blanco + decoración propia en el sombrero.
+  function dibujarEdificio(id, x, alfa = 1) {
+    const m = TAM[id];
     const cx = Math.round(x);
     g.globalAlpha = alfa;
-    const { capBase, ch, rx } = hongoBase(cx, CONS, 0, consBrillo);
-    g.fillStyle = "#4a4a66";
-    for (let k = 0; k < 5; k++) {
-      const h = 4 + k * 3;
-      const w = Math.floor(rx * Math.sqrt(Math.max(0, 1 - (h / ch) ** 2))) - 3;
-      if (w > 2) g.fillRect(cx - w, capBase - h, w * 2, 1);
+    const { capBase, ch, rx } = hongoBase(cx, m, 0, brillos[id] || 0);
+    if (id === "conservatorio") {
+      // pentagrama con notas de colores y una nota blanca arriba
+      g.fillStyle = "#4a4a66";
+      for (let k = 0; k < 5; k++) {
+        const h = 4 + k * 3;
+        const w = Math.floor(rx * Math.sqrt(Math.max(0, 1 - (h / ch) ** 2))) - 3;
+        if (w > 2) g.fillRect(cx - w, capBase - h, w * 2, 1);
+      }
+      [[-10, 1], [-3, 3], [4, 0], [11, 2]].forEach(([dx, linea], k) => disco(cx + dx, capBase - 4 - linea * 3, 1, PALETA[(k + 1) % PALETA.length]));
+      g.drawImage(spritesNota[PALETA.length - 1], cx - 2, capBase - ch - 8);
+    } else if (id === "vivero") {
+      // brotes verdes en el sombrero y una gota de agua arriba
+      [[-9, 3], [-3, 5], [4, 3], [10, 5]].forEach(([dx, h]) => {
+        g.fillStyle = "#3fe08a";
+        g.fillRect(cx + dx, capBase - 2 - h, 1, h);
+        g.fillRect(cx + dx - 1, capBase - 2 - h, 1, 1);
+        g.fillRect(cx + dx + 1, capBase - 3 - h, 1, 1);
+      });
+      g.fillStyle = "#2eaaf5";
+      const top = capBase - ch - 7;
+      g.fillRect(cx, top, 1, 1); g.fillRect(cx - 1, top + 1, 3, 1); g.fillRect(cx - 2, top + 2, 5, 2); g.fillRect(cx - 1, top + 4, 3, 1);
     }
-    const notas = [[-10, 1], [-3, 3], [4, 0], [11, 2]];
-    notas.forEach(([dx, linea], k) => disco(cx + dx, capBase - 4 - linea * 3, 1, PALETA[(k + 1) % PALETA.length]));
-    g.drawImage(spritesNota[PALETA.length - 1], cx - 2, capBase - ch - 8);
     g.globalAlpha = 1;
   }
 
   function dibujarHonguito(v) {
     const base = Math.round(groundY - v.hop);
     const pose = v.modo === "walk" ? (Math.floor(v.animT * 11) % 2) : 0;
-    const spr = v.tipo === "musico" ? spritesMusico[v.modo === "canta" ? [0, 2, 3, 2][Math.floor(v.tCanta * 8) % 4] : pose] : spritesHongo[v.col][pose];
+    const spr = v.tipo === "musico" ? spritesMusico[v.modo === "canta" ? [0, 2, 3, 2][Math.floor(v.tCanta * 8) % 4] : pose]
+      : v.tipo === "jardinero" ? spritesJard[pose] : spritesHongo[v.col][pose];
     const alto = HH + Math.round(v.estira);
     const x = Math.round(v.x);
     g.globalAlpha = v.alfa;
@@ -483,6 +594,15 @@ export function crearEscena(canvas) {
     g.drawImage(spr, x - 4, base - alto, HW, alto);
     g.restore();
     g.globalAlpha = 1;
+    if (v.modo === "riega") {
+      // regadera: cuerpo blanco con pico y asa, apoyada al costado
+      const s = v.dir, bx = x + s * 7, by = base - 9;
+      g.fillStyle = BLANCO;
+      g.fillRect(bx - 2, by, 5, 3);
+      g.fillRect(bx + 3 * s, by + 1, 1, 1);
+      g.fillRect(bx + 4 * s, by + 2, 1, 1);
+      g.fillRect(bx - 3 * s, by - 1, 1, 3);
+    }
     if (v.llevando) {
       const ox = x + (v.dir > 0 ? 1 : -1), oy = base - alto - 3 + Math.round(Math.sin(t * 6 + v.i));
       disco(ox, oy, 2, PALETA[v.col]);
@@ -495,6 +615,9 @@ export function crearEscena(canvas) {
       if (p.tipo === "viaje") {
         const q = puntoViaje(p);
         disco(q.x, q.y, 2, p.col);
+      } else if (p.tipo === "gota") {
+        g.fillStyle = "#2eaaf5";
+        g.fillRect(Math.round(p.x), Math.round(p.y), 1, 2);
       } else if (p.tipo === "nota") {
         g.globalAlpha = k < 0.65 ? 1 : (1 - k) / 0.35;
         g.drawImage(spritesNota[p.col], Math.round(p.x + Math.sin(p.t * 5 + p.fase) * 2), Math.round(p.y));
@@ -533,10 +656,17 @@ export function crearEscena(canvas) {
     g.globalAlpha = 1;
 
     dibujarMadre();
-    if (conservatorio) dibujarConservatorio(conservatorio.x);
+    for (const id in edif) dibujarEdificio(id, edif[id].x);
+    for (const b of brotes) {
+      const falta = b.vida - b.t;
+      if (falta < 1.5 && Math.floor(b.t * 8) % 2) continue;
+      if (b.t < 0.25) { g.fillStyle = BLANCO; g.fillRect(b.x, groundY - 1, 1, 1); }
+      else if (b.t < 0.5) { g.fillStyle = BLANCO; g.fillRect(b.x, groundY - 2, 1, 2); }
+      else g.drawImage(spritesBrote[b.col], b.x - 2, groundY - 4);
+    }
     for (const v of visuales) dibujarHonguito(v);
     dibujarParticulas();
-    if (colocando) dibujarConservatorio(xValida(colocando.x, CONS.w), 0.55);
+    if (colocando) dibujarEdificio(colocando.id, xLibre(colocando.x, TAM[colocando.id].w, obstaculos()), 0.55);
 
     if (flash > 0.01) { g.globalAlpha = flash * 0.3; g.fillStyle = BLANCO; g.fillRect(0, 0, Wc, Hc); g.globalAlpha = 1; }
     ctx.imageSmoothingEnabled = false;
@@ -550,7 +680,10 @@ export function crearEscena(canvas) {
     const cy = (py * dpr) / S;
     const m = medidas();
     if (Math.abs(cx - madre.x) < m.w / 2 && cy > groundY - alturaMadre() && cy < groundY + 2) return { quien: "madre" };
-    if (conservatorio && Math.abs(cx - conservatorio.x) < CONS.w / 2 && cy > groundY - CONS.ch - CONS.sh - 8 && cy < groundY + 2) return { quien: "conservatorio" };
+    for (const id in edif) {
+      const m = TAM[id];
+      if (Math.abs(cx - edif[id].x) < m.w / 2 && cy > groundY - m.ch - m.sh - 8 && cy < groundY + 2) return { quien: id };
+    }
     for (let i = visuales.length - 1; i >= 0; i--) {
       const v = visuales[i];
       if (Math.abs(cx - v.x) < 8 && cy > groundY - 16 && cy < groundY + 2) {
@@ -567,9 +700,9 @@ export function crearEscena(canvas) {
     return { x0: (madre.x - m.w / 2) * k, x1: (madre.x + m.w / 2) * k, y0: (groundY - alturaMadre()) * k, y1: groundY * k };
   }
 
-  function rectConservatorio() {
-    const k = S / dpr;
-    return { x0: (conservatorio.x - CONS.w / 2) * k, x1: (conservatorio.x + CONS.w / 2) * k, y0: (groundY - CONS.ch - CONS.sh) * k, y1: groundY * k };
+  function rectEdificio(id) {
+    const k = S / dpr, m = TAM[id], x = edif[id].x;
+    return { x0: (x - m.w / 2) * k, x1: (x + m.w / 2) * k, y0: (groundY - m.ch - m.sh) * k, y1: groundY * k };
   }
 
   // ---- colocación: el jugador elige dónde poner un edificio comprado ----
@@ -579,7 +712,7 @@ export function crearEscena(canvas) {
   const cancelarColocacion = () => { colocando = null; };
   function confirmarColocacion(px) {
     if (!colocando) return null;
-    const x = xValida(aCeldas(px), CONS.w);
+    const x = xLibre(aCeldas(px), TAM[colocando.id].w, obstaculos());
     colocando = null;
     return x / Wc;
   }
@@ -591,5 +724,5 @@ export function crearEscena(canvas) {
     aroPart(madre.x, groundY - alturaMadre() * 0.6, 34, 0.5);
   }
 
-  return { resize, update, draw, toque, pulsoMadre, rectMadre, rectConservatorio, iniciarColocacion, moverColocacion, cancelarColocacion, confirmarColocacion };
+  return { resize, update, draw, toque, pulsoMadre, rectMadre, rectEdificio, iniciarColocacion, moverColocacion, cancelarColocacion, confirmarColocacion };
 }
