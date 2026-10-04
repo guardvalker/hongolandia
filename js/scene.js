@@ -571,7 +571,8 @@ export function crearEscena(canvas, opciones = {}) {
   // alto que el tronco (madre chico), estorba con todo el sombrero.
   const obstaculoMadre = (alto) => { const m = medidas(); return { x: madre.x, w: alto + 2 <= m.sh ? m.sw + 8 : m.w }; };
   const altoEdif = (id) => tam(id).ch + tam(id).sh + (TAM_BASE[id].extra ?? 8);
-  const obstaculos = (alto = 99) => [obstaculoMadre(alto), ...Object.entries(edif).filter(([id]) => !(colocando?.mover && colocando.id === id)).map(([id, e]) => ({ x: e.x, w: tam(id).w }))];
+  // `conMadre` = false al ubicar edificios: se pueden construir directamente sobre el hongo madre (delante de su tronco)
+  const obstaculos = (alto = 99, conMadre = true) => [...(conMadre ? [obstaculoMadre(alto)] : []), ...Object.entries(edif).filter(([id]) => !(colocando?.mover && colocando.id === id)).map(([id, e]) => ({ x: e.x, w: tam(id).w }))];
 
   // Jardinero: camina a un punto libre del piso, lo riega y ahí brota un honguito pasajero.
   function actualizarJardinero(v, dt) {
@@ -1603,7 +1604,7 @@ export function crearEscena(canvas, opciones = {}) {
       if (!ec) { delete edif[id]; continue; }
       const nuevo = !edif[id];
       if (ec.dx === undefined) ec.dx = ((ec.x ?? 0.5) - 0.5) * Wc0; // partidas viejas: fracción de pantalla -> celdas desde el madre
-      const x = xLibre(C0 + ec.dx, tam(id).w, [obstaculoMadre(altoEdif(id)), ...otros]);
+      const x = xLibre(C0 + ec.dx, tam(id).w, otros); // el hongo madre no los empuja al crecer
       edif[id] = { x };
       otros.push({ x, w: tam(id).w });
       if (nuevo && !inicial) {
@@ -2557,7 +2558,7 @@ export function crearEscena(canvas, opciones = {}) {
     for (const v of visuales) dibujarHonguito(v);
     dibujarParticulas();
     dibujarEventos();
-    if (colocando) dibujarEdificio(colocando.id, xLibre(colocando.x, tam(colocando.id).w, obstaculos(altoEdif(colocando.id))), 0.55);
+    if (colocando) dibujarEdificio(colocando.id, xLibre(colocando.x, tam(colocando.id).w, obstaculos(altoEdif(colocando.id), false)), 0.55);
     g.restore();
 
     if (flash > 0.01) { g.globalAlpha = flash * 0.3; g.fillStyle = BLANCO; g.fillRect(0, 0, Wc, Hc); g.globalAlpha = 1; }
@@ -2571,12 +2572,6 @@ export function crearEscena(canvas, opciones = {}) {
     const cx = (px * dpr) / S - offX();
     const cy = (py * dpr) / S - offY();
     for (const ev of cielo) if (Math.abs(cx - ev.x) < 9 && Math.abs(cy - evY(ev)) < 9) return { quien: "evento", ev };
-    const m = medidas();
-    // el hongo madre: el tronco o el sombrero (elipse), no el rectángulo que los envuelve
-    const enTronco = Math.abs(cx - madre.x) < m.sw / 2 + 3 && cy > groundY - m.sh && cy < groundY + 2;
-    const dyCap = groundY - m.sh - cy;
-    const enSombrero = dyCap >= -1 && dyCap < m.ch && Math.abs(cx - madre.x) < (m.w / 2) * Math.sqrt(Math.max(0, 1 - (dyCap / m.ch) ** 2));
-    if (enTronco || enSombrero) return { quien: "madre" };
     for (const id in edif) {
       if (colocando?.mover && colocando.id === id) continue;
       const m = tam(id);
@@ -2589,6 +2584,13 @@ export function crearEscena(canvas, opciones = {}) {
         return { quien: "honguito", v };
       }
     }
+    // el hongo madre al final: los edificios y honguitos se dibujan delante de él
+    const m = medidas();
+    // el hongo madre: el tronco o el sombrero (elipse), no el rectángulo que los envuelve
+    const enTronco = Math.abs(cx - madre.x) < m.sw / 2 + 3 && cy > groundY - m.sh && cy < groundY + 2;
+    const dyCap = groundY - m.sh - cy;
+    const enSombrero = dyCap >= -1 && dyCap < m.ch && Math.abs(cx - madre.x) < (m.w / 2) * Math.sqrt(Math.max(0, 1 - (dyCap / m.ch) ** 2));
+    if (enTronco || enSombrero) return { quien: "madre" };
     return null;
   }
 
@@ -2610,7 +2612,7 @@ export function crearEscena(canvas, opciones = {}) {
   const cancelarColocacion = () => { colocando = null; };
   function confirmarColocacion(px) {
     if (!colocando) return null;
-    const x = xLibre(aCeldas(px) - offX(), tam(colocando.id).w, obstaculos(altoEdif(colocando.id)));
+    const x = xLibre(aCeldas(px) - offX(), tam(colocando.id).w, obstaculos(altoEdif(colocando.id), false));
     colocando = null;
     return x - C0; // celdas desde el hongo madre
   }

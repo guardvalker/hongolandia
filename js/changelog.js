@@ -1,5 +1,13 @@
 export const CHANGELOG = [
   {
+    v: "0.28.0",
+    fecha: "2026-10-04",
+    cambios: [
+      "Los edificios se pueden construir directamente sobre el hongo madre (delante de su tronco): ya no los empuja al crecer. Cada edificio se queda exactamente donde lo ubicaste, por grande que se ponga el madre.",
+      "Al tocar, los edificios y los honguitos que están delante del madre tienen prioridad sobre el madre (antes tocar uno que estaba delante del tronco abría el madre).",
+    ],
+  },
+  {
     v: "0.27.2",
     fecha: "2026-10-04",
     cambios: [
