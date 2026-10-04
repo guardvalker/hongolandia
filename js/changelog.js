@@ -1,5 +1,15 @@
 export const CHANGELOG = [
   {
+    v: "0.35.1",
+    fecha: "2026-10-04",
+    cambios: [
+      "La ventana de la dungeon ahora es fija: siempre arriba a la derecha de la pantalla y del mismo tamaño (antes se movía con la mina y tapaba cosas).",
+      "Los números de daño y curación ahora son nítidos (cifras de píxeles con borde oscuro, los críticos más grandes). El cartel del objeto encontrado y el resultado final ahora son texto del navegador: se leen bien, ya no están borrosos.",
+      "El jefe es bastante más difícil y toda la dungeon también (el Rey Moho tiene mucha más vida, ataque y defensa; las etapas suben más de nivel de enemigos). Los mercenarios ahora suben un 4% por nivel (antes 8%): con 4 mercenarios de nivel 1 no se le puede ganar; hacen falta unas 8 o más exploraciones para pasar de nivel antes de poder vencerlo.",
+      "El party ahora lleva a los 4 sanos de más nivel (antes iban en orden de clase). Si todos quedan heridos y no se puede explorar, descansan solos (un paso cada 45 segundos) para no trabarse. Si una pelea se alarga demasiado los enemigos se enfurecen y, pasado un tiempo, el party se retira.",
+    ],
+  },
+  {
     v: "0.35.0",
     fecha: "2026-10-04",
     cambios: [

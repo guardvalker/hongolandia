@@ -11,7 +11,7 @@ export const ETAPAS_DUNGEON = 5;
 export const CRISTAL_MULT = 1.05; // cada cristal radiante: producción ×1,05 (se aplica en engine.multiplicador)
 
 // ---- Clases de mercenarios ----
-// hp/atk/def/int (segundos entre ataques) a nivel 1; cada nivel suma un 8% a vida y ataque.
+// hp/atk/def/int (segundos entre ataques) a nivel 1; cada nivel suma un 4% a vida y ataque.
 export const CLASES = [
   { id: "caballero", nombre: "Caballero", rol: "Tanque", color: "#9db4c8", hp: 150, atk: 12, def: 6, int: 1.2, rango: 14, desc: "Espadazos y provoca: los enemigos lo prefieren como blanco." },
   { id: "arquero", nombre: "Arquero", rol: "Distancia", color: "#3fe08a", hp: 80, atk: 14, def: 2, int: 0.9, rango: 70, desc: "Flechas rápidas; cada tanto suelta una lluvia de flechas." },
@@ -33,7 +33,7 @@ export const ENEMIGOS = {
   esqueleto: { nombre: "Esqueleto hongil", hp: 70, atk: 10, def: 2, int: 1.4, rango: 10, vel: 12, color: "#d8d8e8", forma: "esqueleto" },
   arana: { nombre: "Araña de micelio", hp: 60, atk: 12, def: 1, int: 1.2, rango: 10, vel: 16, color: "#c0392b", forma: "arana" },
   esporita: { nombre: "Esporita", hp: 28, atk: 6, def: 0, int: 1.1, rango: 9, vel: 14, color: "#ff9a3d", forma: "esporita" },
-  rey_moho: { nombre: "Rey Moho", hp: 720, atk: 17, def: 5, int: 1.8, rango: 14, vel: 8, color: "#b06bff", forma: "jefe" },
+  rey_moho: { nombre: "Rey Moho", hp: 2200, atk: 27, def: 9, int: 1.6, rango: 14, vel: 8, color: "#b06bff", forma: "jefe" },
 };
 // quién aparece en cada etapa (la 5.ª es el jefe con sus esporitas)
 const ETAPA_ENEMIGOS = [
@@ -86,16 +86,17 @@ export function contratar(state, id) {
   state.dungeon.merc[id] = { nivel: 1, herido: 0 };
   return true;
 }
-export const sanos = (state) => CLASES.filter((c) => state.dungeon.merc[c.id] && !state.dungeon.merc[c.id].herido).map((c) => c.id);
+// sanos, de más nivel a menos (el party lleva a los 4 primeros)
+export const sanos = (state) => CLASES.filter((c) => state.dungeon.merc[c.id] && !state.dungeon.merc[c.id].herido).sort((a, b) => state.dungeon.merc[b.id].nivel - state.dungeon.merc[a.id].nivel).map((c) => c.id);
 export const mercStats = (id, nivel) => {
-  const c = CLASE[id], k = 1 + 0.08 * (nivel - 1);
+  const c = CLASE[id], k = 1 + 0.04 * (nivel - 1);
   return { hp: c.hp * k, atk: c.atk * k };
 };
 
 // ---- Exploración ----
 let run = null; // la exploración en curso (no se guarda)
 let resultado = null; // se entrega una vez a la interfaz
-let esperaAuto = 4;
+let esperaAuto = 4, descansoT = 0;
 export const getRun = () => run;
 export const consumirResultado = () => { const r = resultado; resultado = null; return r; };
 
@@ -118,7 +119,7 @@ function efectivo(r, u) {
   return { atk, def, cd };
 }
 function empezarOnda(state, r) {
-  const e = r.etapa, esc = escalaJefes(state) * (1 + 0.4 * e);
+  const e = r.etapa, esc = escalaJefes(state) * (1 + 0.45 * e);
   const tipos = ETAPA_ENEMIGOS[e];
   const lista = e === ETAPAS_DUNGEON - 1 ? ["rey_moho", ...tipos] : [...tipos.slice(0, 2 + Math.floor(e / 2))].map((t, i) => tipos[(i + r.onda) % tipos.length]);
   r.enemigos = lista.map((t, i) => {
@@ -260,14 +261,14 @@ function actuarEnemigo(r, u, dt) {
   // jefe: golpe de suelo cada tanto (daña a todos)
   if (u.jefe) {
     u.esp -= dt;
-    if (u.esp <= 0) { u.esp = 6; ev(r, { tipo: "temblor", a: u }); for (const p of vivos(r.party)) danar(r, p, danio(u.atkBase * 0.55, p.defBase + r.mult.def), u); }
+    if (u.esp <= 0) { u.esp = 6; ev(r, { tipo: "temblor", a: u }); for (const p of vivos(r.party)) danar(r, p, danio(u.atkBase * 0.7, p.defBase + r.mult.def), u); }
   }
   u.cd -= dt;
   if (u.cd > 0) return;
   u.cd = u.intBase * rnd(0.9, 1.1);
   u.golpe2 = 0.2;
-  const d = efectivo(r, objetivo).def;
-  danar(r, objetivo, danio(u.atkBase, d), u);
+  const d = efectivo(r, objetivo).def, furia = 1 + Math.max(0, (r.faseT - 45) / 15); // si la pelea se alarga, los enemigos se enfurecen
+  danar(r, objetivo, danio(u.atkBase * furia, d), u);
 }
 function cerrar(state, r, victoria) {
   // recompensas: esporas por cada etapa superada (más con el party lleno y con los objetos) y cristal si cayó el jefe
@@ -306,6 +307,11 @@ function cerrar(state, r, victoria) {
 export function tick(state, dt, auto = true) {
   if (!state.edificios?.taberna || !state.dungeon) { run = null; return; }
   if (!run) {
+    // si TODOS están heridos no se puede explorar para curarlos: descansan solos (un paso cada 45 s)
+    if (!sanos(state).length) {
+      descansoT += dt;
+      if (descansoT >= 45) { descansoT = 0; for (const m of Object.values(state.dungeon.merc)) if (m.herido > 0) m.herido--; }
+    } else descansoT = 0;
     esperaAuto -= dt;
     if (esperaAuto <= 0 && state.dungeon.auto !== false && auto && sanos(state).length) { esperaAuto = 4; iniciar(state); }
     return;
@@ -337,7 +343,8 @@ function paso(state, r, dt) {
     if (r.faseT > 2.6) { r.etapa++; r.onda = 0; r.fase = "camina"; r.faseT = 0; r.itemNuevo = null; }
     return;
   }
-  // combate
+  // combate: si se alarga demasiado, el party se retira
+  if (r.faseT > 130) { cerrar(state, r, false); return; }
   for (const u of vivos(r.enemigos)) {
     if (u.veneno) { u.veneno.t -= dt; danar(r, u, u.veneno.dps * dt * 0.5, null, { silencio: true }); if (u.veneno.t <= 0) u.veneno = null; }
     actuarEnemigo(r, u, dt);

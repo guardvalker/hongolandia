@@ -78,6 +78,22 @@ export function dibujarMerc(g, id, x, y, opt = {}) {
 }
 
 // ---- Enemigos ----
+// números chiquitos de 3x5 para los golpes (nítidos a cualquier escala)
+const DIG = { 0: "111101101101111", 1: "010110010010111", 2: "111001111100111", 3: "111001111001111", 4: "101101111001001", 5: "111100111001111", 6: "111100111101111", 7: "111001001010010", 8: "111101111101111", 9: "111101111001111", "+": "000010111010000" };
+function numero(g, str, x, y, col, grande) {
+  const k = grande ? 2 : 1;
+  let cx = x;
+  for (const ch of String(str)) {
+    const gl = DIG[ch];
+    if (!gl) { cx += 4 * k; continue; }
+    for (const [dx, dy, c] of [[-1, 0, "#14141d"], [1, 0, "#14141d"], [0, -1, "#14141d"], [0, 1, "#14141d"], [0, 0, col]]) {
+      g.fillStyle = c;
+      for (let i = 0; i < 15; i++) if (gl[i] === "1") g.fillRect(cx + (i % 3) * k + dx, y + Math.floor(i / 3) * k + dy, k, k);
+    }
+    cx += 4 * k;
+  }
+}
+
 function dibujarEnemigo(g, e, x, y, t) {
   const col = e.color, w = (Math.sin(t * 8 + x) > 0) ? 1 : 0;
   g.fillStyle = col;
@@ -132,14 +148,14 @@ export function crearVistaDungeon({ rectMina, onCerrarAviso }) {
   const caja = document.createElement("div");
   caja.id = "dungeon-vista";
   caja.hidden = true;
-  caja.innerHTML = '<div class="dv-cab"><b class="dv-titulo"></b><span class="dv-estado"></span></div><div class="dv-barra"></div><canvas width="' + W + '" height="' + H + '"></canvas><div class="dv-pie"></div>';
+  caja.innerHTML = '<div class="dv-cab"><b class="dv-titulo"></b><span class="dv-estado"></span></div><div class="dv-barra"></div><div class="dv-lienzo"><canvas width="' + W + '" height="' + H + '"></canvas><div class="dv-aviso" hidden></div><div class="dv-fin" hidden></div></div><div class="dv-pie"></div>';
   document.body.append(caja);
   const titulo = caja.querySelector(".dv-titulo"), estado = caja.querySelector(".dv-estado"), barra = caja.querySelector(".dv-barra"), pie = caja.querySelector(".dv-pie");
-  const cv = caja.querySelector("canvas"), g = cv.getContext("2d");
+  const cv = caja.querySelector("canvas"), g = cv.getContext("2d"), elAviso = caja.querySelector(".dv-aviso"), elFin = caja.querySelector(".dv-fin");
   g.imageSmoothingEnabled = false;
   const segs = [];
   for (let i = 0; i < ETAPAS_DUNGEON; i++) { const s = document.createElement("i"); s.innerHTML = "<u></u>"; barra.append(s); segs.push(s.firstChild); }
-  let t = 0, runViejo = null, sacudida = 0, aviso = null;
+  let t = 0, runViejo = null, sacudida = 0, avisoT = 0, finMostrado = false;
   const proy = [], textos = [], efectos = [];
 
   const posU = (r, u) => (u.lado === "p" ? { x: LIDER + u.x * 1, y: SUELO } : { x: LIDER + (u.x - r.x) * 1.15, y: SUELO });
@@ -155,7 +171,7 @@ export function crearVistaDungeon({ rectMina, onCerrarAviso }) {
       else if (e.tipo === "invoca") efectos.push({ tipo: "humo", u: e.a, t: 0, dur: 0.5 });
       else if (e.tipo === "escudo") efectos.push({ tipo: "escudo", u: e.a, t: 0, dur: 1.2 });
       else if (e.tipo === "temblor") sacudida = 0.45;
-      else if (e.tipo === "objeto") aviso = { o: e.o, t: 0 };
+      else if (e.tipo === "objeto") { avisoT = 2.8; elAviso.innerHTML = '<i style="background:' + e.o.color + '"></i><span><b>' + (e.o.raro ? '★ ' : '') + e.o.nombre + '</b> ' + e.o.desc + '</span>'; elAviso.classList.toggle('raro', !!e.o.raro); elAviso.hidden = false; }
     }
   }
   function fondo(r) {
@@ -246,40 +262,16 @@ export function crearVistaDungeon({ rectMina, onCerrarAviso }) {
       if (q.t > 0.9) { textos.splice(i, 1); continue; }
       const p = posU(r, q.u);
       g.globalAlpha = Math.min(1, (0.9 - q.t) * 3);
-      g.fillStyle = "#14141d"; g.font = (q.big ? "bold 9px" : "8px") + " monospace";
-      const tx = Math.round(p.x - 6 + (q.dx || 0)), ty = Math.round(p.y - (q.u.jefe ? 52 : 24) - q.t * 14);
-      g.fillText(q.txt, tx + 1, ty + 1);
-      g.fillStyle = q.col; g.fillText(q.txt, tx, ty);
+      numero(g, q.txt.replace(/[^0-9+]/g, '') || '0', Math.round(p.x - 5 + (q.dx || 0)), Math.round(p.y - (q.u.jefe ? 54 : 26) - q.t * 12), q.col, q.big);
       g.globalAlpha = 1;
-    }
-    // aviso de objeto encontrado (arriba)
-    if (aviso) {
-      aviso.t += dt;
-      if (aviso.t > 2.4) aviso = null;
-      else {
-        const o = aviso.o;
-        g.fillStyle = "rgba(20,20,29,0.85)"; g.fillRect(6, 3, 138, 14);
-        g.fillStyle = o.color; g.fillRect(9, 6, 8, 8);
-        g.fillStyle = o.raro ? "#ffd23f" : "#fff"; g.font = "8px monospace"; g.fillText((o.raro ? "★ " : "") + o.nombre + ": " + o.desc, 20, 13, 120);
-      }
-    }
-    // resultado
-    if (r.fin) {
-      const f = r.fin;
-      g.fillStyle = "rgba(20,20,29,0.82)"; g.fillRect(0, 14, W, 46);
-      g.fillStyle = f.victoria ? "#3fe08a" : "#ffb347"; g.font = "bold 14px monospace";
-      g.fillText(f.victoria ? "¡Victoria!" : "Retirada del party", 24, 30);
-      g.fillStyle = "#fff"; g.font = "8px monospace";
-      g.fillText(f.cristal ? "¡Cristal radiante para el hongo madre!" : f.victoria ? "Jefe derrotado" : f.etapas + " etapas superadas", 8, 42, 134);
-      if (f.caidos.length) { g.fillStyle = "#ff9a9a"; g.fillText(f.caidos.length + (f.caidos.length === 1 ? " herido" : " heridos") + " (descansan en la taberna)", 8, 54, 134); }
     }
     g.setTransform(1, 0, 0, 1, 0, 0);
   }
   function actualizar(dt) {
     const r = getRun();
-    if (!r) { if (!caja.hidden) { caja.hidden = true; proy.length = textos.length = efectos.length = 0; aviso = null; } runViejo = null; return; }
+    if (!r) { if (!caja.hidden) { caja.hidden = true; proy.length = textos.length = efectos.length = 0; avisoT = 0; elFin.hidden = true; elAviso.hidden = true; } runViejo = null; return; }
     if (caja.hidden) { caja.hidden = false; }
-    if (r !== runViejo) { runViejo = r; proy.length = textos.length = efectos.length = 0; }
+    if (r !== runViejo) { runViejo = r; proy.length = textos.length = efectos.length = 0; finMostrado = false; elFin.hidden = true; elAviso.hidden = true; avisoT = 0; }
     consumir(r);
     // encabezado y barra de 5 etapas
     const e = Math.min(r.etapa, ETAPAS_DUNGEON - 1);
@@ -293,13 +285,16 @@ export function crearVistaDungeon({ rectMina, onCerrarAviso }) {
       s.parentElement.classList.toggle("jefe", i === ETAPAS_DUNGEON - 1);
     });
     pie.textContent = r.items.length ? "Objetos: " + r.items.length + " · Party " + r.party.filter((u) => u.vivo).length + "/" + r.n : "Party " + r.party.filter((u) => u.vivo).length + "/" + r.n;
-    // posición: a la derecha de la mina (o a la derecha de la pantalla si no se ve)
-    const rc = rectMina?.(), vw = window.innerWidth, vh = window.innerHeight, w = caja.offsetWidth || 400, hh = caja.offsetHeight || 260;
-    let left = rc ? rc.x1 + 14 : vw - w - 10, top = rc ? rc.y0 - 6 : 100;
-    left = Math.max(8, Math.min(left, vw - w - 8));
-    top = Math.max(96, Math.min(top, vh - hh - 14));
-    caja.style.left = Math.round(left) + "px";
-    caja.style.top = Math.round(top) + "px";
+    // aviso del objeto y resultado final (texto del navegador: nítido)
+    if (avisoT > 0) { avisoT -= dt; if (avisoT <= 0) elAviso.hidden = true; }
+    if (r.fin && !finMostrado) {
+      finMostrado = true;
+      const f = r.fin;
+      elFin.innerHTML = '<b class="' + (f.victoria ? 'ok' : 'no') + '">' + (f.victoria ? '¡Victoria!' : 'Retirada del party') + '</b>'
+        + '<span>' + (f.cristal ? '¡Cristal radiante para el hongo madre!' : f.victoria ? 'Rey Moho derrotado' : f.etapas + (f.etapas === 1 ? ' etapa superada' : ' etapas superadas')) + '</span>'
+        + (f.caidos.length ? '<em>' + f.caidos.length + (f.caidos.length === 1 ? ' herido' : ' heridos') + ' (descansan en la taberna)</em>' : '');
+      elFin.hidden = false;
+    }
     dibujar(r, Math.min(dt, 0.1));
   }
   return { actualizar };

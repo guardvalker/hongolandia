@@ -229,10 +229,23 @@ body.transp #hoja-cerrar { background: rgba(45, 45, 64, .6); }
 }
 .dps-fila[hidden] { display: none; }
 
-/* ventana de la exploración de la dungeon (a la derecha de la mina) */
-#dungeon-vista { position: fixed; z-index: 4; width: 408px; max-width: calc(100vw - 16px); padding: 6px; background: var(--panel); box-shadow: 0 0 0 2px #b06bff; pointer-events: none; }
+/* ventana de la exploración de la dungeon: fija arriba a la derecha y siempre del mismo tamaño */
+#dungeon-vista { position: fixed; z-index: 4; right: 12px; top: 112px; width: 408px; max-width: calc(100vw - 24px); padding: 6px; background: var(--panel); box-shadow: 0 0 0 2px #b06bff; pointer-events: none; }
 #dungeon-vista[hidden] { display: none; }
-#dungeon-vista canvas { display: block; width: 100%; image-rendering: pixelated; background: #14141d; }
+.dv-lienzo { position: relative; }
+#dungeon-vista canvas { display: block; width: 100%; aspect-ratio: 150 / 78; image-rendering: pixelated; background: #14141d; }
+.dv-aviso { position: absolute; left: 6px; right: 6px; top: 6px; display: flex; align-items: center; gap: 8px; padding: 5px 8px; background: rgba(20, 20, 29, .92); box-shadow: 0 0 0 2px #8a8aa8; font-size: 15px; line-height: 1.1; }
+.dv-aviso[hidden], .dv-fin[hidden] { display: none; }
+.dv-aviso.raro { box-shadow: 0 0 0 2px #ffd23f; }
+.dv-aviso i { flex: none; width: 14px; height: 14px; box-shadow: 0 0 0 2px #fff; }
+.dv-aviso b { font-weight: 400; color: #fff; margin-right: 4px; }
+.dv-aviso span { color: var(--dim); }
+.dv-fin { position: absolute; left: 0; right: 0; top: 16%; display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 10px 8px; background: rgba(20, 20, 29, .88); text-align: center; }
+.dv-fin b { font-size: 24px; font-weight: 400; }
+.dv-fin b.ok { color: #3fe08a; }
+.dv-fin b.no { color: #ffb347; }
+.dv-fin span { font-size: 15px; color: #fff; }
+.dv-fin em { font-size: 14px; font-style: normal; color: #ff9a9a; }
 .dv-cab { display: flex; justify-content: space-between; align-items: baseline; padding: 0 2px 4px; }
 .dv-titulo { color: #c58aff; font-size: 16px; font-weight: 400; }
 .dv-estado { color: var(--dim); font-size: 13px; }
