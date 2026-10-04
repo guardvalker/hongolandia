@@ -95,7 +95,7 @@ export function crearEscena(canvas, opciones = {}) {
   // cámara: Wc/Hc = celdas visibles; S = px por celda (niveles enteros para que el pixel art quede nítido)
   let groundRef = 220, S0 = 1, Wc0 = 300, Hc0 = 300, niveles = [1], zoomIdx = null, camX = C0, camY = 0, extent = 150;
   // mina: túneles bajo el piso (coordenadas relativas a la entrada: x al costado, y hacia abajo)
-  let mina = null, minaKey = "", minaP = null, nMineros = 0;
+  let mina = null, minaKey = "", minaP = null, nMineros = 0, lastMx = 0;
   const LIM0 = () => C0 - extent, LIM1 = () => C0 + extent; // hasta dónde llega lo que hay en el mundo
   const offX = () => Math.round(Wc / 2 - camX);
   // camY = cuánto se bajó el mundo para ver más cielo: hasta la altura que se ve con el zoom más alejado
@@ -1219,126 +1219,206 @@ export function crearEscena(canvas, opciones = {}) {
     }
   }
 
-  // ---- Mina hongil: túneles bajo el piso, mineros y cristales ----
-  const MINA_TH = 11; // alto de los túneles (entra un honguito)
-  const MINA_PISO = 24, MINA_NIVEL = 34; // profundidad del primer nivel y distancia entre niveles
+  // ---- Mina hongil: nido de túneles bajo el piso, mineros y yacimientos de cristal ----
+  // Los nodos son puntos del PISO del túnel (x al costado de la entrada, y hacia abajo). Los túneles
+  // serpentean y se ramifican como un hormiguero; los nodos "cámara" son salas grandes con yacimientos.
+  const TR = 5.5; // radio de los túneles (entra un honguito)
   const minaProfMax = () => Math.round(0.26 * Hc0 * 2);
   // cuánto de la mina está cavada según los mineros (0..1): crece con el log de la cantidad
   const minaObjetivo = (n) => (n <= 0 ? 0 : clamp(0.1 + (Math.log10(n) / 2.3) * 0.9, 0.1, 1));
+  const empinado = (a, b) => Math.abs(b.y - a.y) > 1.3 * Math.abs(b.x - a.x);
   function generarMina() {
-    const x0 = edif.mina.x, r = rng(7 + semilla * 31);
-    const lim = (lado) => Math.max(0, Math.min(0.3 * extent, lado < 0 ? x0 - LIM0() - 10 : LIM1() - x0 - 10));
-    const seg = [], ores = [];
-    const add = (a, b, par) => {
-      const len = Math.abs(b.x - a.x) + Math.abs(b.y - a.y);
-      seg.push({ a, b, par, d0: par < 0 ? 0 : seg[par].d0 + seg[par].len, len, vert: a.x === b.x });
-      return seg.length - 1;
+    const r = rng(7 + semilla * 31);
+    const medio = clamp(Math.round(0.3 * extent), 80, 200), prof = minaProfMax(), PRESUPUESTO = 460;
+    const nodos = [], yac = [];
+    const nuevo = (x, y, par) => {
+      nodos.push({ x, y, par, d: par < 0 ? 0 : nodos[par].d + Math.hypot(x - nodos[par].x, y - nodos[par].y), cam: 0 });
+      return nodos.length - 1;
     };
-    const ys = [];
-    for (let y = MINA_PISO; y <= minaProfMax(); y += MINA_NIVEL) ys.push(y);
-    let prev = -1, prevY = 0;
-    const eje = [];
-    for (const y of ys) { prev = add({ x: 0, y: prevY }, { x: 0, y }, prev); eje.push(prev); prevY = y; }
-    ys.forEach((y, k) => {
-      for (const lado of [-1, 1]) {
-        const alcance = lim(lado) * (0.55 + 0.45 * r());
-        if (alcance < 24) continue;
-        const nCon = k < ys.length - 1 ? 1 + Math.floor(r() * 2.2) : 0;
-        const cortes = Array.from({ length: nCon }, () => 16 + r() * (alcance - 24)).sort((p, q) => p - q);
-        let px = 0, par = eje[k];
-        for (const corte of [...cortes, alcance]) {
-          const gi = add({ x: lado * px, y }, { x: lado * corte, y }, par);
-          px = corte; par = gi;
-          if (corte !== alcance) add({ x: lado * corte, y }, { x: lado * corte, y: y + (r() < 0.65 ? MINA_NIVEL : MINA_NIVEL / 2) }, gi);
-        }
+    // choca con un tramo de otra rama (los vecinos de la misma rama tienen una distancia parecida desde la entrada)
+    const cerca = (x, y, d) => nodos.some((n) => Math.abs(n.d - d) > 18 && Math.hypot(n.x - x, n.y - y) < 9);
+    const camara = (i) => {
+      const n = nodos[i], R = 16 + r() * 9, ry = Math.round(R * 0.62);
+      if (n.y < 2 * ry + 8) return; // una sala no puede asomar sobre el piso
+      n.cam = R; n.camY = ry;
+      const cs = 0.6 + R / 40, k = R > 21 ? 2 : 1;
+      for (let q = 0; q < k; q++) {
+        const lado = k === 1 ? (r() < 0.5 ? -1 : 1) : q ? 1 : -1;
+        const max = Math.round(5 + R / 3);
+        yac.push({ nodo: i, ox: lado * R * 0.35, cs, max, stock: max * (0.45 + r() * 0.55), cd: r() * 10, col: Math.floor(r() * CRISTALES.length), col2: Math.floor(r() * CRISTALES.length), stand: Math.min(R - 4, 7 + 6 * cs) });
       }
-    });
-    // cristales en las paredes: al menos uno en el extremo de cada tramo largo
-    seg.forEach((sg, i) => {
-      if (i < eje.length) return;
-      const n = Math.max(1, Math.floor(sg.len / 22));
-      for (let q = 0; q < n; q++) ores.push({ seg: i, u: Math.min(0.97, (q + 0.35 + r() * 0.55) / n), col: Math.floor(r() * CRISTALES.length), rec: 0, tomada: null });
-    });
-    const total = seg.reduce((m, sg) => Math.max(m, sg.d0 + sg.len), 1);
-    for (const o of ores) {
-      const sg = seg[o.seg];
-      o.dist = sg.d0 + o.u * sg.len;
-      o.px = sg.a.x + (sg.b.x - sg.a.x) * o.u;
-      o.py = sg.a.y + (sg.b.y - sg.a.y) * o.u;
+    };
+    // pozo de entrada, casi vertical, con escalera
+    let n0 = nuevo(0, 0, -1);
+    for (let y = 4; y <= 20; y += 4) n0 = nuevo((r() - 0.5) * 1.5, y, n0);
+    const cola = [];
+    cola.push({ n: n0, x: nodos[n0].x, y: 20, ang: 0.35, vida: 30 + r() * 25 }, { n: n0, x: nodos[n0].x, y: 20, ang: Math.PI - 0.35, vida: 30 + r() * 25 }, { n: n0, x: nodos[n0].x, y: 20, ang: 1.3, vida: 22 + r() * 18 });
+    const limite = (ang) => (Math.cos(ang) >= 0 ? clamp(ang, -0.4, 1.5) : clamp(ang, Math.PI - 1.5, Math.PI + 0.4));
+    let guardia = 0;
+    while (cola.length && nodos.length < PRESUPUESTO && guardia++ < 20000) {
+      const a = cola.shift();
+      a.ang = limite(a.ang + (r() - 0.5) * 0.7);
+      if (a.y > prof - 22) a.ang = limite(a.ang - Math.sign(Math.sin(a.ang)) * 0.4); // al fondo se aplana
+      let nx = a.x + Math.cos(a.ang) * 4, ny = a.y + Math.sin(a.ang) * 4;
+      if (Math.abs(nx) > medio) { a.ang = Math.PI - a.ang; nx = a.x + Math.cos(a.ang) * 4; ny = a.y + Math.sin(a.ang) * 4; }
+      ny = clamp(ny, 26, prof);
+      if (Math.abs(nx) > medio || cerca(nx, ny, nodos[a.n].d + 4)) { if (!nodos[a.n].cam && nodos[a.n].d > 40) camara(a.n); continue; }
+      a.n = nuevo(nx, ny, a.n); a.x = nx; a.y = ny; a.vida--;
+      if (a.vida <= 0) { camara(a.n); continue; }
+      if (a.vida > 8 && r() < 0.075) cola.push({ n: a.n, x: a.x, y: a.y, ang: a.ang + (r() < 0.5 ? -1 : 1) * (0.5 + r() * 0.7), vida: 10 + r() * 24 });
+      if (a.vida > 6 && !nodos[a.n].cam && nodos[a.n].d > 50 && r() < 0.03) camara(a.n);
+      cola.push(a);
     }
-    mina = { seg, ores, total, depth: (ys[ys.length - 1] || 0) + 4 };
+    // cámaras siempre en las puntas largas que quedaron sin sala
+    const hijos = new Array(nodos.length).fill(0);
+    nodos.forEach((n) => { if (n.par >= 0) hijos[n.par]++; });
+    nodos.forEach((n, i) => { if (!hijos[i] && !n.cam && n.d > 30) camara(i); });
+    const orden = nodos.map((_, i) => i).sort((p, q) => nodos[p].d - nodos[q].d);
+    const total = nodos.reduce((m, n) => Math.max(m, n.d), 1);
+    const prof2 = nodos.reduce((m, n) => Math.max(m, n.y), 0) + 6;
+    const mg = 30, cv = () => { const c = document.createElement("canvas"); c.width = 2 * medio + 2 * mg; c.height = prof + mg + 24; return c; };
+    mina = { nodos, yac, orden, total, depth: prof2, medio, mg, cvBorde: cv(), cvHueco: cv(), cvDet: cv(), nDib: 0 };
   }
-  // punto donde para el minero frente a un cristal: del lado de la entrada, mirando al cristal
-  function paradaOre(o) {
-    const sg = mina.seg[o.seg];
-    return sg.vert ? { x: o.px - 3, y: o.py, dir: 1 } : { x: o.px - Math.sign(sg.b.x - sg.a.x) * 6, y: o.py, dir: Math.sign(sg.b.x - sg.a.x) || 1 };
+  // dibuja en los lienzos los nodos que el frente ya alcanzó (se cava de a poco, sin redibujar todo)
+  function revelarMina(frente) {
+    const m = mina, cb = m.cvBorde.getContext("2d"), ch = m.cvHueco.getContext("2d"), cd = m.cvDet.getContext("2d");
+    const disco2 = (c, x, y, rr, col) => { c.fillStyle = col; for (let dy = -rr; dy <= rr; dy++) { const w = Math.floor(Math.sqrt(rr * rr - dy * dy + rr * 0.4)); c.fillRect(Math.round(x) - w, Math.round(y) + dy, w * 2 + 1, 1); } };
+    const elipse2 = (c, x, y, rx, ry, col) => { c.fillStyle = col; for (let dy = -ry; dy <= ry; dy++) { const w = Math.floor(rx * Math.sqrt(Math.max(0, 1 - (dy / ry) ** 2))); c.fillRect(Math.round(x) - w, Math.round(y) + dy, w * 2 + 1, 1); } };
+    while (m.nDib < m.orden.length && m.nodos[m.orden[m.nDib]].d <= frente) {
+      const i = m.orden[m.nDib++], n = m.nodos[i], p = n.par >= 0 ? m.nodos[n.par] : null;
+      const X = n.x + m.medio + m.mg, Y = n.y;
+      const pts = p ? [[p.x, p.y], [(p.x + n.x) / 2, (p.y + n.y) / 2], [n.x, n.y]] : [[n.x, n.y]];
+      for (const [px, py] of pts) {
+        disco2(cb, px + m.medio + m.mg, py - TR + 0.5, TR + 1, "#34344e");
+        disco2(ch, px + m.medio + m.mg, py - TR + 0.5, TR, "#08080e");
+      }
+      if (n.cam) { // sala: elipse más ancha que alta, con el piso a la altura del túnel
+        elipse2(cb, X, Y - n.camY + 1, n.cam + 1, n.camY + 1, "#34344e");
+        elipse2(ch, X, Y - n.camY + 1, n.cam, n.camY, "#08080e");
+      }
+      if (p && empinado(p, n)) { // escalera: dos largueros y peldaños cada 3 celdas
+        const pasos = Math.max(1, Math.round(Math.abs(n.y - p.y)));
+        for (let k = 0; k <= pasos; k++) {
+          const f = k / pasos, lx = Math.round(p.x + (n.x - p.x) * f + m.medio + m.mg), ly = Math.round(p.y + (n.y - p.y) * f);
+          cd.fillStyle = "#9a6b3a"; cd.fillRect(lx - 2, ly - 5, 1, 1); cd.fillRect(lx + 2, ly - 5, 1, 1);
+          if (k % 3 === 0) { cd.fillStyle = "#c28a4f"; cd.fillRect(lx - 2, ly - 5, 5, 1); }
+        }
+      } else if (p && n.d % 24 < 4.2 && n.d > 12) { // viga de madera de vez en cuando
+        const lx = Math.round(n.x + m.medio + m.mg);
+        cd.fillStyle = "#4a3320"; cd.fillRect(lx, Math.round(n.y) - 10, 1, 10); cd.fillRect(lx - 1, Math.round(n.y) - 11, 3, 1);
+      }
+    }
   }
+  const cantMineros = (y) => visuales.filter((v) => v.dep === y).length;
+  function lleno(y) { return y.stock - cantMineros(y) >= 0.99; }
   function sincronizarMina(dt) {
     if (!edif.mina) { mina = null; minaKey = ""; return; }
-    const key = [edif.mina.x, semilla, Math.round(extent), Hc0].join("|");
+    const key = String(semilla);
     if (key !== minaKey) {
       minaKey = key;
       generarMina();
-      for (const v of visuales) if (v.tipo === "minero" && (v.yOff || v.ruta)) { v.yOff = 0; v.ruta = null; v.modo = "idle"; v.x = edif.mina.x; v.cristal = null; v.espera = 0.5; }
+      lastMx = edif.mina.x;
+      for (const v of visuales) if (v.tipo === "minero") { v.yOff = 0; v.ruta = null; v.dep = null; v.modo = "idle"; v.x = edif.mina.x + (Math.random() - 0.5) * 10; v.cristal = null; v.espera = Math.random() * 3; }
+      revelarMina((minaObjetivo(nMineros)) * mina.total);
+      minaP = minaObjetivo(nMineros);
+      precalentarMineros();
+    }
+    // si movieron el edificio, la mina y los mineros que están adentro se mueven con él
+    if (edif.mina.x !== lastMx) {
+      const d = edif.mina.x - lastMx;
+      lastMx = edif.mina.x;
+      for (const v of visuales) if (v.tipo === "minero") { v.x += d; if (v.ruta) for (const q of v.ruta) q.x += d; }
     }
     const obj = minaObjetivo(nMineros);
     if (minaP === null) minaP = obj;
     // la mina se cava de a poco hacia el objetivo (unas 6 celdas por segundo)
-    const paso = (6 / mina.total) * dt;
     const antes = minaP;
-    minaP = minaP < obj ? Math.min(obj, minaP + paso) : obj;
-    const frente = minaP * mina.total;
+    minaP = minaP < obj ? Math.min(obj, minaP + (6 / mina.total) * dt) : obj;
+    const frente = minaP * mina.total, nAntes = mina.nDib;
+    revelarMina(frente);
     // polvo en las puntas que se están cavando
-    if (minaP !== antes || Math.random() < dt * 2) {
-      for (const sg of mina.seg) {
-        if (frente <= sg.d0 || frente >= sg.d0 + sg.len) continue;
-        const f = (frente - sg.d0) / sg.len, x = edif.mina.x + sg.a.x + (sg.b.x - sg.a.x) * f, y = groundY + sg.a.y + (sg.b.y - sg.a.y) * f - (sg.vert ? 0 : MINA_TH / 2);
-        if (Math.random() < dt * 14) part(x, y, (Math.random() - 0.5) * 10, -4 - Math.random() * 6, { tipo: "mota", dur: 0.5, col: Math.random() < 0.5 ? "#6a6a88" : "#3a3a52", r: 1 });
+    if (minaP !== antes) {
+      for (let k = Math.max(0, nAntes - 2); k < mina.nDib; k++) {
+        const n = mina.nodos[mina.orden[k]];
+        if (Math.random() < dt * 40) part(edif.mina.x + n.x, groundY + n.y - 5, (Math.random() - 0.5) * 12, -4 - Math.random() * 8, { tipo: "mota", dur: 0.55, col: Math.random() < 0.5 ? "#6a6a88" : "#3a3a52", r: 1 });
       }
     }
-    for (const o of mina.ores) if (o.rec > 0) o.rec = Math.max(0, o.rec - dt);
+    // los yacimientos vuelven a crecer solos si nadie los toca
+    for (const y of mina.yac) {
+      if (y.golpe > 0) y.golpe -= dt;
+      if (y.stock >= y.max) continue;
+      if (y.cd > 0) { y.cd -= dt; continue; }
+      y.stock = Math.min(y.max, y.stock + dt * (y.max / 70));
+    }
   }
   function dibujarMina() {
     if (!mina || !edif.mina) return;
-    const x0 = edif.mina.x, frente = (minaP ?? 0) * mina.total;
-    const rects = [];
-    for (const sg of mina.seg) {
-      if (frente <= sg.d0) continue;
-      const f = Math.min(1, (frente - sg.d0) / sg.len), ex = sg.a.x + (sg.b.x - sg.a.x) * f, ey = sg.a.y + (sg.b.y - sg.a.y) * f;
-      if (sg.vert) { const yt = sg.a.y === 0 ? groundY + 1 : groundY + sg.a.y - MINA_TH; rects.push([x0 + sg.a.x - 5, yt, 11, groundY + ey - yt]); }
-      else rects.push([x0 + Math.min(sg.a.x, ex), groundY + sg.a.y - MINA_TH, Math.abs(ex - sg.a.x), MINA_TH]);
-    }
-    g.fillStyle = "#2d2d44";
-    for (const [x, y, w, h] of rects) g.fillRect(Math.round(x) - 1, Math.round(y) - 1, Math.round(w) + 2, Math.round(h) + 2);
-    g.fillStyle = "#0e0e16";
-    for (const [x, y, w, h] of rects) g.fillRect(Math.round(x), Math.round(y), Math.round(w), Math.round(h));
-    // vigas de madera cada tanto en las galerías
-    g.fillStyle = "#4a3320";
-    for (const sg of mina.seg) {
-      if (sg.vert || frente <= sg.d0) continue;
-      const f = Math.min(1, (frente - sg.d0) / sg.len), n = Math.floor((sg.len * f) / 26);
-      for (let k = 1; k <= n; k++) { const bx = x0 + sg.a.x + Math.sign(sg.b.x - sg.a.x) * k * 26; g.fillRect(Math.round(bx), groundY + sg.a.y - MINA_TH, 1, MINA_TH); g.fillRect(Math.round(bx) - 1, groundY + sg.a.y - MINA_TH, 3, 1); }
-    }
-    // cristales hongiles en las paredes
-    for (const o of mina.ores) {
-      if (o.rec > 0 || o.dist > frente) continue;
-      const sg = mina.seg[o.seg], X = Math.round(x0 + o.px), Y = Math.round(groundY + o.py);
-      const sp = spritesCristal[o.col];
-      if (sg.vert) { g.drawImage(sp, X + 1, Y - 3); }
-      else { g.drawImage(sp, X - 2, Y - 6); g.drawImage(spritesCristal[(o.col + 2) % CRISTALES.length], X + 2, Y - 4, 3, 4); }
+    const x0 = edif.mina.x, frente = (minaP ?? 0) * mina.total, ox = Math.round(x0 - mina.medio - mina.mg);
+    g.drawImage(mina.cvBorde, ox, groundY + 1);
+    g.drawImage(mina.cvHueco, ox, groundY + 1);
+    g.drawImage(mina.cvDet, ox, groundY + 1);
+    // yacimientos: racimos grandes de cristales-hongo que se achican al picarlos y vuelven a crecer
+    for (const y of mina.yac) {
+      const n = mina.nodos[y.nodo];
+      if (n.d > frente) continue;
+      const f = y.stock / y.max;
+      if (f < 0.04) { g.fillStyle = "#3a3a52"; g.fillRect(Math.round(x0 + n.x + y.ox) - 2, groundY + Math.round(n.y) - 1, 5, 1); continue; }
+      const cx = Math.round(x0 + n.x + y.ox), fy = groundY + Math.round(n.y), k = (0.35 + 0.65 * f) * y.cs;
+      g.globalAlpha = 0.1 * f; disco(cx, fy - 7 * k, Math.round(9 * k), CRISTALES[y.col]); g.globalAlpha = 1;
+      const tiembla = y.golpe > 0 ? Math.round(Math.sin(t * 90)) : 0;
+      for (const [dx, sc, ci] of [[-5, 1.4, y.col2], [5, 1.7, y.col], [0, 2.1, y.col]]) {
+        const w = Math.max(3, Math.round(5 * sc * k)), h = Math.max(3, Math.round(6 * sc * k));
+        g.drawImage(spritesCristal[ci], cx + Math.round(dx * k) - (w >> 1) + tiembla, fy - h, w, h);
+      }
     }
   }
   // avanza por la ruta {x,y}[] a `vel` celdas/s; devuelve true al llegar al final
   function seguirRuta(v, dt, vel) {
     let resto = vel * dt;
+    v.trepa = false;
     while (v.ruta && v.ri < v.ruta.length && resto > 0) {
       const p = v.ruta[v.ri], dx = p.x - v.x, dy = p.y - v.yOff, d = Math.hypot(dx, dy);
+      if (Math.abs(dy) > 1.3 * Math.abs(dx) && d > 0.01) { v.trepa = true; if (resto === vel * dt) resto *= 0.6; }
       if (d <= resto) { v.x = p.x; v.yOff = p.y; resto -= d; v.ri++; }
       else { v.x += (dx / d) * resto; v.yOff += (dy / d) * resto; resto = 0; }
-      if (Math.abs(dx) > 0.5) v.dir = Math.sign(dx);
+      if (Math.abs(dx) > 0.5 && !v.trepa) v.dir = Math.sign(dx);
     }
     return v.ri >= v.ruta.length;
   }
+  function rutaA(y) {
+    const M = edif.mina, cadena = [];
+    for (let k = y.nodo; k >= 0; k = mina.nodos[k].par) cadena.unshift(k);
+    const ruta = [{ x: M.x, y: 0 }];
+    for (const k of cadena) ruta.push({ x: M.x + mina.nodos[k].x, y: mina.nodos[k].y });
+    // frente al racimo, del lado libre
+    const n = mina.nodos[y.nodo], ocupado = visuales.filter((q) => q.dep === y && q.lado).map((q) => q.lado);
+    const lado = ocupado.includes(-1) ? 1 : ocupado.includes(1) ? -1 : (Math.random() < 0.5 ? -1 : 1);
+    ruta.push({ x: M.x + n.x + y.ox + lado * y.stand, y: n.y });
+    return { ruta, lado };
+  }
+  function asignarDeposito(v, y) {
+    const { ruta, lado } = rutaA(y);
+    v.dep = y; v.lado = lado; v.ruta = ruta; v.ri = 0; v.modo = "baja";
+    v.nGolpes = 4 + Math.floor(Math.random() * 3);
+  }
+  // al cargar la partida los mineros ya están repartidos por la mina (nadie arranca todos de la puerta)
+  function precalentarMineros() {
+    const M = edif.mina;
+    for (const v of visuales) {
+      if (v.tipo !== "minero" || Math.random() < 0.3) continue;
+      const libres = mina.yac.filter((y) => mina.nodos[y.nodo].d <= minaP * mina.total - 2 && lleno(y));
+      if (!libres.length) break;
+      asignarDeposito(v, libres[Math.floor(Math.random() * libres.length)]);
+      const fase = Math.random();
+      if (fase < 0.35) { v.ri = Math.floor(Math.random() * (v.ruta.length - 1)) + 1; const q = v.ruta[v.ri - 1]; v.x = q.x; v.yOff = q.y; }
+      else {
+        const q = v.ruta[v.ruta.length - 1]; v.x = q.x; v.yOff = q.y; v.ri = v.ruta.length;
+        v.dir = -v.lado; v.modo = "pica"; v.tPica = Math.random() * v.nGolpes * 0.8 * 0.8; v.golpes = Math.floor((v.tPica + 0.256) / 0.8);
+      }
+      v.alfa = 1;
+    }
+  }
+  const CICLO_PICO = 0.8;
   function actualizarMinero(v, dt) {
     const M = edif.mina;
     if (!M) return;
@@ -1352,34 +1432,32 @@ export function crearEscena(canvas, opciones = {}) {
       v.espera -= dt;
       if (v.espera > 0 || !mina) return;
       const frente = (minaP ?? 0) * mina.total - 2;
-      const libres = mina.ores.filter((o) => o.rec <= 0 && !o.tomada && o.dist <= frente);
-      if (!libres.length) { v.espera = 1.5 + Math.random() * 2; return; }
-      const o = libres[Math.floor(Math.random() * libres.length)];
-      o.tomada = v;
-      const cadena = [];
-      for (let k = o.seg; k >= 0; k = mina.seg[k].par) cadena.unshift(k);
-      const st = paradaOre(o);
-      v.ruta = [{ x: M.x, y: 0 }];
-      cadena.forEach((k, idx) => { if (idx < cadena.length - 1) v.ruta.push({ x: M.x + mina.seg[k].b.x, y: mina.seg[k].b.y }); });
-      v.ruta.push({ x: M.x + st.x, y: st.y });
-      v.ri = 0; v.ore = o; v.parada = st; v.modo = "baja";
+      const libres = mina.yac.filter((y) => mina.nodos[y.nodo].d <= frente && lleno(y) && cantMineros(y) < 2);
+      if (!libres.length) { v.espera = 1 + Math.random() * 2; return; }
+      asignarDeposito(v, libres[Math.floor(Math.random() * libres.length)]);
+      v.modo = "baja";
     } else if (v.modo === "baja" || v.modo === "sube") {
       const llego = seguirRuta(v, dt, VEL * (v.modo === "baja" ? 0.85 : 0.7));
-      v.hop = Math.abs(Math.sin(v.animT * 11)) * 1.2;
+      if (!v.trepa) v.hop = Math.abs(Math.sin(v.animT * 11)) * 1.2;
+      else v.estira = Math.sin(v.animT * 9) * 0.8;
       if (llego) {
-        if (v.modo === "baja") { v.modo = "pica"; v.tPica = 0; v.dir = v.parada.dir; }
+        if (v.modo === "baja") { v.modo = "pica"; v.tPica = 0; v.golpes = 0; v.dir = -v.lado; }
         else { v.modo = "deja"; v.tDeja = 0; v.dir = Math.sign(M.x - v.x) || v.dir; }
       }
     } else if (v.modo === "pica") {
+      const y = v.dep;
       v.tPica += dt;
-      const o = v.ore, px = M.x + o.px, py = groundY + o.py - 4;
-      if (Math.random() < dt * 12) part(px, py, (Math.random() - 0.5) * 14, -6 - Math.random() * 8, { tipo: "mota", dur: 0.45, col: Math.random() < 0.5 ? CRISTALES[o.col] : "#8a8aa8", r: 1 });
-      if (v.tPica > 2.2) {
-        o.rec = 25 + Math.random() * 20; o.tomada = null;
-        v.cristal = o.col;
-        motas(px, py, 8, 0.8, CRISTALES[o.col]);
-        const volver = [...v.ruta].reverse().slice(1).map((p) => ({ ...p }));
-        volver.push({ x: M.x, y: 0 });
+      const g2 = Math.floor((v.tPica + (1 - 0.68) * CICLO_PICO) / CICLO_PICO);
+      if (g2 > v.golpes) { // impacto del pico contra el cristal
+        v.golpes = g2;
+        const cx = M.x + mina.nodos[y.nodo].x + y.ox, fy = groundY + mina.nodos[y.nodo].y - 8;
+        y.stock = Math.max(0, y.stock - 1 / v.nGolpes); y.cd = 20; y.golpe = 0.15;
+        motas(cx - v.dir * -3, fy, 5, 0.9, CRISTALES[y.col]);
+        for (let k = 0; k < 3; k++) part(cx + (Math.random() - 0.5) * 4, fy, (Math.random() - 0.5) * 30, -10 - Math.random() * 14, { tipo: "mota", dur: 0.5, col: "#fff", r: 1 });
+      }
+      if (v.golpes >= v.nGolpes && (v.tPica % CICLO_PICO) / CICLO_PICO > 0.9) {
+        v.cristal = y.col; v.dep = null;
+        const volver = [...v.ruta].reverse().map((p) => ({ ...p }));
         v.ruta = volver; v.ri = 0; v.modo = "sube";
       }
     } else if (v.modo === "deja") {
@@ -1393,7 +1471,7 @@ export function crearEscena(canvas, opciones = {}) {
         lanzarEspora(M.x + (Math.random() - 0.5) * m.w * 0.4, groundY - m.sh - m.ch * 0.4, col);
         v.cristal = null;
       }
-      if (v.tDeja > 0.9) { v.modo = "idle"; v.espera = 0.5 + Math.random() * 2; }
+      if (v.tDeja > 0.9) { v.modo = "idle"; v.espera = 0.3 + Math.random() * 2.5; }
     }
   }
 
@@ -2277,10 +2355,18 @@ export function crearEscena(canvas, opciones = {}) {
       if ((v.yOff || 0) > 4) { // luz de la lámpara bajo tierra
         g.globalAlpha = 0.1; disco(x, base - 5, 13, "#ffe9a0"); g.globalAlpha = 0.12; disco(x, base - 5, 7, "#fff6a8"); g.globalAlpha = 1;
       }
-      // pico: al hombro; en la mina se balancea contra el cristal
-      const sw = v.modo === "pica" ? Math.sin(v.tPica * 14) : 0, hx = x + v.dir * 5 + Math.round(sw * 2 * v.dir);
-      g.fillStyle = "#8a5a2a"; g.fillRect(hx, base - 9 - (v.modo === "pica" ? Math.round(Math.abs(sw) * 2) : 0), 1, 7);
-      g.fillStyle = "#c8c8dc"; g.fillRect(hx - 1, base - 10 - (v.modo === "pica" ? Math.round(Math.abs(sw) * 2) : 0), 3, 1);
+      // pico: al hombro; al picar se levanta hacia atrás, golpea de arriba abajo contra el cristal y vuelve
+      let th = 0.35;
+      if (v.modo === "pica") {
+        const u = (v.tPica % CICLO_PICO) / CICLO_PICO, ease = (k) => k * k * (3 - 2 * k);
+        th = u < 0.55 ? 0.3 + (-1.05 - 0.3) * ease(u / 0.55) : u < 0.68 ? -1.05 + (1.85 + 1.05) * Math.pow((u - 0.55) / 0.13, 2) : 1.85 + (0.3 - 1.85) * ease((u - 0.68) / 0.32);
+      }
+      const hx = x + v.dir * 3, hy = base - 6, tx = hx + Math.sin(th) * v.dir * 8, ty = hy - Math.cos(th) * 8;
+      g.fillStyle = "#8a5a2a";
+      for (let k = 0; k <= 8; k++) g.fillRect(Math.round(hx + (tx - hx) * (k / 8)), Math.round(hy + (ty - hy) * (k / 8)), 1, 1);
+      g.fillStyle = "#d8d8ec";
+      for (let k = -2; k <= 2; k++) g.fillRect(Math.round(tx + Math.cos(th) * v.dir * k * 0.9), Math.round(ty + Math.sin(th) * k * 0.9), 1, 1);
+      g.fillStyle = BLANCO; g.fillRect(x + v.dir * 2, base - 5, 1, 1); // mano agarrando el mango
       if (v.cristal !== null && v.cristal !== undefined) g.drawImage(spritesCristal[v.cristal], x - 2, base - alto - 8 - Math.round(Math.sin(t * 6 + v.i)));
     }
     if (v.tipo === "mago") {

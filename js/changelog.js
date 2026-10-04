@@ -1,5 +1,15 @@
 export const CHANGELOG = [
   {
+    v: "0.27.0",
+    fecha: "2026-10-04",
+    cambios: [
+      "La mina ahora es un hormiguero: túneles que serpentean, se ramifican y bajan en diagonal, con salas anchas en las puntas, vigas de madera y escaleras en los tramos empinados para que los mineros suban y bajen. Se cava de a poco hacia donde crece (con polvo en las puntas) y la forma depende de la partida.",
+      "Los cristales ahora son yacimientos grandes: racimos de cristales-hongo en las salas que se achican a medida que los mineros los pican y, si los dejan tranquilos un rato, vuelven a crecer de a poco. Cada yacimiento aguanta a dos mineros a la vez.",
+      "Nueva animación de picar: el minero levanta el pico hacia atrás y lo baja de golpe contra el cristal (con chispas y esquirlas) varias veces; ya no parece que barre. Cada golpe gasta un poco del yacimiento.",
+      "Todo es más fluido y sin ciclos que se reinicien: al cargar la partida los mineros ya están repartidos por la mina (bajando, picando o subiendo), cada uno con sus tiempos, los yacimientos arrancan con cantidades distintas y la forma de la mina ya no se regenera al cambiar el tamaño de la pantalla ni se mueve a los mineros de golpe.",
+    ],
+  },
+  {
     v: "0.26.0",
     fecha: "2026-10-04",
     cambios: [
