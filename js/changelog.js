@@ -1,5 +1,15 @@
 export const CHANGELOG = [
   {
+    v: "0.26.0",
+    fecha: "2026-10-04",
+    cambios: [
+      "Nuevo edificio: Mina hongil (tier 5; la Torre de magos, el Gym, el Trade center y el Astropuerto subieron un tier). Un hongo cobrizo con castillete y una rueda que gira (más rápido con más mineros), cristales en el sombrero y una boca de mina con rieles. Se ubica donde quieras, y la mina se cava debajo de donde la pongas.",
+      "Nuevo honguito: Minero (sombrero cobrizo con casco y lámpara). Baja por el pozo, camina por los túneles hasta un cristal hongil (cristales con forma de hongo de varios colores), lo pica con su pico, lo sube a la mina y ahí se procesa: brilla el edificio y sale una espora del sombrero hacia el hongo madre. Los cristales vuelven a crecer con el tiempo.",
+      "La mina se expande con la cantidad de mineros: empieza con un pozo y una galería, y se va cavando de a poco (con polvo en las puntas) en galerías, pasadizos y niveles más profundos, hasta ocupar cerca de un 30% del ancho del mundo. Las mejoras del edificio: Picos de cristal, Vagonetas, Veta rica y Red de túneles.",
+      "Con el zoom acercado ahora también se puede arrastrar hacia arriba para ver bajo el piso, hasta el fondo de la mina.",
+    ],
+  },
+  {
     v: "0.25.0",
     fecha: "2026-10-04",
     cambios: [

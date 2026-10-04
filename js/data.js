@@ -78,29 +78,36 @@ const EDIF_DEF = [
     color: "#9db4c8",
   },
   {
-    id: "torre",
+    id: "mina",
     tier: 5,
+    nombre: "Mina hongil",
+    desc: "Un hongo con castillete y puerta de mina. Habilita a los mineros: bajan por debajo del piso, cavan túneles (cuantos más hay, más se expande la mina) y suben cristales hongiles que se procesan en el edificio y se vuelven esporas.",
+    color: "#c47a45",
+  },
+  {
+    id: "torre",
+    tier: 6,
     nombre: "Torre de magos hongil",
     desc: "Una torre con sombrero de mago y un caldero. Habilita a los magos: hacen pociones de hongos que dan esporas y purifican las nubes de contaminación, convirtiéndolas en esporas.",
     color: "#d12bff",
   },
   {
     id: "gimnasio",
-    tier: 6,
+    tier: 7,
     nombre: "Gym hongil",
     desc: "Un hongo con pesas. Habilita a los atletas, que entrenan afuera con mancuernas y sudan esporas.",
     color: "#ff8a1f",
   },
   {
     id: "trade",
-    tier: 7,
+    tier: 8,
     nombre: "Trade center hongil",
     desc: "Un hongo con pantallas de bolsa. Habilita a los traders: sus acciones suben y, al llegar arriba, cobran todas las esporas de golpe.",
     color: "#f5c518",
   },
   {
     id: "astropuerto",
-    tier: 8,
+    tier: 9,
     nombre: "Astropuerto hongil",
     desc: "Un hongo con un cohete-hongo estacionado. Habilita a los astronautas, que viajan a la luna y la van llenando de bases hongiles.",
     color: "#4fb4ff",
@@ -135,10 +142,11 @@ const HONG_DEF = [
   { id: "cientifico", tier: 3.5, tierCosto: 2.5, inv: 1, nombre: "Científico", sprite: "cientifico", desc: "Hace experimentos y genera investigación: cuantos más hay, más rápido se investiga.", color: "#2fd4c4", casa: "universidad" },
   { id: "jardinero", tier: 3, nombre: "Jardinero", sprite: "jardinero", desc: "Riega el piso y brotan honguitos que se desvanecen y se vuelven esporas.", color: "#2fa84f", casa: "vivero" },
   { id: "obrero", tier: 4, nombre: "Obrero", sprite: "obrero", desc: "Trabaja en la fábrica: entra, arma hongos chiquitos y los deja en la cinta. Cuantos más hay, más humo y más lluvia ácida.", color: "#9db4c8", casa: "fabrica" },
-  { id: "mago", tier: 5, nombre: "Mago", sprite: "mago", desc: "Prepara pociones de hongos en su caldero (esporas) y purifica las nubes de contaminación: cada nube purificada se vuelve esporas.", color: "#d12bff", casa: "torre" },
-  { id: "atleta", tier: 6, nombre: "Atleta", sprite: "atleta", desc: "Entrena con mancuernas al lado del gym y transpira esporas.", color: "#ff8a1f", casa: "gimnasio" },
-  { id: "trader", tier: 7, nombre: "Trader", sprite: "trader", desc: "Hace llamados y mueve acciones en el trade center. Cada ciclo de bolsa cobra todo junto.", color: "#f5c518", casa: "trade" },
-  { id: "astronauta", tier: 8, nombre: "Astronauta", sprite: "astronauta", desc: "Se sube al cohete, viaja a la luna y vuelve con esporas. Cada expedición suma una base hongil lunar.", color: "#4fb4ff", casa: "astropuerto" },
+  { id: "minero", tier: 5, nombre: "Minero", sprite: "minero", desc: "Baja por debajo del piso, cava túneles y sube cristales hongiles al edificio de la mina: ahí se procesan y se vuelven esporas. Cuantos más hay, más se expande la mina.", color: "#c47a45", casa: "mina" },
+  { id: "mago", tier: 6, nombre: "Mago", sprite: "mago", desc: "Prepara pociones de hongos en su caldero (esporas) y purifica las nubes de contaminación: cada nube purificada se vuelve esporas.", color: "#d12bff", casa: "torre" },
+  { id: "atleta", tier: 7, nombre: "Atleta", sprite: "atleta", desc: "Entrena con mancuernas al lado del gym y transpira esporas.", color: "#ff8a1f", casa: "gimnasio" },
+  { id: "trader", tier: 8, nombre: "Trader", sprite: "trader", desc: "Hace llamados y mueve acciones en el trade center. Cada ciclo de bolsa cobra todo junto.", color: "#f5c518", casa: "trade" },
+  { id: "astronauta", tier: 9, nombre: "Astronauta", sprite: "astronauta", desc: "Se sube al cohete, viaja a la luna y vuelve con esporas. Cada expedición suma una base hongil lunar.", color: "#4fb4ff", casa: "astropuerto" },
 ];
 export const HONGUITOS = Object.fromEntries(HONG_DEF.map((h) => {
   const v = valoresTier(h.tierCosto ?? h.tier);
@@ -190,6 +198,7 @@ const TEC_NOMBRES = {
   atleta: ["Proteína de micelio", "Entrenamiento de élite", "Ropa deportiva técnica", "Fisioterapia hongil", "Dieta balanceada"],
   trader: ["Algoritmo de trading hongil", "Análisis de mercado", "Terminal de cotizaciones", "Cobertura de riesgo", "Información al instante"],
   astronauta: ["Trajes presurizados", "Propulsores de espora", "Navegación estelar", "Escudo térmico", "Observatorio lunar"],
+  minero: ["Picos de cristal", "Vagonetas reforzadas", "Lámparas de espora", "Entibado de micelio", "Perforadora hongil"],
   mago: ["Recetario de hongos", "Varitas de hongo mágico", "Grimorio ilustrado", "Caldero de cobre", "Gran hechizo de purga"],
   cientifico: ["Microscopios mejorados", "Laboratorio de alta pureza", "Cuadernos de campo", "Cafetera industrial", "Supercomputadora de micelio"],
 };
@@ -258,6 +267,12 @@ export const MEJ_EDIF = [
   M("obrero", "sobrecarga", "Sobrecarga de máquinas", 120, 15, 1, 1, { ef: "sobrecarga" }),
   M("obrero", "filtros", "Filtros de chimenea hongiles", 60, 15, 2, 5, { ef: "acido", a: 0.12 }),
   M("obrero", "paraguas", "Paraguas hongiles", 90, 20, 2.2, 4, { ef: "paraguas", a: 0.15 }),
+
+  // Mina: picos, vagonetas, veta rica (críticos) y red de túneles
+  M("minero", "picos", "Picos de cristal", 4, 5, 1.7, 10, { ef: "prod", a: 0.1 }),
+  M("minero", "vagonetas", "Vagonetas", 15, 10, 2, 5, { ef: "vel", a: 0.08 }),
+  M("minero", "veta", "Veta rica", 60, 15, 2, 5, { ef: "crit", p0: 0.015, p1: 0.005, seg: 15 }),
+  M("minero", "red", "Red de túneles", 90, 20, 1, 1, { ef: "sinergia", fuente: "minero", cada: 10, bono: 0.02, objetivo: "todos" }),
 
   // Torre de magos: caldero, purga de nubes, bola de cristal (eventos) y mano del destino
   M("mago", "caldero", "Caldero mayor", 4, 5, 1.7, 10, { ef: "prod", a: 0.1 }),

@@ -3,7 +3,7 @@
 // del arte) y se escala con un factor entero sin suavizado. No hay sprites ni fotogramas:
 // los honguitos son un bitmap diminuto que se mueve con rebotes y estiramientos por código.
 
-const TIPOS_VISUALES = ['basico', 'musico', 'jardinero', 'atleta', 'trader', 'astronauta', 'maestro', 'obrero', 'cientifico', 'mago']; // el número dibujado por tipo lo da el ajuste "honguitos visibles" (el real puede ser enorme)
+const TIPOS_VISUALES = ['basico', 'musico', 'jardinero', 'atleta', 'trader', 'astronauta', 'maestro', 'obrero', 'cientifico', 'mago', 'minero']; // el número dibujado por tipo lo da el ajuste "honguitos visibles" (el real puede ser enorme)
 let limiteVisibles = 20; // honguitos dibujados por tipo (Ajustes)
 const maxParticulas = () => 150 + limiteVisibles * 8;
 const maxBrotes = () => Math.max(6, limiteVisibles * 2); // honguitos pasajeros que dejan los jardineros
@@ -69,6 +69,7 @@ const TAM_BASE = {
   escuela: { w: 40, ch: 19, sw: 17, sh: 14 },
   fabrica: { w: 46, ch: 21, sw: 20, sh: 15 },
   universidad: { w: 44, ch: 21, sw: 20, sh: 16 },
+  mina: { w: 42, ch: 18, sw: 18, sh: 15 },
   torre: { w: 34, ch: 15, sw: 12, sh: 26, extra: 20 }, // extra: alto del sombrero de mago sobre el sombrero
 };
 const NOTA = ["..##.", "..#.#", "..#..", "..#..", "###..", "###.."];
@@ -93,12 +94,14 @@ export function crearEscena(canvas, opciones = {}) {
   let dpr = 1, S = 1, Wc = 0, Hc = 0, groundY = 0;
   // cámara: Wc/Hc = celdas visibles; S = px por celda (niveles enteros para que el pixel art quede nítido)
   let groundRef = 220, S0 = 1, Wc0 = 300, Hc0 = 300, niveles = [1], zoomIdx = null, camX = C0, camY = 0, extent = 150;
+  // mina: túneles bajo el piso (coordenadas relativas a la entrada: x al costado, y hacia abajo)
+  let mina = null, minaKey = "", minaP = null, nMineros = 0;
   const LIM0 = () => C0 - extent, LIM1 = () => C0 + extent; // hasta dónde llega lo que hay en el mundo
   const offX = () => Math.round(Wc / 2 - camX);
   // camY = cuánto se bajó el mundo para ver más cielo: hasta la altura que se ve con el zoom más alejado
   const offY = () => Math.round(camY);
   function limitarCam() {
-    camY = clamp(camY, 0, Math.max(0, 0.74 * (canvas.height - Hc)));
+    camY = clamp(camY, -Math.max(0, mina && edif.mina ? mina.depth + 12 - 0.26 * Hc : 0), Math.max(0, 0.74 * (canvas.height - Hc)));
     camX = Wc >= 2 * extent ? C0 : clamp(camX, C0 - extent + Wc / 2, C0 + extent - Wc / 2);
   }
   let fondo = null;
@@ -258,6 +261,24 @@ export function crearEscena(canvas, opciones = {}) {
     const x = c.getContext("2d");
     x.fillStyle = "#5a1f8f"; x.fillRect(1, 6, 7, 2);
     x.fillStyle = "#ffe14d"; x.fillRect(3, 6, 1, 1); x.fillRect(5, 7, 1, 1);
+    return c;
+  });
+  // minero: sombrero cobrizo con casco, lámpara encendida y franja oscura
+  const spritesMinero = [0, 1].map((pose) => {
+    const c = hacerSprite("#c47a45", PATAS[pose], false);
+    const x = c.getContext("2d");
+    x.fillStyle = "#6b3d1e"; x.fillRect(0, 2, 9, 1);
+    x.fillStyle = "#fff6a8"; x.fillRect(4, 0, 1, 1); x.fillRect(3, 1, 3, 1);
+    return c;
+  });
+  // cristal hongil: un hongo de cristal 5x6 (sombrero con brillo y tallito pálido)
+  const CRISTALES = ["#5ef2ff", "#ff6bd6", "#b5ff4a", "#b48cff", "#ffd23f"];
+  const CRISTAL = [".ccc.", "cbccc", "ccccc", "..w..", "..w..", "..w.."];
+  const spritesCristal = CRISTALES.map((col) => {
+    const c = document.createElement("canvas");
+    c.width = 5; c.height = 6;
+    const x = c.getContext("2d");
+    CRISTAL.forEach((fila, y) => { for (let i = 0; i < 5; i++) { const ch = fila[i]; if (ch === ".") continue; x.fillStyle = ch === "c" ? col : ch === "b" ? "#ffffff" : "#d8e4f0"; x.fillRect(i, y, 1, 1); } });
     return c;
   });
   // alumnito: honguito más chico (7x6)
@@ -1198,6 +1219,184 @@ export function crearEscena(canvas, opciones = {}) {
     }
   }
 
+  // ---- Mina hongil: túneles bajo el piso, mineros y cristales ----
+  const MINA_TH = 11; // alto de los túneles (entra un honguito)
+  const MINA_PISO = 24, MINA_NIVEL = 34; // profundidad del primer nivel y distancia entre niveles
+  const minaProfMax = () => Math.round(0.26 * Hc0 * 2);
+  // cuánto de la mina está cavada según los mineros (0..1): crece con el log de la cantidad
+  const minaObjetivo = (n) => (n <= 0 ? 0 : clamp(0.1 + (Math.log10(n) / 2.3) * 0.9, 0.1, 1));
+  function generarMina() {
+    const x0 = edif.mina.x, r = rng(7 + semilla * 31);
+    const lim = (lado) => Math.max(0, Math.min(0.3 * extent, lado < 0 ? x0 - LIM0() - 10 : LIM1() - x0 - 10));
+    const seg = [], ores = [];
+    const add = (a, b, par) => {
+      const len = Math.abs(b.x - a.x) + Math.abs(b.y - a.y);
+      seg.push({ a, b, par, d0: par < 0 ? 0 : seg[par].d0 + seg[par].len, len, vert: a.x === b.x });
+      return seg.length - 1;
+    };
+    const ys = [];
+    for (let y = MINA_PISO; y <= minaProfMax(); y += MINA_NIVEL) ys.push(y);
+    let prev = -1, prevY = 0;
+    const eje = [];
+    for (const y of ys) { prev = add({ x: 0, y: prevY }, { x: 0, y }, prev); eje.push(prev); prevY = y; }
+    ys.forEach((y, k) => {
+      for (const lado of [-1, 1]) {
+        const alcance = lim(lado) * (0.55 + 0.45 * r());
+        if (alcance < 24) continue;
+        const nCon = k < ys.length - 1 ? 1 + Math.floor(r() * 2.2) : 0;
+        const cortes = Array.from({ length: nCon }, () => 16 + r() * (alcance - 24)).sort((p, q) => p - q);
+        let px = 0, par = eje[k];
+        for (const corte of [...cortes, alcance]) {
+          const gi = add({ x: lado * px, y }, { x: lado * corte, y }, par);
+          px = corte; par = gi;
+          if (corte !== alcance) add({ x: lado * corte, y }, { x: lado * corte, y: y + (r() < 0.65 ? MINA_NIVEL : MINA_NIVEL / 2) }, gi);
+        }
+      }
+    });
+    // cristales en las paredes: al menos uno en el extremo de cada tramo largo
+    seg.forEach((sg, i) => {
+      if (i < eje.length) return;
+      const n = Math.max(1, Math.floor(sg.len / 22));
+      for (let q = 0; q < n; q++) ores.push({ seg: i, u: Math.min(0.97, (q + 0.35 + r() * 0.55) / n), col: Math.floor(r() * CRISTALES.length), rec: 0, tomada: null });
+    });
+    const total = seg.reduce((m, sg) => Math.max(m, sg.d0 + sg.len), 1);
+    for (const o of ores) {
+      const sg = seg[o.seg];
+      o.dist = sg.d0 + o.u * sg.len;
+      o.px = sg.a.x + (sg.b.x - sg.a.x) * o.u;
+      o.py = sg.a.y + (sg.b.y - sg.a.y) * o.u;
+    }
+    mina = { seg, ores, total, depth: (ys[ys.length - 1] || 0) + 4 };
+  }
+  // punto donde para el minero frente a un cristal: del lado de la entrada, mirando al cristal
+  function paradaOre(o) {
+    const sg = mina.seg[o.seg];
+    return sg.vert ? { x: o.px - 3, y: o.py, dir: 1 } : { x: o.px - Math.sign(sg.b.x - sg.a.x) * 6, y: o.py, dir: Math.sign(sg.b.x - sg.a.x) || 1 };
+  }
+  function sincronizarMina(dt) {
+    if (!edif.mina) { mina = null; minaKey = ""; return; }
+    const key = [edif.mina.x, semilla, Math.round(extent), Hc0].join("|");
+    if (key !== minaKey) {
+      minaKey = key;
+      generarMina();
+      for (const v of visuales) if (v.tipo === "minero" && (v.yOff || v.ruta)) { v.yOff = 0; v.ruta = null; v.modo = "idle"; v.x = edif.mina.x; v.cristal = null; v.espera = 0.5; }
+    }
+    const obj = minaObjetivo(nMineros);
+    if (minaP === null) minaP = obj;
+    // la mina se cava de a poco hacia el objetivo (unas 6 celdas por segundo)
+    const paso = (6 / mina.total) * dt;
+    const antes = minaP;
+    minaP = minaP < obj ? Math.min(obj, minaP + paso) : obj;
+    const frente = minaP * mina.total;
+    // polvo en las puntas que se están cavando
+    if (minaP !== antes || Math.random() < dt * 2) {
+      for (const sg of mina.seg) {
+        if (frente <= sg.d0 || frente >= sg.d0 + sg.len) continue;
+        const f = (frente - sg.d0) / sg.len, x = edif.mina.x + sg.a.x + (sg.b.x - sg.a.x) * f, y = groundY + sg.a.y + (sg.b.y - sg.a.y) * f - (sg.vert ? 0 : MINA_TH / 2);
+        if (Math.random() < dt * 14) part(x, y, (Math.random() - 0.5) * 10, -4 - Math.random() * 6, { tipo: "mota", dur: 0.5, col: Math.random() < 0.5 ? "#6a6a88" : "#3a3a52", r: 1 });
+      }
+    }
+    for (const o of mina.ores) if (o.rec > 0) o.rec = Math.max(0, o.rec - dt);
+  }
+  function dibujarMina() {
+    if (!mina || !edif.mina) return;
+    const x0 = edif.mina.x, frente = (minaP ?? 0) * mina.total;
+    const rects = [];
+    for (const sg of mina.seg) {
+      if (frente <= sg.d0) continue;
+      const f = Math.min(1, (frente - sg.d0) / sg.len), ex = sg.a.x + (sg.b.x - sg.a.x) * f, ey = sg.a.y + (sg.b.y - sg.a.y) * f;
+      if (sg.vert) { const yt = sg.a.y === 0 ? groundY + 1 : groundY + sg.a.y - MINA_TH; rects.push([x0 + sg.a.x - 5, yt, 11, groundY + ey - yt]); }
+      else rects.push([x0 + Math.min(sg.a.x, ex), groundY + sg.a.y - MINA_TH, Math.abs(ex - sg.a.x), MINA_TH]);
+    }
+    g.fillStyle = "#2d2d44";
+    for (const [x, y, w, h] of rects) g.fillRect(Math.round(x) - 1, Math.round(y) - 1, Math.round(w) + 2, Math.round(h) + 2);
+    g.fillStyle = "#0e0e16";
+    for (const [x, y, w, h] of rects) g.fillRect(Math.round(x), Math.round(y), Math.round(w), Math.round(h));
+    // vigas de madera cada tanto en las galerías
+    g.fillStyle = "#4a3320";
+    for (const sg of mina.seg) {
+      if (sg.vert || frente <= sg.d0) continue;
+      const f = Math.min(1, (frente - sg.d0) / sg.len), n = Math.floor((sg.len * f) / 26);
+      for (let k = 1; k <= n; k++) { const bx = x0 + sg.a.x + Math.sign(sg.b.x - sg.a.x) * k * 26; g.fillRect(Math.round(bx), groundY + sg.a.y - MINA_TH, 1, MINA_TH); g.fillRect(Math.round(bx) - 1, groundY + sg.a.y - MINA_TH, 3, 1); }
+    }
+    // cristales hongiles en las paredes
+    for (const o of mina.ores) {
+      if (o.rec > 0 || o.dist > frente) continue;
+      const sg = mina.seg[o.seg], X = Math.round(x0 + o.px), Y = Math.round(groundY + o.py);
+      const sp = spritesCristal[o.col];
+      if (sg.vert) { g.drawImage(sp, X + 1, Y - 3); }
+      else { g.drawImage(sp, X - 2, Y - 6); g.drawImage(spritesCristal[(o.col + 2) % CRISTALES.length], X + 2, Y - 4, 3, 4); }
+    }
+  }
+  // avanza por la ruta {x,y}[] a `vel` celdas/s; devuelve true al llegar al final
+  function seguirRuta(v, dt, vel) {
+    let resto = vel * dt;
+    while (v.ruta && v.ri < v.ruta.length && resto > 0) {
+      const p = v.ruta[v.ri], dx = p.x - v.x, dy = p.y - v.yOff, d = Math.hypot(dx, dy);
+      if (d <= resto) { v.x = p.x; v.yOff = p.y; resto -= d; v.ri++; }
+      else { v.x += (dx / d) * resto; v.yOff += (dy / d) * resto; resto = 0; }
+      if (Math.abs(dx) > 0.5) v.dir = Math.sign(dx);
+    }
+    return v.ri >= v.ruta.length;
+  }
+  function actualizarMinero(v, dt) {
+    const M = edif.mina;
+    if (!M) return;
+    if (v.yOff === undefined) v.yOff = 0;
+    v.alfa = Math.min(1, v.alfa + dt * 2.5);
+    v.animT += dt;
+    v.hop = 0;
+    v.estira = 0;
+    if (v.modo === "idle") {
+      v.estira = Math.sin(v.animT * 3 + v.i) * 0.5;
+      v.espera -= dt;
+      if (v.espera > 0 || !mina) return;
+      const frente = (minaP ?? 0) * mina.total - 2;
+      const libres = mina.ores.filter((o) => o.rec <= 0 && !o.tomada && o.dist <= frente);
+      if (!libres.length) { v.espera = 1.5 + Math.random() * 2; return; }
+      const o = libres[Math.floor(Math.random() * libres.length)];
+      o.tomada = v;
+      const cadena = [];
+      for (let k = o.seg; k >= 0; k = mina.seg[k].par) cadena.unshift(k);
+      const st = paradaOre(o);
+      v.ruta = [{ x: M.x, y: 0 }];
+      cadena.forEach((k, idx) => { if (idx < cadena.length - 1) v.ruta.push({ x: M.x + mina.seg[k].b.x, y: mina.seg[k].b.y }); });
+      v.ruta.push({ x: M.x + st.x, y: st.y });
+      v.ri = 0; v.ore = o; v.parada = st; v.modo = "baja";
+    } else if (v.modo === "baja" || v.modo === "sube") {
+      const llego = seguirRuta(v, dt, VEL * (v.modo === "baja" ? 0.85 : 0.7));
+      v.hop = Math.abs(Math.sin(v.animT * 11)) * 1.2;
+      if (llego) {
+        if (v.modo === "baja") { v.modo = "pica"; v.tPica = 0; v.dir = v.parada.dir; }
+        else { v.modo = "deja"; v.tDeja = 0; v.dir = Math.sign(M.x - v.x) || v.dir; }
+      }
+    } else if (v.modo === "pica") {
+      v.tPica += dt;
+      const o = v.ore, px = M.x + o.px, py = groundY + o.py - 4;
+      if (Math.random() < dt * 12) part(px, py, (Math.random() - 0.5) * 14, -6 - Math.random() * 8, { tipo: "mota", dur: 0.45, col: Math.random() < 0.5 ? CRISTALES[o.col] : "#8a8aa8", r: 1 });
+      if (v.tPica > 2.2) {
+        o.rec = 25 + Math.random() * 20; o.tomada = null;
+        v.cristal = o.col;
+        motas(px, py, 8, 0.8, CRISTALES[o.col]);
+        const volver = [...v.ruta].reverse().slice(1).map((p) => ({ ...p }));
+        volver.push({ x: M.x, y: 0 });
+        v.ruta = volver; v.ri = 0; v.modo = "sube";
+      }
+    } else if (v.modo === "deja") {
+      v.tDeja += dt;
+      v.hop = Math.abs(Math.sin(v.tDeja * 10)) * 0.8;
+      if (v.tDeja > 0.45 && v.cristal !== null && v.cristal !== undefined) {
+        // procesamiento: el cristal entra al edificio y salen esporas desde el sombrero
+        const m = tam("mina"), col = CRISTALES[v.cristal];
+        brillos.mina = 1;
+        motas(M.x, groundY - 7, 8, 1, col);
+        lanzarEspora(M.x + (Math.random() - 0.5) * m.w * 0.4, groundY - m.sh - m.ch * 0.4, col);
+        v.cristal = null;
+      }
+      if (v.tDeja > 0.9) { v.modo = "idle"; v.espera = 0.5 + Math.random() * 2; }
+    }
+  }
+
   function actualizarMusico(v, dt) {
     v.alfa = Math.min(1, v.alfa + dt * 2.5);
     v.animT += dt;
@@ -1340,6 +1539,8 @@ export function crearEscena(canvas, opciones = {}) {
     nObreros = state.honguitos.obrero || 0;
     contam = state.contam || 0;
     nMagos = state.honguitos.mago || 0;
+    nMineros = state.honguitos.minero || 0;
+    sincronizarMina(dtG);
     for (const v of visuales) {
       const dt = (v.acidoT > 0 ? dtG * 0.6 : dtG) * (velTipo[v.tipo] || 1); // mojados: más lentos; mejoras de velocidad: más rápidos
       if (buffTipos[v.tipo] && Math.random() < dtG * 5) part(v.x + (Math.random() - 0.5) * 8, groundY - HH - 2, 0, -12, { tipo: "mota", dur: 0.5, col: "#ffe14d", r: 1 });
@@ -1356,6 +1557,7 @@ export function crearEscena(canvas, opciones = {}) {
       if (v.tipo === "obrero") { actualizarObrero(v, dt); continue; }
       if (v.tipo === "cientifico") { actualizarCientifico(v, dt); continue; }
       if (v.tipo === "mago") { actualizarMago(v, dt); continue; }
+      if (v.tipo === "minero") { actualizarMinero(v, dt); continue; }
       v.alfa = Math.min(1, v.alfa + dt * 2.5);
       v.animT += dt;
       v.hop = 0;
@@ -1770,6 +1972,25 @@ export function crearEscena(canvas, opciones = {}) {
       g.fillStyle = "#2a2a3c"; g.fillRect(px - 4, top + 3, 9, 3); g.fillRect(px - 3, top + 6, 7, 0);
       g.fillStyle = Math.floor(t * 1.5) % 2 ? "#7fff3a" : "#c06bff"; g.fillRect(px - 4, top + 1, 9, 1);
       g.fillStyle = "#e9ffd0"; const bb = Math.floor(t * 5); g.fillRect(px - 3 + (bb % 5), top - (bb % 2), 1, 1); g.fillRect(px + 2 - (bb % 4), top - 1 + (bb % 3 === 0 ? 1 : 0), 1, 1);
+    } else if (id === "mina") {
+      // castillete sobre el sombrero: patas de madera y una rueda que gira (más rápido con más mineros)
+      const wy = capBase - ch - 10, giro = t * (nMineros ? 2 + Math.min(4, Math.log2(nMineros + 1)) : 0.4);
+      g.fillStyle = "#8a5a2a";
+      g.fillRect(cx - 5, wy + 4, 1, 6); g.fillRect(cx + 5, wy + 4, 1, 6); g.fillRect(cx - 4, wy + 6, 8, 1);
+      g.fillStyle = BLANCO; g.fillRect(cx - 6, wy, 13, 1); g.fillRect(cx - 1, wy + 1, 3, 1);
+      aro(cx, wy + 4, 3, BLANCO);
+      g.fillStyle = col;
+      for (let k = 0; k < 4; k++) { const an = giro + (k * Math.PI) / 2; g.fillRect(Math.round(cx + Math.cos(an) * 2), Math.round(wy + 4 + Math.sin(an) * 2), 1, 1); }
+      // piquitas de cristal brillando en el sombrero
+      [[-9, 8, 0], [7, 11, 1], [-3, 13, 2], [11, 6, 3]].forEach(([dx, dy, k]) => g.drawImage(spritesCristal[k], cx + dx, capBase - dy - 6));
+      // tallo: boca de la mina con marco de madera, lámpara y rieles hacia un montón de cristales
+      g.fillStyle = "#0b0b12"; g.fillRect(cx - 3, groundY - 8, 7, 7);
+      g.fillStyle = "#8a5a2a"; g.fillRect(cx - 4, groundY - 9, 9, 1); g.fillRect(cx - 4, groundY - 9, 1, 8); g.fillRect(cx + 4, groundY - 9, 1, 8);
+      g.fillStyle = Math.floor(t * 3 + 1) % 7 === 0 ? "#fff6a8" : "#ffd23f"; g.fillRect(cx - mitad + 2, capBase + 5, 2, 2);
+      g.fillStyle = "#9a9ab0"; g.fillRect(cx + 5, groundY - 1, 10, 1);
+      g.fillStyle = "#8a5a2a"; for (let k = 0; k < 4; k++) g.fillRect(cx + 6 + k * 3, groundY - 1, 1, 1);
+      const px = cx + m.lado * (mitad + 7);
+      for (let k = 0; k < Math.min(3, 1 + (m.nivel || 0)); k++) g.drawImage(spritesCristal[(k * 2 + 1) % CRISTALES.length], px + k * 4 - 4, groundY - 6 - (k % 2));
     } else if (id === "universidad") {
       // birrete sobre el sombrero con borla, foco de ideas que parpadea, columnas, escalones y puerta
       const by = capBase - ch - 3;
@@ -2036,10 +2257,10 @@ export function crearEscena(canvas, opciones = {}) {
         }
       }
     }
-    const base = Math.round(groundY - v.hop);
+    const base = Math.round(groundY + (v.yOff || 0) - v.hop);
     const pose = v.modo === "walk" ? (Math.floor(v.animT * 11) % 2) : 0;
     const spr = v.tipo === "musico" ? spritesMusico[v.modo === "canta" ? [0, 2, 3, 2][Math.floor(v.tCanta * 8) % 4] : pose]
-      : v.tipo === "jardinero" ? spritesJard[pose] : v.tipo === "atleta" ? spritesAtl[pose] : v.tipo === "mago" ? spritesMago[pose] : v.tipo === "cientifico" ? spritesCient[pose] : v.tipo === "obrero" ? spritesObrero[pose] : v.tipo === "maestro" ? spritesMaestro[v.modo === "clase" ? (Math.floor(v.animT * 5) % 2 ? 2 : 3) : pose] : v.tipo === "astronauta" ? spritesAstro[pose] : v.tipo === "trader" ? spritesTrader[v.modo === "llama" ? (Math.floor(v.tLlama * 6) % 2 ? 2 : 3) : pose] : spritesHongo[pose];
+      : v.tipo === "jardinero" ? spritesJard[pose] : v.tipo === "atleta" ? spritesAtl[pose] : v.tipo === "mago" ? spritesMago[pose] : v.tipo === "minero" ? spritesMinero[pose] : v.tipo === "cientifico" ? spritesCient[pose] : v.tipo === "obrero" ? spritesObrero[pose] : v.tipo === "maestro" ? spritesMaestro[v.modo === "clase" ? (Math.floor(v.animT * 5) % 2 ? 2 : 3) : pose] : v.tipo === "astronauta" ? spritesAstro[pose] : v.tipo === "trader" ? spritesTrader[v.modo === "llama" ? (Math.floor(v.tLlama * 6) % 2 ? 2 : 3) : pose] : spritesHongo[pose];
     const alto = HH + Math.round(v.estira);
     const x = Math.round(v.x);
     g.globalAlpha = v.alfa;
@@ -2052,6 +2273,16 @@ export function crearEscena(canvas, opciones = {}) {
     for (const [lx, ly] of v.lunares) g.fillRect(x - 4 + lx, base - alto + Math.round(ly * esc), 1, Math.max(1, Math.round(esc)));
     g.restore();
     g.globalAlpha = 1;
+    if (v.tipo === "minero") {
+      if ((v.yOff || 0) > 4) { // luz de la lámpara bajo tierra
+        g.globalAlpha = 0.1; disco(x, base - 5, 13, "#ffe9a0"); g.globalAlpha = 0.12; disco(x, base - 5, 7, "#fff6a8"); g.globalAlpha = 1;
+      }
+      // pico: al hombro; en la mina se balancea contra el cristal
+      const sw = v.modo === "pica" ? Math.sin(v.tPica * 14) : 0, hx = x + v.dir * 5 + Math.round(sw * 2 * v.dir);
+      g.fillStyle = "#8a5a2a"; g.fillRect(hx, base - 9 - (v.modo === "pica" ? Math.round(Math.abs(sw) * 2) : 0), 1, 7);
+      g.fillStyle = "#c8c8dc"; g.fillRect(hx - 1, base - 10 - (v.modo === "pica" ? Math.round(Math.abs(sw) * 2) : 0), 3, 1);
+      if (v.cristal !== null && v.cristal !== undefined) g.drawImage(spritesCristal[v.cristal], x - 2, base - alto - 8 - Math.round(Math.sin(t * 6 + v.i)));
+    }
     if (v.tipo === "mago") {
       // cono del sombrero de mago con una estrella, y bastón al lanzar hechizos
       const hy = base - alto;
@@ -2189,6 +2420,7 @@ export function crearEscena(canvas, opciones = {}) {
     g.fillStyle = BG;
     g.fillRect(0, 0, Wc, Hc);
     const oy = offY();
+    if (oy < 0) { g.fillStyle = BG_SUELO; g.fillRect(0, groundY + oy, Wc, Hc); }
     g.drawImage(fondo, 0, oy);
     for (const gi of gigantes) {
       const hT = gi.cv.height, h = Math.max(1, Math.round(hT * suave(gi.p)));
@@ -2208,6 +2440,7 @@ export function crearEscena(canvas, opciones = {}) {
     g.translate(offX(), oy);
     dibujarLuna();
     dibujarNubes();
+    dibujarMina();
     dibujarMadre();
     for (const id in edif) if (!(colocando?.mover && colocando.id === id)) dibujarEdificio(id, edif[id].x);
     dibujarCoheteEnVuelo();
