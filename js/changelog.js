@@ -1,5 +1,14 @@
 export const CHANGELOG = [
   {
+    v: "0.37.0",
+    fecha: "2026-10-04",
+    cambios: [
+      "Las ventanas son mucho más compactas: cada ítem (honguitos, edificios, mejoras, mercenarios, investigaciones, mejoras de la taberna) muestra solo su título y el botón; al tocar el título (el + a la izquierda) se despliega su descripción, y queda abierta aunque la lista se rearme. En la ventana de la dungeon, al tocar un objeto se muestra qué hace.",
+      "Los cristales radiantes de la dungeon ahora van en el medio del tronco del hongo madre: una veta de dos columnas que sube desde la base por el eje, con brillo y destellos.",
+      "El hongo madre tiene más animación y luces, y se vuelve multicolor a medida que se desbloquean edificios: franjas de color que se deslizan por el sombrero (una por cada color de edificio), un aura que respira, una guirnalda de luces que corren por el borde del sombrero y chispas de colores que suben. Cuantos más edificios, más luces y más colores.",
+    ],
+  },
+  {
     v: "0.36.0",
     fecha: "2026-10-04",
     cambios: [

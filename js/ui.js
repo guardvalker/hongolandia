@@ -52,10 +52,12 @@ export function crearUI(api) {
     hoja.style.maxHeight = Math.max(160, vh - 90) + "px";
   }
 
+  const desplegadas = new Set();
   let entrar = false, flashIdx = -1, acentoActual = "#b5e61d";
   function abrir(cual, titulo, render, ancla = null, acento = "#b5e61d") {
     // los elementos de la lista aparecen con una animación, salvo al rearmarla tras una compra
     entrar = !(hoja.classList.contains("abierta") && hojaTitulo.textContent === titulo);
+    if (entrar) desplegadas.clear();
     acentoActual = acento;
     hoja.style.setProperty("--ac", acento);
     abierta = cual;
@@ -84,6 +86,11 @@ export function crearUI(api) {
     const d = document.createElement("span");
     d.textContent = desc;
     info.append(t, d);
+    // la descripción se ve al tocar el título (queda abierta aunque se rearme la lista)
+    el.classList.add("plegable");
+    const clave = hojaTitulo.textContent + "#" + idx;
+    if (desplegadas.has(clave)) el.classList.add("desplegada");
+    t.addEventListener("click", () => { const abre = el.classList.toggle("desplegada"); if (abre) desplegadas.add(clave); else desplegadas.delete(clave); });
     const btn = document.createElement("button");
     btn.className = "comprar";
     btn.addEventListener("click", (e) => {
@@ -460,6 +467,8 @@ export function crearUI(api) {
         celdas[o.id] = c;
       }
       hojaCuerpo.append(objs);
+      const detalle = nota("Tocá un objeto para ver qué hace.");
+      for (const o of OBJETOS) celdas[o.id].addEventListener("click", () => { detalle.textContent = o.nombre + ": " + o.desc + "."; });
       const raros = nota("");
       // objetos activos y estadísticas del party en la exploración en curso
       seccion("Exploración en curso");

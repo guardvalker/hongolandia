@@ -275,3 +275,11 @@ body.transp #hoja-cerrar { background: rgba(45, 45, 64, .6); }
 .obj-fila b { font-size: 14px; font-weight: 400; color: #fff; }
 .obj-fila small { font-size: 12px; color: var(--dim); }
 .dv-aviso img.ico { flex: none; width: 27px; height: 27px; image-rendering: pixelated; }
+
+/* filas plegables: solo se ve el título; al tocarlo se despliega la descripción */
+.fila.plegable .fila-info span { display: none; }
+.fila.plegable.desplegada .fila-info span { display: block; }
+.fila.plegable .fila-info b { cursor: pointer; user-select: none; -webkit-user-select: none; }
+.fila.plegable .fila-info b::before { content: "+"; display: inline-block; width: 12px; margin-right: 2px; color: var(--a); }
+.fila.plegable.desplegada .fila-info b::before { content: "-"; }
+.obj { cursor: pointer; }

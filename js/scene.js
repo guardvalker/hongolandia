@@ -129,7 +129,7 @@ export function crearEscena(canvas, opciones = {}) {
     const nivel = f >= 1.55 ? 3 : f >= 1.3 ? 2 : f >= 1.12 ? 1 : 0;
     return (cacheTam[clave] = { w: Math.round(b.w * f), ch: Math.round(b.ch * f), sw: Math.round(b.sw * f), sh: Math.round(b.sh * f), nivel, lado });
   }
-  let tNiveles = 0, tPrest = 0, pfMadre = 0, camObj = null;
+  let tNiveles = 0, tPrest = 0, pfMadre = 0, camObj = null, luzDt = 0.016;
   let tBolsa = 0, nBolsa = null, hayTraders = false; // reflejo de state.bolsa para dibujar el gráfico
   const cola = []; // acciones diferidas {t, fn}
   let contam = 0, nMagos = 0, evT = /evento/.test(location.search) ? 2 : 40 + Math.random() * 60;
@@ -1282,18 +1282,22 @@ export function crearEscena(canvas, opciones = {}) {
       if (herido) { g.fillStyle = "#c8c8dc"; const z = Math.floor(m.t * 1.5) % 3; g.fillRect(Math.round(m.x) + 4, groundY - 14 - z * 2, 2 + z, 1); }
     }
   }
-  // cristales radiantes engarzados en el tronco del hongo madre
+  // cristales radiantes engarzados en el tronco del hongo madre: una veta que sube por el medio
   function dibujarCristalesMadre() {
     if (!cristalesN) return;
-    const m = medidas(), cx = Math.round(madre.x);
-    for (let k = 0; k < Math.min(cristalesN, 60); k++) {
-      const h1 = Math.imul(k + 1, 2654435761) >>> 0, h2 = Math.imul(k + 7, 1597334677) >>> 0;
-      const x = cx + Math.round(((h1 % 1000) / 1000 - 0.5) * (m.sw - 10)), y = groundY - 5 - Math.round(((h2 % 1000) / 1000) * Math.max(1, m.sh - 14));
-      const pulso = 0.5 + 0.5 * Math.sin(t * 2 + k);
-      g.globalAlpha = 0.07 + 0.07 * pulso; disco(x, y - 3, 5, "#bff7ff");
+    const m = medidas(), cx = Math.round(madre.x), alto = m.sh - 12;
+    const lugares = Math.max(1, Math.floor(alto / 8) * 2); // dos columnas pegadas al eje del tronco
+    const n = Math.min(cristalesN, lugares, 80);
+    for (let k = 0; k < n; k++) {
+      const fila = Math.floor(k / 2), lado = k % 2 ? 1 : -1;
+      const x = cx + lado * 3 + (fila % 2 ? lado : 0), y = groundY - 8 - fila * 8;
+      const pulso = 0.5 + 0.5 * Math.sin(t * 2.2 + k * 0.9);
+      g.globalAlpha = 0.1 + 0.1 * pulso; disco(x, y - 3, 6, CRISTALES[k % CRISTALES.length]);
+      g.globalAlpha = 0.07 + 0.06 * pulso; disco(x, y - 3, 9, "#ffffff");
       g.globalAlpha = 1;
       g.drawImage(spritesCristal[k % CRISTALES.length], x - 3, y - 7, 7, 8);
       g.fillStyle = "#fff"; g.fillRect(x - 1, y - 6, 1, 1);
+      if ((k + Math.floor(t * 2)) % 7 === 0) { g.fillRect(x + 3, y - 8, 1, 1); g.fillRect(x - 4, y - 5, 1, 1); }
     }
   }
 
@@ -1765,6 +1769,7 @@ export function crearEscena(canvas, opciones = {}) {
     nMineros = state.honguitos.minero || 0;
     dungeonFlag = !!state.flags?.dungeon;
     cristalesN = state.dungeon?.cristales || 0;
+    luzDt = dtG;
     mercInfo = state.dungeon?.merc || {};
     sincronizarMercs(dtG);
     sincronizarMina(dtG);
@@ -2049,6 +2054,7 @@ export function crearEscena(canvas, opciones = {}) {
       const q = pos[k];
       manchaCap(cx, capBase, rx, ch, cx + Math.round(q.u * rx), capBase - 2 - Math.round(q.h * ch), Math.max(1, Math.round(ch * q.f * 1.2)), col);
     });
+    lucesMadre(cx, capBase, rx, ch);
     // brotecitos y pasto en la base, más con cada etapa
     const idx = etapaPrev ?? 0;
     g.fillStyle = "#4a5a6a";
@@ -2056,6 +2062,53 @@ export function crearEscena(canvas, opciones = {}) {
       const dx = (k % 2 ? 1 : -1) * (Math.round(m.sw / 2) + 5 + k * 3);
       g.fillRect(cx + dx, groundY - 2, 1, 2);
       g.fillRect(cx + dx + 1, groundY - 1, 1, 1);
+    }
+  }
+
+  // Luces y color del hongo madre: cuantos más edificios, más colores. Franjas de color que se deslizan
+  // por el sombrero, aura que respira, guirnalda de luces en el borde y chispas que suben.
+  function lucesMadre(cx, capBase, rx, ch) {
+    const cols = coloresMadre, n = cols.length; // el rojo del principio + el color de cada edificio
+    const pulso = 0.5 + 0.5 * Math.sin(t * 1.6);
+    if (n > 1) {
+      const seg = Math.max(8, Math.round(rx / 5));
+      g.globalAlpha = Math.min(0.17, 0.04 + 0.016 * n);
+      for (let dy = 0; dy < ch; dy += 3) {
+        const w = Math.floor(rx * Math.sqrt(Math.max(0, 1 - (dy / ch) ** 2))) - 1;
+        if (w < 3) continue;
+        for (let x = -w; x < w; x += seg) {
+          const idx = Math.floor((x + w) / seg + dy * 0.05 + t * 0.7);
+          g.fillStyle = cols[((idx % n) + n) % n];
+          g.fillRect(cx + x, capBase - 3 - dy, Math.min(seg, w - x), 3);
+        }
+      }
+    }
+    // aura: arcos suaves fuera del borde, del color que toca en cada momento
+    for (let k = 0; k < 3; k++) {
+      g.globalAlpha = (0.14 - k * 0.035) * (0.5 + 0.5 * pulso) * Math.min(1, 0.5 + n * 0.12);
+      g.fillStyle = cols[Math.floor(t * 0.6 + k) % n];
+      const rr = rx + 2 + k * 2, hh = ch + 2 + k * 2, pasos = Math.round(rr * 1.6);
+      for (let i = 0; i <= pasos; i++) {
+        const a = (i / pasos) * Math.PI;
+        g.fillRect(Math.round(cx + Math.cos(a) * rr), Math.round(capBase - 2 - Math.sin(a) * hh), 2, 2);
+      }
+    }
+    // guirnalda de luces que corren por el borde del sombrero
+    const focos = 9 + n * 3;
+    for (let k = 0; k < focos; k++) {
+      const a = Math.PI * (0.04 + 0.92 * (k / (focos - 1)));
+      const x = Math.round(cx + Math.cos(a) * (rx - 1)), y = Math.round(capBase - 3 - Math.sin(a) * (ch - 1));
+      const col = cols[(k + Math.floor(t * 2.5)) % n], prendido = (k + Math.floor(t * 3.5)) % 3 !== 0;
+      if (!prendido) { g.globalAlpha = 0.5; g.fillStyle = "#3a3a52"; g.fillRect(x, y, 2, 2); continue; }
+      g.globalAlpha = 0.18; disco(x, y, 3, col);
+      g.globalAlpha = 1; g.fillStyle = col; g.fillRect(x, y, 2, 2);
+      g.fillStyle = "#fff"; g.fillRect(x, y, 1, 1);
+    }
+    g.globalAlpha = 1;
+    // chispas de colores que suben desde el sombrero
+    if (Math.random() < luzDt * (1 + n * 1.6)) {
+      const a = Math.random() * Math.PI, x = cx + Math.cos(a) * rx * Math.random(), y = capBase - 3 - Math.sin(a) * ch * Math.random();
+      part(x, y, (Math.random() - 0.5) * 6, -6 - Math.random() * 8, { tipo: "mota", dur: 1.1 + Math.random() * 0.8, col: cols[Math.floor(Math.random() * n)], r: 1 });
     }
   }
 
