@@ -46,10 +46,22 @@ export const EDIFICIOS = {
     desbloqueo: D(0),
     color: "#f5c518",
   },
+  astropuerto: {
+    id: "astropuerto",
+    nombre: "Astropuerto hongil",
+    desc: "Un hongo con un cohete-hongo estacionado. Habilita a los astronautas, que viajan a la luna y la van llenando de bases hongiles.",
+    costo: D(1), // modo prueba
+    desbloqueo: D(0),
+    color: "#4fb4ff",
+  },
 };
 
 // Bolsa (traders): sus ganancias no entran de a poco sino de golpe, cada `ciclo` segundos.
 export const BOLSA = { ciclo: 18 };
+
+// Luna: cada `ciclo` segundos con astronautas se hace una expedición y la luna suma una base
+// (hasta `maxBases`; después las bases existentes crecen).
+export const LUNA = { ciclo: 30, maxBases: 80 };
 
 // Barra de prestigio (arriba): se llena con el total de esporas ganadas. Cada punto cuesta
 // `crecimiento` veces más que el anterior: el punto k necesita base * crecimiento^(k-1) esporas.
@@ -110,6 +122,17 @@ export const HONGUITOS = {
     prod: D(1000), // 10 veces un atleta (promedio: llega de golpe cada ciclo)
     color: "#f5c518",
     casa: "trade",
+  },
+  astronauta: {
+    id: "astronauta",
+    nombre: "Astronauta",
+    sprite: "astronauta",
+    desc: "Se sube al cohete, viaja a la luna y vuelve con esporas. Cada expedición suma una base hongil lunar.",
+    costoBase: D(1), // modo prueba
+    crecimiento: 1,
+    prod: D(10000), // 10 veces un trader
+    color: "#4fb4ff",
+    casa: "astropuerto",
   },
 };
 

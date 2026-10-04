@@ -46,6 +46,7 @@ export function nuevoEstado() {
     fondo: [], // hongos gigantes decorativos del fondo
     hitos: 0, // cuántos hitos de prestigio (cada 5 niveles) ya dieron su hongo
     flags: {},
+    luna: { t: 0, n: 0, bases: [] }, // expediciones lunares y las bases que ya tiene la luna
     bolsa: { t: 0, n: 0 }, // ciclo de los traders: segundos transcurridos y cuántos cobros hubo
     semilla: Math.floor(Math.random() * 1e6), // define el tamaño relativo de los edificios; cambia con cada prestigio
     creado: Date.now(),
@@ -86,6 +87,7 @@ function deserializar(raw) {
     hitos: raw.hitos ?? 0,
     flags: { ...raw.flags },
     bolsa: { ...base.bolsa, ...raw.bolsa },
+    luna: { ...base.luna, ...raw.luna, bases: Array.isArray(raw.luna?.bases) ? raw.luna.bases : [] },
   };
 }
 

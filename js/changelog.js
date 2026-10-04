@@ -1,5 +1,15 @@
 export const CHANGELOG = [
   {
+    v: "0.16.0",
+    fecha: "2026-10-03",
+    cambios: [
+      "Hay una luna de fondo desde el principio, sutil y apagada, arriba a la derecha.",
+      "Nuevo edificio: Astropuerto hongil (sombrero celeste con estrellitas, antena parabólica, ventanilla redonda y un cohete-hongo estacionado bajo el sombrero). En modo prueba cuesta 1.",
+      "Nuevo honguito: Astronauta (celeste, con visor y antena, 10000 esporas/s por unidad, 10 veces un Trader). Cada 30 s con astronautas hay una expedición: se suben al cohete, despega con llamas, viaja a la luna, aterriza, vuelven y sueltan esporas.",
+      "Cada expedición suma una base hongil de color en la luna (parche de color + cúpula-hongo). Con la luna llena las bases crecen. Las expediciones también cuentan con la pestaña en segundo plano.",
+    ],
+  },
+  {
     v: "0.15.0",
     fecha: "2026-10-03",
     cambios: [

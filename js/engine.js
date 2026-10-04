@@ -1,6 +1,6 @@
 import { D } from './decimal.js';
 import { agregarHongoFondo } from './state.js';
-import { HONGUITOS, MEJORAS, EDIFICIOS, PRESTIGIO, BOLSA } from './data.js';
+import { HONGUITOS, MEJORAS, EDIFICIOS, PRESTIGIO, BOLSA, LUNA } from './data.js';
 
 // Lógica pura del juego: nada de DOM ni canvas acá.
 
@@ -48,6 +48,28 @@ export function produccionPorSeg(state) {
 }
 
 // dt en segundos. Sin progreso offline: el llamador topea dt (ver main.js).
+// Una expedición a la luna: suma una base (de color de alguno de los honguitos que tenés) en un
+// lugar libre de la luna (coordenadas en el disco unidad); con la luna llena, crece una existente.
+function expedicionLunar(state) {
+  const L = state.luna;
+  const colores = Object.keys(HONGUITOS).filter((id) => (state.honguitos[id] || 0) > 0).map((id) => HONGUITOS[id].color);
+  const col = colores[Math.floor(Math.random() * colores.length)] || "#ffffff";
+  if (L.bases.length >= LUNA.maxBases) {
+    const b = L.bases[Math.floor(Math.random() * L.bases.length)];
+    b.s = Math.min(4, b.s + 1);
+    b.c = col;
+    return;
+  }
+  let mejor = null, mejorD = -1;
+  for (let i = 0; i < 30; i++) {
+    const a = Math.random() * Math.PI * 2, r = Math.sqrt(Math.random()) * 0.82;
+    const x = Math.cos(a) * r, y = Math.sin(a) * r;
+    const d = L.bases.reduce((m, o) => Math.min(m, Math.hypot(o.x - x, o.y - y)), 9);
+    if (d > mejorD) { mejorD = d; mejor = { x, y }; }
+  }
+  L.bases.push({ ...mejor, c: col, s: 1 });
+}
+
 export function tick(state, dt) {
   // los traders no cobran de a poco: acumulan tiempo y pagan todo junto al cerrar cada ciclo de bolsa
   const trader = produccionPorTipo(state, "trader");
@@ -60,6 +82,17 @@ export function tick(state, dt) {
       b.t -= ciclos * BOLSA.ciclo;
       b.n += ciclos;
       ganancia = ganancia.add(trader.mul(BOLSA.ciclo * ciclos));
+    }
+  }
+  // astronautas: cada ciclo hacen una expedición a la luna
+  if ((state.honguitos.astronauta || 0) > 0) {
+    const L = state.luna;
+    L.t += dt;
+    const ciclos = Math.floor(L.t / LUNA.ciclo);
+    if (ciclos > 0) {
+      L.t -= ciclos * LUNA.ciclo;
+      L.n += ciclos;
+      for (let i = 0; i < Math.min(ciclos, 200); i++) expedicionLunar(state);
     }
   }
   state.esporas = state.esporas.add(ganancia);

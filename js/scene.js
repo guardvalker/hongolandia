@@ -3,7 +3,7 @@
 // del arte) y se escala con un factor entero sin suavizado. No hay sprites ni fotogramas:
 // los honguitos son un bitmap diminuto que se mueve con rebotes y estiramientos por código.
 
-const TIPOS_VISUALES = ['basico', 'musico', 'jardinero', 'atleta', 'trader']; // el número dibujado por tipo lo da el ajuste "honguitos visibles" (el real puede ser enorme)
+const TIPOS_VISUALES = ['basico', 'musico', 'jardinero', 'atleta', 'trader', 'astronauta']; // el número dibujado por tipo lo da el ajuste "honguitos visibles" (el real puede ser enorme)
 let limiteVisibles = 20; // honguitos dibujados por tipo (Ajustes)
 const maxParticulas = () => 150 + limiteVisibles * 8;
 const maxBrotes = () => Math.max(6, limiteVisibles * 2); // honguitos pasajeros que dejan los jardineros
@@ -50,6 +50,7 @@ const BONUS_CONSERV = 1.15; // el conservatorio agranda al hongo madre
 const VERDE = "#2fa84f";
 const NARANJA = "#ff8a1f";
 const DORADO = "#f5c518";
+const CELESTE = "#4fb4ff";
 const CICLO_BOLSA = 18; // segundos entre cobros (igual que BOLSA.ciclo en data.js)
 const GIGANTE = "#222232"; // hongos gigantes del fondo: apenas más oscuros que el cielo
 const GIGANTE_MANCHA = "#252535";
@@ -59,6 +60,7 @@ const TAM_BASE = {
   vivero: { w: 38, ch: 20, sw: 16, sh: 14 },
   gimnasio: { w: 42, ch: 20, sw: 18, sh: 14 },
   trade: { w: 42, ch: 20, sw: 18, sh: 15 },
+  astropuerto: { w: 44, ch: 21, sw: 18, sh: 15 },
 };
 const NOTA = ["..##.", "..#.#", "..#..", "..#..", "###..", "###.."];
 
@@ -100,6 +102,9 @@ export function crearEscena(canvas) {
   }
   let tBolsa = 0, nBolsa = null, hayTraders = false; // reflejo de state.bolsa para dibujar el gráfico
   const cola = []; // acciones diferidas {t, fn}
+  // luna de fondo y expediciones: el cohete hace un viaje por cada expedición que cuenta el motor
+  let lunaBases = [], lunaVisibles = 0, nLuna = null, lunaFlash = 0;
+  const cohete = { fase: "espera", t: 0, x: 0, y: 0, ang: 0, sc: 1, trip: [], llama: 0 };
   const madre = { x: 0, pulso: 0, brillo: 0 };
   const edif = {}; // id -> { x } en celdas, para los edificios construidos
   const brillos = {}; // id -> destello del edificio (0..1)
@@ -144,6 +149,32 @@ export function crearEscena(canvas) {
     x.fillRect(4, 7, 1, 2);
     return c;
   });
+  // astronauta: sombrero celeste y visor de vidrio sobre la cara
+  const spritesAstro = [0, 1].map((pose) => {
+    const c = hacerSprite(CELESTE, PATAS[pose], false);
+    const x = c.getContext("2d");
+    x.fillStyle = "#9fd8ff";
+    x.fillRect(1, 4, 7, 1);
+    return c;
+  });
+  // cohete-hongo: sombrero de hongo como nariz, ventanilla y aletas (7x10, apunta hacia arriba)
+  const COHETE = ["..ccc..", ".ccccc.", "ccccccc", ".wwwww.", ".wvvvw.", ".wvvvw.", ".wwwww.", ".wwwww.", "fwwwwwf", "ff.w.ff"];
+  const spriteCohete = (() => {
+    const c = document.createElement("canvas");
+    c.width = 7; c.height = 10;
+    const x = c.getContext("2d");
+    COHETE.forEach((fila, y) => {
+      for (let i = 0; i < 7; i++) {
+        const ch = fila[i];
+        if (ch === ".") continue;
+        x.fillStyle = ch === "c" ? CELESTE : ch === "v" ? "#7fd6ff" : ch === "f" ? "#ff5a5a" : BLANCO;
+        x.fillRect(i, y, 1, 1);
+      }
+    });
+    x.fillStyle = BLANCO;
+    x.fillRect(2, 1, 1, 1); // lunar en el sombrero
+    return c;
+  })();
   const BROTE = [".ccc.", "ccccc", ".www.", ".www."];
   const spritesBrote = PALETA.map((col) => {
     const c = document.createElement("canvas");
@@ -328,7 +359,7 @@ export function crearEscena(canvas) {
 
   // partícula viajera hacia un punto cualquiera
   function lanzarA(x, y, x1, y1, col, dur = 0.8) {
-    part(x, y, 0, 0, { tipo: "viaje", col, x0: x, y0: y, x1, y1, dur, arco: 14 + Math.random() * 14, estela: 0 });
+    part(x, y, 0, 0, { tipo: "viaje", col, x0: x, y0: y, x1, y1, dur, arco: 14 + Math.random() * 14, estela: 0, local: true });
   }
   const emitirEspora = (v) => lanzarEspora(v.x, groundY - 14, PALETA[v.col]);
   function lanzarEspora(x, y, col) {
@@ -490,6 +521,116 @@ export function crearEscena(canvas) {
     }
   }
 
+  // ---- Luna y expediciones ----
+  function geomLuna() {
+    const r = Math.max(18, Math.round(Math.min(Wc, Hc) * 0.1));
+    return { r, x: clamp(Math.round(Wc * 0.82), r + 8, Wc - r - 8), y: Math.round(groundY * 0.36) };
+  }
+  // posición de la plataforma: bajo el sombrero, del lado contrario a la rama hongo
+  function padCohete() {
+    const m = tam("astropuerto");
+    return { x: Math.round(edif.astropuerto.x) - m.lado * (Math.round(m.sw / 2) + 6), y: groundY - 5 };
+  }
+  function trayecto(u) { // curva del pad a la luna: sube casi vertical y se inclina hacia la luna
+    const p0 = padCohete(), L = geomLuna();
+    const p1 = { x: p0.x, y: L.y + (p0.y - L.y) * 0.35 };
+    const a = (1 - u) * (1 - u), b = 2 * (1 - u) * u, c = u * u;
+    return { x: a * p0.x + b * p1.x + c * L.x, y: a * p0.y + b * p1.y + c * L.y };
+  }
+  function iniciarExpedicion() {
+    const astros = visuales.filter((v) => v.tipo === "astronauta" && !v.oculto);
+    if (!astros.length || !edif.astropuerto || cohete.fase !== "espera") return false;
+    const pad = padCohete();
+    astros.sort((a, b) => Math.abs(a.x - pad.x) - Math.abs(b.x - pad.x));
+    cohete.trip = astros.slice(0, Math.min(3, astros.length));
+    for (const v of cohete.trip) { v.modo = "aborda"; v.meta = pad.x + (Math.random() - 0.5) * 4; v.dir = Math.sign(v.meta - v.x) || 1; }
+    cohete.fase = "abordaje"; cohete.t = 0;
+    return true;
+  }
+  function llamaCohete(x, y, dirY, fuerza = 1) {
+    part(x + (Math.random() - 0.5) * 2, y, (Math.random() - 0.5) * 8, dirY * (14 + Math.random() * 18) * fuerza, { tipo: "mota", dur: 0.25 + Math.random() * 0.25, col: Math.random() < 0.5 ? "#ff8a1f" : "#ffe14d", r: Math.random() < 0.4 ? 2 : 1 });
+  }
+  function actualizarCohete(dt) {
+    if (!edif.astropuerto) return;
+    const pad = padCohete();
+    cohete.t += dt;
+    if (cohete.fase === "abordaje") {
+      if (cohete.trip.every((v) => v.modo === "dentro" || !visuales.includes(v)) || cohete.t > 7) {
+        for (const v of cohete.trip) { v.modo = "dentro"; v.oculto = true; }
+        cohete.fase = "despegue"; cohete.t = 0;
+      }
+    } else if (cohete.fase === "despegue") {
+      cohete.llama = Math.min(1, cohete.t / 1.2);
+      llamaCohete(pad.x, groundY - 1, 1, 0.8);
+      if (Math.random() < dt * 14) motas(pad.x, groundY - 2, 1, 0.5, "#c8c8dc");
+      if (cohete.t > 1.4) { cohete.fase = "vuelo"; cohete.t = 0; }
+    } else if (cohete.fase === "vuelo") {
+      const dur = 6.5, u = clamp(cohete.t / dur, 0, 1), k = u * u * (3 - 2 * u) * 0.6 + u * u * 0.4;
+      const q = trayecto(k), q2 = trayecto(Math.min(1, k + 0.02));
+      cohete.x = q.x; cohete.y = q.y; cohete.ang = Math.atan2(q2.x - q.x, -(q2.y - q.y)); cohete.sc = 1 - 0.55 * k;
+      const cx = q.x - Math.sin(cohete.ang) * 5 * cohete.sc, cy = q.y + Math.cos(cohete.ang) * 5 * cohete.sc;
+      if (Math.random() < dt * 40) llamaCohete(cx, cy, 1, 0.5);
+      if (u >= 1) {
+        cohete.fase = "luna"; cohete.t = 0;
+        // llegada: aparece la base nueva en la luna
+        lunaVisibles = lunaBases.length;
+        lunaFlash = 1;
+        const L = geomLuna(), b = lunaBases[lunaBases.length - 1];
+        aroPart(L.x, L.y, L.r + 8, 0.9);
+        if (b) { const bx = L.x + b.x * L.r, by = L.y + b.y * L.r; motas(bx, by, 14, 1.2, b.c); aroPart(bx, by, 10, 0.6); }
+      }
+    } else if (cohete.fase === "luna") {
+      if (cohete.t > 2.5) { cohete.fase = "regreso"; cohete.t = 0; }
+    } else if (cohete.fase === "regreso") {
+      const dur = 5.5, u = clamp(cohete.t / dur, 0, 1), k = 1 - (u * u * (3 - 2 * u) * 0.6 + u * u * 0.4);
+      const q = trayecto(k);
+      cohete.x = q.x; cohete.y = q.y; cohete.ang = (1 - u) * 0.35 * (pad.x < geomLuna().x ? 1 : -1) * (1 - u); cohete.sc = 1 - 0.55 * k;
+      if (Math.random() < dt * 40) llamaCohete(q.x, q.y + 5 * cohete.sc, 1, 0.5);
+      if (u >= 1) { cohete.fase = "aterriza"; cohete.t = 0; motas(pad.x, groundY - 1, 14, 0.9, "#c8c8dc"); aroPart(pad.x, groundY - 2, 14, 0.5); }
+    } else if (cohete.fase === "aterriza") {
+      if (cohete.t > 0.8) {
+        for (const v of cohete.trip) {
+          if (!visuales.includes(v)) continue;
+          v.oculto = false; v.alfa = 0; v.x = pad.x + (Math.random() - 0.5) * 10; v.modo = "idle"; v.espera = 0.6 + Math.random();
+        }
+        cohete.trip = [];
+        for (let i = 0; i < 6; i++) cola.push({ t: i * 0.1, fn: () => lanzarEspora(pad.x, groundY - 12, CELESTE) });
+        cohete.fase = "espera"; cohete.t = 0;
+      }
+    }
+  }
+
+  // Astronauta: camina junto al astropuerto; cuando hay expedición se sube al cohete.
+  function actualizarAstronauta(v, dt) {
+    if (v.oculto) { v.alfa = 0; return; }
+    v.alfa = Math.min(1, v.alfa + dt * 2.5);
+    v.animT += dt;
+    v.hop = 0;
+    v.estira = 0;
+    if (v.modo === "aborda") {
+      v.hop = Math.abs(Math.sin(v.animT * 13)) * 1.5;
+      const d = v.meta - v.x, paso = VEL * 1.2 * dt;
+      if (Math.abs(d) <= paso) { v.x = v.meta; v.modo = "dentro"; v.oculto = true; motas(v.x, groundY - 6, 4, 0.4, CELESTE); }
+      else v.x += Math.sign(d) * paso;
+    } else if (v.modo === "idle") {
+      v.estira = Math.sin(v.animT * 3 + v.i) * 0.5;
+      v.espera -= dt;
+      if (v.espera <= 0) {
+        const gx = edif.astropuerto.x, mw = tam("astropuerto").w / 2;
+        v.meta = clamp(gx + (Math.random() < 0.5 ? -1 : 1) * (mw + 4 + Math.random() * 30), 12, Wc - 12);
+        const pad = padCohete().x; // no taparle el cohete a la gente
+        if (Math.abs(v.meta - pad) < 10) v.meta = pad + (v.meta >= pad ? 1 : -1) * 10;
+        v.dir = Math.sign(v.meta - v.x) || 1;
+        v.modo = "walk";
+      }
+    } else if (v.modo === "walk") {
+      v.hop = Math.abs(Math.sin(v.animT * 11)) * 1.5;
+      const d = v.meta - v.x, paso = VEL * 0.7 * dt;
+      if (Math.abs(d) <= paso) { v.x = v.meta; v.modo = "idle"; v.espera = 1 + Math.random() * 3; }
+      else v.x += Math.sign(d) * paso;
+    }
+  }
+
   function actualizarMusico(v, dt) {
     v.alfa = Math.min(1, v.alfa + dt * 2.5);
     v.animT += dt;
@@ -559,6 +700,16 @@ export function crearEscena(canvas) {
     semilla = state.semilla || 0;
     tBolsa = state.bolsa?.t || 0;
     hayTraders = (state.honguitos.trader || 0) > 0;
+    lunaBases = state.luna?.bases || [];
+    const nL = state.luna?.n || 0;
+    if (nLuna === null || nL < nLuna) { nLuna = nL; lunaVisibles = lunaBases.length; cohete.fase = "espera"; for (const v of visuales) v.oculto = false; }
+    if (nL > nLuna) {
+      const varias = nL - nLuna > 1;
+      nLuna = nL;
+      lunaVisibles = Math.max(lunaVisibles, lunaBases.length - 1);
+      if (varias || !iniciarExpedicion()) lunaVisibles = lunaBases.length; // sin animación: la base aparece directo
+    }
+    lunaFlash = Math.max(0, lunaFlash - dt * 0.8);
     if (nBolsa === null) nBolsa = state.bolsa?.n || 0;
     if ((state.bolsa?.n || 0) !== nBolsa) {
       const hubo = (state.bolsa?.n || 0) > nBolsa;
@@ -593,12 +744,14 @@ export function crearEscena(canvas) {
     sincronizarGigantes(state, inicial);
     for (const gi of gigantes) if (gi.p < 1) gi.p = Math.min(1, gi.p + dt / 5);
     sincronizarVisuales(state);
+    actualizarCohete(dt);
     const mHalf = medidas().w / 2;
     for (const v of visuales) {
       if (v.tipo === "musico") { actualizarMusico(v, dt); continue; }
       if (v.tipo === "jardinero") { actualizarJardinero(v, dt); continue; }
       if (v.tipo === "atleta") { actualizarAtleta(v, dt); continue; }
       if (v.tipo === "trader") { actualizarTrader(v, dt); continue; }
+      if (v.tipo === "astronauta") { actualizarAstronauta(v, dt); continue; }
       v.alfa = Math.min(1, v.alfa + dt * 2.5);
       v.animT += dt;
       v.hop = 0;
@@ -667,7 +820,9 @@ export function crearEscena(canvas) {
       const p = particulas[i];
       p.t += dt;
       if (p.t >= p.dur) {
-        if (p.tipo === "viaje") {
+        if (p.tipo === "viaje" && p.local) {
+          motas(p.x1, p.y1, 3, 0.5, p.col);
+        } else if (p.tipo === "viaje") {
           madre.pulso = Math.min(1, madre.pulso + 0.5);
           madre.brillo = 1;
           motas(p.x1, p.y1, 6, 0.9, p.col);
@@ -839,7 +994,7 @@ export function crearEscena(canvas) {
     g.globalAlpha = alfa;
     const col = EDIFICIOS[id].color;
     const { capBase, ch, rx, mitad } = hongoBase(cx, m, 0, brillos[id] || 0, col, col);
-    manchasDe(id + ":" + semilla, (id === "conservatorio" ? 5 : id === "vivero" ? 11 : id === "gimnasio" ? 23 : 37) + semilla, 7 + m.nivel * 2).forEach((q) => {
+    manchasDe(id + ":" + semilla, (id === "conservatorio" ? 5 : id === "vivero" ? 11 : id === "gimnasio" ? 23 : id === "trade" ? 37 : 53) + semilla, 7 + m.nivel * 2).forEach((q) => {
       const c2 = q.v < 0.5 ? mezcla(col, "#ffffff", 0.35) : mezcla(col, "#000000", 0.45);
       manchaCap(cx, capBase, rx, ch, cx + Math.round(q.u * rx), capBase - 2 - Math.round(q.h * ch), Math.max(1, Math.round(ch * q.f * 0.7)), c2, false);
     });
@@ -924,6 +1079,29 @@ export function crearEscena(canvas) {
         if (prev !== null && Math.abs(prev - yy) > 1) g.fillRect(sx0 + i, Math.min(prev, yy), 1, Math.abs(prev - yy));
         prev = yy;
       }
+    } else if (id === "astropuerto") {
+      // antena parabólica arriba, estrellitas en el sombrero y ventanilla redonda en el tallo
+      g.fillStyle = BLANCO;
+      g.fillRect(cx - 1, capBase - ch - 3, 1, 3);
+      g.fillRect(cx - 4, capBase - ch - 6, 7, 1); g.fillRect(cx - 3, capBase - ch - 5, 5, 1); g.fillRect(cx - 2, capBase - ch - 4, 3, 1);
+      g.fillStyle = Math.floor(t * 2) % 2 ? "#ff5a5a" : "#7a2c2c";
+      g.fillRect(cx + 3, capBase - ch - 7, 1, 1);
+      g.fillStyle = "#cfe8ff";
+      for (const [dx, dy] of [[-12, 9], [9, 12], [-4, 14], [14, 6]]) g.fillRect(cx + dx, capBase - dy, 1, 1);
+      g.fillStyle = "#0a1626";
+      g.fillRect(cx - mitad + 3, capBase + 4, 5, 5);
+      g.fillStyle = col;
+      g.fillRect(cx - mitad + 3, capBase + 4, 5, 1); g.fillRect(cx - mitad + 3, capBase + 8, 5, 1);
+      g.fillRect(cx - mitad + 3, capBase + 4, 1, 5); g.fillRect(cx - mitad + 7, capBase + 4, 1, 5);
+      g.fillStyle = BLANCO; g.fillRect(cx - mitad + 5, capBase + 6, 1, 1);
+      // plataforma de lanzamiento bajo el sombrero (del lado del cohete)
+      const px = cx - m.lado * (mitad + 6);
+      g.fillStyle = "#6a6a88";
+      g.fillRect(px - 5, groundY - 1, 11, 1);
+      if (["espera", "abordaje", "despegue", "aterriza"].includes(cohete.fase) || !edif[id]) {
+        const tiembla = cohete.fase === "despegue" ? Math.round(Math.sin(t * 60) * (0.5 + cohete.llama)) : 0;
+        g.drawImage(spriteCohete, px - 3 + tiembla, groundY - 11);
+      }
     } else if (id === "vivero") {
       // brotes verdes en el sombrero, gota de agua arriba y hojas colgando del borde
       [[-9, 3], [-3, 5], [4, 3], [10, 5]].forEach(([dx, h]) => {
@@ -956,7 +1134,7 @@ export function crearEscena(canvas) {
     }
     // edificios más grandes: ramas con hongos chiquitos saliendo del tallo
     if (m.nivel >= 1) ramaHongo(cx, capBase, mitad, m.lado, col, 5);
-    if (m.nivel >= 2) ramaHongo(cx, capBase, mitad, -m.lado, col, 3);
+    if (m.nivel >= 2 && id !== "astropuerto") ramaHongo(cx, capBase, mitad, -m.lado, col, 3);
     g.globalAlpha = 1;
   }
 
@@ -977,11 +1155,64 @@ export function crearEscena(canvas) {
     g.fillRect(x1 - 1, y - 5, 1, 1);
   }
 
+  // Luna de fondo: sutil, siempre presente. Cada expedición le suma una base hongil de color.
+  const CRATERES = [[-0.35, -0.3, 0.2], [0.3, -0.45, 0.14], [0.45, 0.15, 0.22], [-0.2, 0.4, 0.16], [-0.55, 0.1, 0.1], [0.05, -0.05, 0.09]];
+  function dibujarLuna() {
+    const L = geomLuna();
+    // halo muy tenue
+    g.globalAlpha = 0.05;
+    disco(L.x, L.y, L.r + 5, BLANCO);
+    g.globalAlpha = 0.07;
+    disco(L.x, L.y, L.r + 2, BLANCO);
+    g.globalAlpha = 1;
+    disco(L.x, L.y, L.r, "#30304a");
+    // luz suave del lado izquierdo y cráteres apenas más oscuros
+    g.globalAlpha = 0.5;
+    for (let dy = -L.r; dy <= L.r; dy++) {
+      const w = Math.floor(Math.sqrt(L.r * L.r - dy * dy));
+      g.fillStyle = "#3a3a56";
+      g.fillRect(L.x - w, L.y + dy, Math.max(1, Math.round(w * 0.35)), 1);
+    }
+    g.globalAlpha = 1;
+    for (const [cx, cy, cr] of CRATERES) disco(L.x + cx * L.r, L.y + cy * L.r, Math.max(1, Math.round(cr * L.r)), "#2a2a40");
+    g.globalAlpha = 0.28 + lunaFlash * 0.4;
+    aro(L.x, L.y, L.r, BLANCO);
+    g.globalAlpha = 1;
+    // bases lunares: un parche de color que se va extendiendo + un hongo-cúpula de ese color
+    for (let i = 0; i < Math.min(lunaVisibles, lunaBases.length); i++) {
+      const b = lunaBases[i];
+      const bx = Math.round(L.x + b.x * L.r), by = Math.round(L.y + b.y * L.r);
+      const dist = Math.hypot(b.x, b.y) * L.r;
+      const rad = Math.max(1, Math.min(Math.round(2 + b.s * 1.6), Math.floor(L.r - dist - 1)));
+      g.globalAlpha = 0.28;
+      disco(bx, by, rad, b.c);
+      g.globalAlpha = 1;
+      g.fillStyle = b.c;
+      g.fillRect(bx - 2, by - 1, 5, 1); g.fillRect(bx - 1, by - 2, 3, 1);
+      g.fillStyle = BLANCO;
+      g.fillRect(bx, by, 1, 1);
+      if (b.s >= 2) { g.fillStyle = b.c; g.fillRect(bx + 3, by, 3, 1); g.fillRect(bx + 4, by - 1, 1, 1); }
+      if (b.s >= 3) { g.fillStyle = BLANCO; g.fillRect(bx - 4, by - 1, 1, 2); g.fillStyle = b.c; g.fillRect(bx - 5, by - 2, 3, 1); }
+      if (b.s >= 4) { g.fillStyle = b.c; g.fillRect(bx, by - 4, 1, 2); g.fillRect(bx - 1, by - 5, 3, 1); }
+    }
+  }
+
+  function dibujarCoheteEnVuelo() {
+    if (cohete.fase !== "vuelo" && cohete.fase !== "regreso") return;
+    g.save();
+    g.translate(Math.round(cohete.x), Math.round(cohete.y));
+    g.rotate(cohete.ang);
+    g.scale(cohete.sc, cohete.sc);
+    g.drawImage(spriteCohete, -3.5, -5);
+    g.restore();
+  }
+
   function dibujarHonguito(v) {
+    if (v.oculto) return;
     const base = Math.round(groundY - v.hop);
     const pose = v.modo === "walk" ? (Math.floor(v.animT * 11) % 2) : 0;
     const spr = v.tipo === "musico" ? spritesMusico[v.modo === "canta" ? [0, 2, 3, 2][Math.floor(v.tCanta * 8) % 4] : pose]
-      : v.tipo === "jardinero" ? spritesJard[pose] : v.tipo === "atleta" ? spritesAtl[pose] : v.tipo === "trader" ? spritesTrader[v.modo === "llama" ? (Math.floor(v.tLlama * 6) % 2 ? 2 : 3) : pose] : spritesHongo[v.col][pose];
+      : v.tipo === "jardinero" ? spritesJard[pose] : v.tipo === "atleta" ? spritesAtl[pose] : v.tipo === "astronauta" ? spritesAstro[pose] : v.tipo === "trader" ? spritesTrader[v.modo === "llama" ? (Math.floor(v.tLlama * 6) % 2 ? 2 : 3) : pose] : spritesHongo[v.col][pose];
     const alto = HH + Math.round(v.estira);
     const x = Math.round(v.x);
     g.globalAlpha = v.alfa;
@@ -990,6 +1221,13 @@ export function crearEscena(canvas) {
     g.drawImage(spr, x - 4, base - alto, HW, alto);
     g.restore();
     g.globalAlpha = 1;
+    if (v.tipo === "astronauta") {
+      // antena del casco con luz
+      g.fillStyle = BLANCO;
+      g.fillRect(x, base - alto - 2, 1, 2);
+      g.fillStyle = Math.floor(t * 3) % 2 ? "#ff5a5a" : CELESTE;
+      g.fillRect(x, base - alto - 3, 1, 1);
+    }
     if (v.modo === "llama") {
       // teléfono pegado a la cabeza con el brazo levantado
       const px = x + v.dir * 5;
@@ -1069,7 +1307,8 @@ export function crearEscena(canvas) {
     g.imageSmoothingEnabled = false;
     g.globalAlpha = 1;
     g.clearRect(0, 0, Wc, Hc);
-        g.drawImage(fondo, 0, 0);
+    g.drawImage(fondo, 0, 0);
+    dibujarLuna();
     for (const gi of gigantes) {
       const hT = gi.cv.height, h = Math.max(1, Math.round(hT * suave(gi.p)));
       g.drawImage(gi.cv, 0, hT - h, gi.cv.width, h, Math.round(gi.x * Wc - gi.cv.width / 2), groundY - h, gi.cv.width, h);
@@ -1086,6 +1325,7 @@ export function crearEscena(canvas) {
 
     dibujarMadre();
     for (const id in edif) dibujarEdificio(id, edif[id].x);
+    dibujarCoheteEnVuelo();
     for (const b of brotes) {
       const falta = b.vida - b.t;
       if (falta < 1.5 && Math.floor(b.t * 8) % 2) continue;
