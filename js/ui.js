@@ -335,7 +335,7 @@ export function crearUI(api) {
           filas.push({ tipo: "edificio", ed, ...f });
         }
       }
-      const pendientes = MEJORAS.filter((mj) => !api.estado().mejoras[mj.id]);
+      const pendientes = MEJORAS.filter((mj) => !api.estado().mejoras[mj.id] && (!mj.desde || api.estado().total.gte(mj.desde)));
       if (pendientes.length) {
         seccion("Mejoras");
         for (const mj of pendientes) {

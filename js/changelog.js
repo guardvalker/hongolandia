@@ -1,5 +1,16 @@
 export const CHANGELOG = [
   {
+    v: "0.31.0",
+    fecha: "2026-10-04",
+    cambios: [
+      "Economía rehecha con valores reales (se terminó el modo de prueba donde todo costaba 1). Calibrada con una simulación de un jugador que compra siempre lo que más rinde: el primer edificio (Escuela) llega a los ~8 min, el Conservatorio a ~16 min, el Vivero a ~30 min, la Fábrica a ~1 h 15, la Mina a ~2 h 40, la Torre a ~6 h, el Gym a ~11 h, el Trade center a ~15 h y el Astropuerto a ~21 h. Jugando de forma normal va a llevar más.",
+      "Arranque lento y escala fuerte: el primer tramo es muy lento (el primer honguito rinde 0,1 esporas/s), pero cada tier nuevo produce proporcionalmente mucho más que el anterior (de ×9 a ×80 de un tier al siguiente, contra un costo que sube más despacio), así que desbloquear cosas acelera cada vez más. De ~1 esporas/s a los 10 minutos a ~1e15 esporas/s al llegar al final.",
+      "Los honguitos ahora suben su precio ×1,15 por unidad (el básico) hasta ×1,24 (el último), en vez de ×1,25 a ×1,61.",
+      "Cuatro mejoras grandes nuevas en el hongo madre para el resto de la partida: Red de micelio (×2), Simbiosis (×3), Gran micelio (×5) y Micelio ancestral (×10 a todos). Aparecen en la lista al haber ganado el 10% de su costo.",
+      "Ojo: si tenías una partida de la versión de prueba, conserva todo lo que tenía pero ahora los precios nuevos son los reales.",
+    ],
+  },
+  {
     v: "0.30.0",
     fecha: "2026-10-04",
     cambios: [

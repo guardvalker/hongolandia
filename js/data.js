@@ -3,24 +3,37 @@ import { D } from './decimal.js';
 // ---- Valores ----
 // MODO_PRUEBA: todo cuesta 1, los precios no crecen y los edificios aparecen desde el inicio, para
 // probar cosas. En false se usan los valores reales, que salen de la fórmula por tier de abajo.
-export const MODO_PRUEBA = true;
+export const MODO_PRUEBA = false;
 
 // Cada "tier" es un escalón de la economía: el honguito básico es el tier 0 y cada edificio con su
 // honguito es el siguiente. Para meter un edificio entre medio solo hay que ponerlo en la posición
 // que corresponde (campo `tier`) y correr los de arriba un lugar: todo se recalcula.
-//   producción  = 0,1 · 10^tier  esporas/s por unidad
-//   costo base  = 8 · 20^tier    (el precio de cada unidad sube ×crecimiento por cada una que ya tenés)
-//   crecimiento = 1,25 + 0,04·tier
+//   producción  = 0,1 · (producto de SALTO_PROD hasta ese tier) esporas/s por unidad
+//   costo base  = 8 · (producto de SALTO_COSTO hasta ese tier)  (el precio de cada unidad sube
+//                 ×crecimiento por cada una que ya tenés)
+//   crecimiento = 1,15 + 0,01·tier
 //   edificio    = 1,2 × costo base de su honguito; aparece al haber ganado el 25% de su costo
 //                 (el primer edificio, tier 1, aparece desde el inicio)
-const FACTOR_COSTO = 20;
+// Calibrado con una simulación de un jugador "codicioso" (siempre compra lo que más rinde por esporas):
+// el primer edificio llega a los ~8 min, el 4.º a ~1 h 15, el 6.º a ~6 h y el último (Astropuerto) a ~21 h.
+// El costo sube de a poco entre tiers pero la producción por unidad sube cada vez más rápido, así que
+// al principio todo es lento y cada edificio nuevo que se desbloquea rinde proporcionalmente más.
+const SALTO_COSTO = [1, 9, 22, 30, 36, 46, 58, 70, 84, 98]; // ×costo al pasar del tier k-1 al k // ×costo al pasar del tier k-1 al k // ×costo al pasar del tier k-1 al k
+const SALTO_PROD = [1, 9, 8, 11, 16, 23, 32, 44, 60, 80]; // ×producción al pasar del tier k-1 al k // ×producción al pasar del tier k-1 al k
 export function valoresTier(tier) {
-  const costoBase = Math.ceil(8 * Math.pow(FACTOR_COSTO, tier));
+  const k = Math.floor(tier), fr = tier - k;
+  let lp = 0; // log de la producción relativa (los tiers con decimales, como el 3,5, se interpolan)
+  for (let j = 1; j <= k; j++) lp += Math.log(SALTO_PROD[Math.min(j, SALTO_PROD.length - 1)]);
+  if (fr > 0) lp += fr * Math.log(SALTO_PROD[Math.min(k + 1, SALTO_PROD.length - 1)]);
+  let lc = 0;
+  for (let j = 1; j <= k; j++) lc += Math.log(SALTO_COSTO[Math.min(j, SALTO_COSTO.length - 1)]);
+  if (fr > 0) lc += fr * Math.log(SALTO_COSTO[Math.min(k + 1, SALTO_COSTO.length - 1)]);
+  const costoBase = Math.ceil(8 * Math.exp(lc));
   const costoEdificio = Math.ceil(costoBase * 1.2);
   return {
-    prod: 0.1 * Math.pow(10, tier),
+    prod: 0.1 * Math.exp(lp),
     costoBase,
-    crecimiento: 1.25 + 0.04 * tier,
+    crecimiento: 1.15 + 0.01 * tier,
     costoEdificio,
     desbloqueo: tier <= 1 ? 0 : Math.ceil(costoEdificio * 0.25),
   };
@@ -177,6 +190,11 @@ export const MEJORAS = [
     aplica: "basico",
     mult: D(2),
   },
+  // mejoras grandes para el resto de la partida: cada una aparece al haber ganado un 10% de su costo
+  { id: "red_micelio", nombre: "Red de micelio", desc: "Todos los honguitos producen ×2.", costo: C(1.5e7), aplica: "todos", mult: D(2), desde: C(1.5e6) },
+  { id: "simbiosis", nombre: "Simbiosis", desc: "Todos los honguitos producen ×3.", costo: C(4e11), aplica: "todos", mult: D(3), desde: C(4e10) },
+  { id: "gran_micelio", nombre: "Gran micelio", desc: "Todos los honguitos producen ×5.", costo: C(3e15), aplica: "todos", mult: D(5), desde: C(3e14) },
+  { id: "micelio_ancestral", nombre: "Micelio ancestral", desc: "Todos los honguitos producen ×10.", costo: C(4e19), aplica: "todos", mult: D(10), desde: C(4e18) },
 ];
 
 // ---- Hitos de cantidad (como en Adventure Capitalist): al tener 25, 50, 100... honguitos de un
