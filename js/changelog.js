@@ -1,9 +1,9 @@
 export const CHANGELOG = [
   {
-    v: "0.22.2",
+    v: "0.22.3",
     fecha: "2026-10-04",
     cambios: [
-      "La luna se movió más a la derecha para que el hongo madre no la tape.",
+      "La luna se movió más a la derecha y ahora siempre queda al costado del sombrero del hongo madre, por grande que este se ponga, para que nunca la tape.",
     ],
   },
   {
