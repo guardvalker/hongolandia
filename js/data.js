@@ -103,6 +103,7 @@ const EDIF_DEF = [
     nombre: "Torre de magos hongil",
     desc: "Una torre con sombrero de mago y un caldero. Habilita a los magos: hacen pociones de hongos que dan esporas y purifican las nubes de contaminación, convirtiéndolas en esporas.",
     color: "#d12bff",
+    requiere: "carrera_hechiceria", // se desbloquea investigando esa carrera en la Universidad
   },
   {
     id: "gimnasio",
@@ -117,6 +118,7 @@ const EDIF_DEF = [
     nombre: "Trade center hongil",
     desc: "Un hongo con pantallas de bolsa. Habilita a los traders: sus acciones suben y, al llegar arriba, cobran todas las esporas de golpe.",
     color: "#f5c518",
+    requiere: "carrera_finanzas",
   },
   {
     id: "astropuerto",
@@ -236,6 +238,13 @@ export const TECNOLOGIAS = Object.entries(TEC_NOMBRES).flatMap(([target, nombres
     };
   });
 });
+// ---- Carreras (Universidad): no dan producción, desbloquean la compra de otros edificios ----
+// Hay que investigarlas con los científicos antes de poder construir ese edificio.
+export const CARRERAS = [
+  { id: "carrera_hechiceria", nombre: "Carrera de Hechicería", abre: "torre", trabajo: MODO_PRUEBA ? 10 : 12000 },
+  { id: "carrera_finanzas", nombre: "Carrera de Finanzas", abre: "trade", trabajo: MODO_PRUEBA ? 10 : 60000 },
+];
+for (const c of CARRERAS) TECNOLOGIAS.push({ id: c.id, target: "carrera", nivel: 1, edificio: "universidad", req: null, nombre: c.nombre, trabajo: c.trabajo, carrera: true, abre: c.abre });
 export const TEC_POR_ID = Object.fromEntries(TECNOLOGIAS.map((t) => [t.id, t]));
 
 // ---- Mejoras de edificio (se compran con esporas en la ventana de cada edificio) ----

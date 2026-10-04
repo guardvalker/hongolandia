@@ -366,6 +366,7 @@ export const comprarHonguito = (state, id) => comprarHonguitos(state, id, 1);
 export function colocarEdificio(state, id, dx) {
   const e = EDIFICIOS[id];
   if (!e || state.edificios[id] || state.esporas.lt(e.costo)) return false;
+  if (e.requiere && !state.mejoras[e.requiere]) return false; // falta la carrera de la Universidad
   state.esporas = state.esporas.sub(e.costo);
   state.edificios[id] = { dx }; // celdas respecto del hongo madre (puede ser negativo)
   agregarHongoFondo(state);

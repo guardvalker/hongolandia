@@ -171,6 +171,7 @@ export function crearUI(api) {
     return "";
   }
   function descTec(s, t) {
+    if (t.carrera) return `Carrera: desbloquea la compra de ${EDIFICIOS[t.abre].nombre}.`;
     const que = t.target === "todos" ? "de producción de todos los honguitos" : t.target === "cientifico" ? "de velocidad de investigación" : "de producción de " + plural(t.target);
     return `+${num(pctTec(s, t))}% ${que}.`;
   }
@@ -282,7 +283,7 @@ export function crearUI(api) {
     if (!disponibles.length) nota("No hay nada para investigar por ahora: construí más edificios para abrir tecnologías de su tema.");
     for (const t of disponibles) {
       const tema = t.target === "todos" ? "General" : EDIFICIOS[t.edificio].nombre;
-      const f = fila(`${t.nombre} · nivel ${t.nivel}`, `${tema}: ${descTec(s, t)} (${fmt(trabajoEf(s, t))} pts)`, () => { if (elegirInvestigacion(api.estado(), t.id)) { api.guardar(); actualizar(true); } }, EDIFICIOS[t.edificio]?.color);
+      const f = fila(t.carrera ? t.nombre : `${t.nombre} · nivel ${t.nivel}`, `${tema}: ${descTec(s, t)} (${fmt(trabajoEf(s, t))} pts)`, () => { if (elegirInvestigacion(api.estado(), t.id)) { api.guardar(); actualizar(true); } }, EDIFICIOS[t.edificio]?.color);
       f.refresh = (st) => {
         const en = st.invest.actual === t.id, p = st.invest.prog[t.id] || 0;
         f.btn.textContent = en ? "En curso" : p > 0 ? Math.round((p / trabajoEf(st, t)) * 100) + "%" : "Investigar";
@@ -293,9 +294,11 @@ export function crearUI(api) {
     // resumen de lo ya investigado, por tema
     const resumen = [];
     for (const target of new Set(TECNOLOGIAS.map((t) => t.target))) {
+      if (target === "carrera") continue;
       const hechas = TECNOLOGIAS.filter((t) => t.target === target && s.mejoras[t.id]);
       if (hechas.length) resumen.push(`${target === "todos" ? "General" : HONGUITOS[target].nombre}: nivel ${hechas.length}/${NIVELES_TEC} (+${num(hechas.reduce((a, t) => a + pctTec(s, t), 0))}%)`);
     }
+    for (const t of TECNOLOGIAS) if (t.carrera && s.mejoras[t.id]) resumen.push(`${t.nombre} (abre ${EDIFICIOS[t.abre].nombre})`);
     if (resumen.length) { seccion("Investigado"); for (const r of resumen) nota("✓ " + r).classList.add("hecha"); }
   }
 
@@ -310,7 +313,7 @@ export function crearUI(api) {
       notasHitos(id);
       if (id === "universidad") seccionInvestigacion(reabrir);
       filasMejorasEdificio(id, reabrir);
-      const tecs = TECNOLOGIAS.filter((t) => t.edificio === id && t.target !== "todos" && api.estado().mejoras[t.id]);
+      const tecs = TECNOLOGIAS.filter((t) => t.edificio === id && t.target !== "todos" && !t.carrera && api.estado().mejoras[t.id]);
       if (tecs.length && id !== "universidad") {
         seccion("Tecnologías");
         nota(`Investigación de la Universidad: nivel ${tecs.length}/${NIVELES_TEC} (+${num(tecs.reduce((a, t) => a + pctTec(api.estado(), t), 0))}% de producción).`).classList.add("hecha");
@@ -327,8 +330,9 @@ export function crearUI(api) {
       if (edificios.length) {
         seccion("Edificios");
         for (const ed of edificios) {
-          const f = fila(ed.nombre, ed.desc, () => {
-            if (api.estado().esporas.lt(ed.costo)) return;
+          const req = ed.requiere ? TEC_POR_ID[ed.requiere] : null, falta = req && !api.estado().mejoras[req.id];
+          const f = fila(ed.nombre, ed.desc + (falta ? ` Requiere investigar «${req.nombre}» en la Universidad.` : ""), () => {
+            if (api.estado().esporas.lt(ed.costo) || (req && !api.estado().mejoras[req.id])) return;
             cerrar();
             api.colocar(ed.id);
           }, ed.color);
@@ -593,8 +597,9 @@ export function crearUI(api) {
         f.btn.textContent = cant === "max" ? `×${fmt(k)} · ${fmt(c)}` : fmt(c);
         f.btn.disabled = s.esporas.lt(c);
       } else if (f.tipo === "edificio") {
-        f.btn.textContent = fmt(f.ed.costo);
-        f.btn.disabled = s.esporas.lt(f.ed.costo);
+        const bloq = f.ed.requiere && !s.mejoras[f.ed.requiere];
+        f.btn.textContent = bloq ? "Bloqueado" : fmt(f.ed.costo);
+        f.btn.disabled = bloq || s.esporas.lt(f.ed.costo);
       } else {
         f.btn.textContent = fmt(f.mj.costo);
         f.btn.disabled = s.esporas.lt(f.mj.costo);

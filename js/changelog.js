@@ -1,5 +1,13 @@
 export const CHANGELOG = [
   {
+    v: "0.32.0",
+    fecha: "2026-10-04",
+    cambios: [
+      "Los edificios ahora pueden tener condiciones de desbloqueo. Primeras dos: la Torre de magos hongil necesita haber investigado la Carrera de Hechicería, y el Trade center hongil necesita la Carrera de Finanzas. Mientras no estén, su botón en el hongo madre dice «Bloqueado» y explica qué falta.",
+      "Nuevas «carreras» en la Universidad: se investigan con los científicos como cualquier otra investigación (Hechicería: 12.000 puntos; Finanzas: 60.000), no dan producción sino que abren la compra del edificio. Quedan anotadas en «Investigado». Los edificios que ya tenías construidos no se ven afectados.",
+    ],
+  },
+  {
     v: "0.31.0",
     fecha: "2026-10-04",
     cambios: [
