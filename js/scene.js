@@ -1223,13 +1223,13 @@ export function crearEscena(canvas, opciones = {}) {
   // Los nodos son puntos del PISO del túnel (x al costado de la entrada, y hacia abajo). Los túneles
   // serpentean y se ramifican como un hormiguero; los nodos "cámara" son salas grandes con yacimientos.
   const TR = 5.5; // radio de los túneles (entra un honguito)
-  const minaProfMax = () => Math.round(0.26 * Hc0 * 2);
+  const minaProfMax = () => Math.round(0.26 * Hc0 * 2.6);
   // cuánto de la mina está cavada según los mineros (0..1): crece con el log de la cantidad
   const minaObjetivo = (n) => (n <= 0 ? 0 : clamp(0.1 + (Math.log10(n) / 2.3) * 0.9, 0.1, 1));
   const empinado = (a, b) => Math.abs(b.y - a.y) > 1.3 * Math.abs(b.x - a.x);
   function generarMina() {
     const r = rng(7 + semilla * 31);
-    const medio = clamp(Math.round(0.3 * extent), 80, 200), prof = minaProfMax(), PRESUPUESTO = 460;
+    const medio = clamp(Math.round(0.7 * extent), 160, 440), prof = minaProfMax(), PRESUPUESTO = 760;
     const nodos = [], yac = [];
     const nuevo = (x, y, par) => {
       nodos.push({ x, y, par, d: par < 0 ? 0 : nodos[par].d + Math.hypot(x - nodos[par].x, y - nodos[par].y), cam: 0 });
@@ -1238,8 +1238,8 @@ export function crearEscena(canvas, opciones = {}) {
     // choca con un tramo de otra rama (los vecinos de la misma rama tienen una distancia parecida desde la entrada)
     const cerca = (x, y, d) => nodos.some((n) => Math.abs(n.d - d) > 18 && Math.hypot(n.x - x, n.y - y) < 9);
     const camara = (i) => {
-      const n = nodos[i], R = 16 + r() * 9, ry = Math.round(R * 0.62);
-      if (n.y < 2 * ry + 8) return; // una sala no puede asomar sobre el piso
+      const n = nodos[i], R = 16 + r() * 9, ry = Math.min(Math.round(R * 0.62), Math.floor((n.y - 8) / 2));
+      if (ry < 9) return; // una sala no puede asomar sobre el piso
       n.cam = R; n.camY = ry;
       const cs = 0.6 + R / 40, k = R > 21 ? 2 : 1;
       for (let q = 0; q < k; q++) {
@@ -1250,9 +1250,9 @@ export function crearEscena(canvas, opciones = {}) {
     };
     // pozo de entrada, casi vertical, con escalera
     let n0 = nuevo(0, 0, -1);
-    for (let y = 4; y <= 20; y += 4) n0 = nuevo((r() - 0.5) * 1.5, y, n0);
+    for (let y = 4; y <= 40; y += 4) n0 = nuevo((r() - 0.5) * 1.5, y, n0);
     const cola = [];
-    cola.push({ n: n0, x: nodos[n0].x, y: 20, ang: 0.35, vida: 30 + r() * 25 }, { n: n0, x: nodos[n0].x, y: 20, ang: Math.PI - 0.35, vida: 30 + r() * 25 }, { n: n0, x: nodos[n0].x, y: 20, ang: 1.3, vida: 22 + r() * 18 });
+    cola.push({ n: n0, x: nodos[n0].x, y: 40, ang: 0.35, vida: 55 + r() * 40 }, { n: n0, x: nodos[n0].x, y: 40, ang: Math.PI - 0.35, vida: 55 + r() * 40 }, { n: n0, x: nodos[n0].x, y: 40, ang: 1.3, vida: 40 + r() * 30 });
     const limite = (ang) => (Math.cos(ang) >= 0 ? clamp(ang, -0.4, 1.5) : clamp(ang, Math.PI - 1.5, Math.PI + 0.4));
     let guardia = 0;
     while (cola.length && nodos.length < PRESUPUESTO && guardia++ < 20000) {
@@ -1261,11 +1261,11 @@ export function crearEscena(canvas, opciones = {}) {
       if (a.y > prof - 22) a.ang = limite(a.ang - Math.sign(Math.sin(a.ang)) * 0.4); // al fondo se aplana
       let nx = a.x + Math.cos(a.ang) * 4, ny = a.y + Math.sin(a.ang) * 4;
       if (Math.abs(nx) > medio) { a.ang = Math.PI - a.ang; nx = a.x + Math.cos(a.ang) * 4; ny = a.y + Math.sin(a.ang) * 4; }
-      ny = clamp(ny, 26, prof);
+      ny = clamp(ny, 42, prof);
       if (Math.abs(nx) > medio || cerca(nx, ny, nodos[a.n].d + 4)) { if (!nodos[a.n].cam && nodos[a.n].d > 40) camara(a.n); continue; }
       a.n = nuevo(nx, ny, a.n); a.x = nx; a.y = ny; a.vida--;
       if (a.vida <= 0) { camara(a.n); continue; }
-      if (a.vida > 8 && r() < 0.075) cola.push({ n: a.n, x: a.x, y: a.y, ang: a.ang + (r() < 0.5 ? -1 : 1) * (0.5 + r() * 0.7), vida: 10 + r() * 24 });
+      if (a.vida > 8 && r() < 0.075) cola.push({ n: a.n, x: a.x, y: a.y, ang: a.ang + (r() < 0.5 ? -1 : 1) * (0.5 + r() * 0.7), vida: 14 + r() * 40 });
       if (a.vida > 6 && !nodos[a.n].cam && nodos[a.n].d > 50 && r() < 0.03) camara(a.n);
       cola.push(a);
     }
@@ -1333,7 +1333,7 @@ export function crearEscena(canvas, opciones = {}) {
     if (minaP === null) minaP = obj;
     // la mina se cava de a poco hacia el objetivo (unas 6 celdas por segundo)
     const antes = minaP;
-    minaP = minaP < obj ? Math.min(obj, minaP + (6 / mina.total) * dt) : obj;
+    minaP = minaP < obj ? Math.min(obj, minaP + (9 / mina.total) * dt) : obj;
     const frente = minaP * mina.total, nAntes = mina.nDib;
     revelarMina(frente);
     // polvo en las puntas que se están cavando

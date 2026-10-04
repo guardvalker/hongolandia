@@ -1,5 +1,13 @@
 export const CHANGELOG = [
   {
+    v: "0.27.1",
+    fecha: "2026-10-04",
+    cambios: [
+      "La mina es bastante más grande: túneles mucho más largos, más ramas y más salas, y se extiende más a lo ancho y a lo profundo.",
+      "Arreglado: algunos túneles quedaban sin sala ni cristales al final. Ahora los túneles no suben tan cerca del piso (así siempre entra una sala) y todas las puntas terminan en una sala con yacimiento.",
+    ],
+  },
+  {
     v: "0.27.0",
     fecha: "2026-10-04",
     cambios: [
