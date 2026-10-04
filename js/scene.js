@@ -3,7 +3,7 @@
 // del arte) y se escala con un factor entero sin suavizado. No hay sprites ni fotogramas:
 // los honguitos son un bitmap diminuto que se mueve con rebotes y estiramientos por código.
 
-const MAX_VISUALES = { basico: 28, musico: 16, jardinero: 10 }; // honguitos dibujados por tipo (el número real puede ser enorme)
+const MAX_VISUALES = { basico: 28, musico: 16, jardinero: 10, atleta: 10 }; // honguitos dibujados por tipo (el número real puede ser enorme)
 const MAX_PARTICULAS = 300;
 const MAX_BROTES = 40; // honguitos pasajeros que dejan los jardineros
 const ANCHO_REF = 300; // celdas del lado corto de la pantalla
@@ -47,12 +47,14 @@ const PATAS = [".ww...ww.", "..ww.ww.."];
 const VIOLETA = "#a77bff";
 const BONUS_CONSERV = 1.15; // el conservatorio agranda al hongo madre
 const VERDE = "#2fa84f";
+const NARANJA = "#ff8a1f";
 const GIGANTE = "#222232"; // hongos gigantes del fondo: apenas más oscuros que el cielo
 const GIGANTE_MANCHA = "#252535";
 // medidas de los edificios (mismo formato que MADRE)
 const TAM = {
   conservatorio: { w: 36, ch: 19, sw: 15, sh: 13 },
   vivero: { w: 38, ch: 20, sw: 16, sh: 14 },
+  gimnasio: { w: 42, ch: 20, sw: 18, sh: 14 },
 };
 const NOTA = ["..##.", "..#.#", "..#..", "..#..", "###..", "###.."];
 
@@ -111,6 +113,7 @@ export function crearEscena(canvas) {
   const spritesHongo = PALETA.map((col) => [0, 1].map((pose) => hacerSprite(col, PATAS[pose], false)));
   const spritesMusico = [hacerSprite(VIOLETA, PATAS[0], false), hacerSprite(VIOLETA, PATAS[1], false), hacerSprite(VIOLETA, PATAS[0], 1), hacerSprite(VIOLETA, PATAS[0], 2)];
   const spritesJard = [0, 1].map((pose) => hacerSprite(VERDE, PATAS[pose], 0));
+  const spritesAtl = [0, 1].map((pose) => hacerSprite(NARANJA, PATAS[pose], 0));
   const BROTE = [".ccc.", "ccccc", ".www.", ".www."];
   const spritesBrote = PALETA.map((col) => {
     const c = document.createElement("canvas");
@@ -366,6 +369,49 @@ export function crearEscena(canvas) {
     }
   }
 
+  // Atleta: camina cerca del gym, saca las mancuernas, hace series transpirando y suelta una espora.
+  function actualizarAtleta(v, dt) {
+    v.alfa = Math.min(1, v.alfa + dt * 2.5);
+    v.animT += dt;
+    v.hop = 0;
+    v.estira = 0;
+    if (v.modo === "idle") {
+      v.estira = Math.sin(v.animT * 3 + v.i) * 0.5;
+      v.espera -= dt;
+      if (v.espera <= 0) {
+        const gx = edif.gimnasio.x, mw = TAM.gimnasio.w / 2;
+        v.meta = clamp(gx + (Math.random() < 0.5 ? -1 : 1) * (mw + 6 + Math.random() * 28), 12, Wc - 12);
+        v.dir = Math.sign(v.meta - v.x) || 1;
+        v.modo = "walk";
+      }
+    } else if (v.modo === "walk") {
+      v.hop = Math.abs(Math.sin(v.animT * 11)) * 1.5;
+      const d = v.meta - v.x, paso = VEL * 0.7 * dt;
+      if (Math.abs(d) <= paso) {
+        v.x = v.meta; v.modo = "entrena"; v.tEnt = 0; v.sudorT = 0; v.reps = 0;
+        v.dir = Math.sign(edif.gimnasio.x - v.x) || 1; // mira hacia el gym
+      } else v.x += Math.sign(d) * paso;
+    } else if (v.modo === "entrena") {
+      v.tEnt += dt;
+      const ciclo = (v.tEnt * 1.6) % 1; // una repetición cada ~0.6 s
+      v.barra = ciclo < 0.5 ? ciclo * 2 : (1 - ciclo) * 2; // 0 abajo .. 1 arriba
+      v.estira = -Math.sin(ciclo * TAU) * 0.8;
+      v.hop = 0;
+      brillos.gimnasio = Math.max(brillos.gimnasio || 0, 0.35);
+      v.sudorT -= dt;
+      if (v.sudorT <= 0) {
+        v.sudorT = 0.12 + Math.random() * 0.1;
+        const lado = Math.random() < 0.5 ? -1 : 1;
+        part(v.x + lado * 4, groundY - HH - 1, lado * (8 + Math.random() * 10), -14 - Math.random() * 8, { tipo: "sudor", dur: 0.9 });
+      }
+      if (v.tEnt > 3.6) {
+        emitirEspora(v);
+        motas(v.x, groundY - 12, 4, 0.5, NARANJA);
+        v.modo = "idle"; v.espera = 1.5 + Math.random() * 3;
+      }
+    }
+  }
+
   function actualizarMusico(v, dt) {
     v.alfa = Math.min(1, v.alfa + dt * 2.5);
     v.animT += dt;
@@ -454,6 +500,7 @@ export function crearEscena(canvas) {
     for (const v of visuales) {
       if (v.tipo === "musico") { actualizarMusico(v, dt); continue; }
       if (v.tipo === "jardinero") { actualizarJardinero(v, dt); continue; }
+      if (v.tipo === "atleta") { actualizarAtleta(v, dt); continue; }
       v.alfa = Math.min(1, v.alfa + dt * 2.5);
       v.animT += dt;
       v.hop = 0;
@@ -535,6 +582,9 @@ export function crearEscena(canvas) {
         p.x += p.vx * dt; p.y += p.vy * dt; p.vy += 90 * dt;
       } else if (p.tipo === "gota") {
         p.x += p.vx * dt; p.y += p.vy * dt; p.vy += 140 * dt;
+        if (p.y >= groundY) p.t = p.dur;
+      } else if (p.tipo === "sudor") {
+        p.x += p.vx * dt; p.y += p.vy * dt; p.vy += 110 * dt; p.vx *= 1 - dt * 0.8;
         if (p.y >= groundY) p.t = p.dur;
       } else if (p.tipo === "nota") {
         p.x += p.vx * dt; p.y += p.vy * dt;
@@ -691,7 +741,7 @@ export function crearEscena(canvas) {
     g.globalAlpha = alfa;
     const col = EDIFICIOS[id].color;
     const { capBase, ch, rx, mitad } = hongoBase(cx, m, 0, brillos[id] || 0, col, col);
-    manchasDe(id, id === "conservatorio" ? 5 : 11, 7).forEach((q) => {
+    manchasDe(id, id === "conservatorio" ? 5 : id === "vivero" ? 11 : 23, 7).forEach((q) => {
       const c2 = q.v < 0.5 ? mezcla(col, "#ffffff", 0.35) : mezcla(col, "#000000", 0.45);
       manchaCap(cx, capBase, rx, ch, cx + Math.round(q.u * rx), capBase - 2 - Math.round(q.h * ch), Math.max(1, Math.round(ch * q.f * 0.7)), c2, false);
     });
@@ -721,6 +771,30 @@ export function crearEscena(canvas) {
         g.fillRect(cx - 4 - i, groundY - 2, 1, 1);
         g.fillRect(cx + 4 + i, groundY - 2, 1, 1);
       }
+    } else if (id === "gimnasio") {
+      // cinta de sudor en el sombrero y una barra con discos arriba
+      const bw = (dy) => Math.round(rx * Math.sqrt(Math.max(0, 1 - (dy / ch) ** 2))) - 2;
+      g.fillStyle = col;
+      for (const dy of [Math.round(ch * 0.45), Math.round(ch * 0.45) + 1]) g.fillRect(cx - bw(dy), capBase - 2 - dy, bw(dy) * 2, 1);
+      g.fillStyle = BLANCO;
+      const by = capBase - ch - 6;
+      g.fillRect(cx - 7, by + 2, 15, 1);
+      g.fillRect(cx - 9, by, 2, 5); g.fillRect(cx + 8, by, 2, 5);
+      g.fillStyle = col;
+      g.fillRect(cx - 11, by + 1, 2, 3); g.fillRect(cx + 10, by + 1, 2, 3);
+      // tallo: portón con tablillas y un espejo; mancuernas apoyadas al costado
+      g.fillStyle = "#3a2410";
+      g.fillRect(cx - 3, groundY - 9, 7, 8);
+      g.fillStyle = col;
+      for (let y = groundY - 8; y < groundY - 1; y += 2) g.fillRect(cx - 3, y, 7, 1);
+      g.fillStyle = "#cfe8ff";
+      g.fillRect(cx - mitad + 2, capBase + 4, 2, 4);
+      g.fillRect(cx + mitad - 4, capBase + 4, 2, 4);
+      const dx = cx + mitad + 4;
+      g.fillStyle = BLANCO; g.fillRect(dx + 1, groundY - 3, 3, 1);
+      g.fillStyle = col; g.fillRect(dx, groundY - 4, 1, 3); g.fillRect(dx + 4, groundY - 4, 1, 3);
+      g.fillStyle = BLANCO; g.fillRect(dx + 1, groundY - 7, 3, 1);
+      g.fillStyle = col; g.fillRect(dx, groundY - 8, 1, 3); g.fillRect(dx + 4, groundY - 8, 1, 3);
     } else if (id === "vivero") {
       // brotes verdes en el sombrero, gota de agua arriba y hojas colgando del borde
       [[-9, 3], [-3, 5], [4, 3], [10, 5]].forEach(([dx, h]) => {
@@ -758,7 +832,7 @@ export function crearEscena(canvas) {
     const base = Math.round(groundY - v.hop);
     const pose = v.modo === "walk" ? (Math.floor(v.animT * 11) % 2) : 0;
     const spr = v.tipo === "musico" ? spritesMusico[v.modo === "canta" ? [0, 2, 3, 2][Math.floor(v.tCanta * 8) % 4] : pose]
-      : v.tipo === "jardinero" ? spritesJard[pose] : spritesHongo[v.col][pose];
+      : v.tipo === "jardinero" ? spritesJard[pose] : v.tipo === "atleta" ? spritesAtl[pose] : spritesHongo[v.col][pose];
     const alto = HH + Math.round(v.estira);
     const x = Math.round(v.x);
     g.globalAlpha = v.alfa;
@@ -767,6 +841,19 @@ export function crearEscena(canvas) {
     g.drawImage(spr, x - 4, base - alto, HW, alto);
     g.restore();
     g.globalAlpha = 1;
+    if (v.modo === "entrena") {
+      // mancuerna: sube y baja sobre la cabeza; los brazos son dos palitos blancos hasta la barra
+      const bajo = base - 5, alto2 = base - alto - 5;
+      const by = Math.round(bajo + (alto2 - bajo) * suave(v.barra));
+      g.fillStyle = BLANCO;
+      g.fillRect(x - 3, by + 1, 1, Math.max(0, base - 5 - by - 1));
+      g.fillRect(x + 3, by + 1, 1, Math.max(0, base - 5 - by - 1));
+      g.fillRect(x - 6, by, 13, 1);
+      g.fillStyle = NARANJA;
+      g.fillRect(x - 8, by - 2, 2, 5); g.fillRect(x + 7, by - 2, 2, 5);
+      g.fillStyle = BLANCO;
+      g.fillRect(x - 9, by - 1, 1, 3); g.fillRect(x + 9, by - 1, 1, 3);
+    }
     if (v.modo === "riega") {
       // regadera: cuerpo blanco con pico y asa, apoyada al costado
       const s = v.dir, bx = x + s * 7, by = base - 9;
@@ -791,6 +878,11 @@ export function crearEscena(canvas) {
       } else if (p.tipo === "gota") {
         g.fillStyle = "#2eaaf5";
         g.fillRect(Math.round(p.x), Math.round(p.y), 1, 2);
+      } else if (p.tipo === "sudor") {
+        g.globalAlpha = k < 0.7 ? 1 : (1 - k) / 0.3;
+        g.fillStyle = "#8fe0ff";
+        g.fillRect(Math.round(p.x), Math.round(p.y), 1, 2);
+        g.globalAlpha = 1;
       } else if (p.tipo === "nota") {
         g.globalAlpha = k < 0.65 ? 1 : (1 - k) / 0.35;
         g.drawImage(spritesNota[p.col], Math.round(p.x + Math.sin(p.t * 5 + p.fase) * 2), Math.round(p.y));

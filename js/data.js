@@ -30,6 +30,14 @@ export const EDIFICIOS = {
     desbloqueo: D(0),
     color: "#2fa84f",
   },
+  gimnasio: {
+    id: "gimnasio",
+    nombre: "Gym hongil",
+    desc: "Un hongo con pesas. Habilita a los atletas, que entrenan afuera con mancuernas y sudan esporas.",
+    costo: D(1), // modo prueba
+    desbloqueo: D(0),
+    color: "#ff8a1f",
+  },
 };
 
 // Barra de prestigio (arriba): se llena con el total de esporas ganadas. Cada punto cuesta
@@ -69,6 +77,17 @@ export const HONGUITOS = {
     prod: D(10), // 10 veces un músico
     color: "#2fa84f",
     casa: "vivero",
+  },
+  atleta: {
+    id: "atleta",
+    nombre: "Atleta",
+    sprite: "atleta",
+    desc: "Entrena con mancuernas al lado del gym y transpira esporas.",
+    costoBase: D(1), // modo prueba
+    crecimiento: 1,
+    prod: D(100), // 10 veces un jardinero
+    color: "#ff8a1f",
+    casa: "gimnasio",
   },
 };
 

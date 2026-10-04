@@ -1,5 +1,14 @@
 export const CHANGELOG = [
   {
+    v: "0.12.0",
+    fecha: "2026-10-03",
+    cambios: [
+      "Nuevo edificio: Gym hongil (sombrero naranja con cinta de sudor, barra con discos arriba, portón con tablillas y mancuernas al costado). En modo prueba cuesta 1.",
+      "Nuevo honguito: Atleta (naranja, 100 esporas/s por unidad, 10 veces un Jardinero). Camina al lado del gym, saca las mancuernas, hace series subiendo y bajando la barra y transpira; al terminar la serie suelta una espora.",
+      "El hongo madre suma una mancha naranja por el gym.",
+    ],
+  },
+  {
     v: "0.11.1",
     fecha: "2026-10-03",
     cambios: [
