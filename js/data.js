@@ -38,7 +38,18 @@ export const EDIFICIOS = {
     desbloqueo: D(0),
     color: "#ff8a1f",
   },
+  trade: {
+    id: "trade",
+    nombre: "Trade center hongil",
+    desc: "Un hongo con pantallas de bolsa. Habilita a los traders: sus acciones suben y, al llegar arriba, cobran todas las esporas de golpe.",
+    costo: D(1), // modo prueba
+    desbloqueo: D(0),
+    color: "#f5c518",
+  },
 };
+
+// Bolsa (traders): sus ganancias no entran de a poco sino de golpe, cada `ciclo` segundos.
+export const BOLSA = { ciclo: 18 };
 
 // Barra de prestigio (arriba): se llena con el total de esporas ganadas. Cada punto cuesta
 // `crecimiento` veces más que el anterior: el punto k necesita base * crecimiento^(k-1) esporas.
@@ -88,6 +99,17 @@ export const HONGUITOS = {
     prod: D(100), // 10 veces un jardinero
     color: "#ff8a1f",
     casa: "gimnasio",
+  },
+  trader: {
+    id: "trader",
+    nombre: "Trader",
+    sprite: "trader",
+    desc: "Hace llamados y mueve acciones en el trade center. Cada ciclo de bolsa cobra todo junto.",
+    costoBase: D(1), // modo prueba
+    crecimiento: 1,
+    prod: D(1000), // 10 veces un atleta (promedio: llega de golpe cada ciclo)
+    color: "#f5c518",
+    casa: "trade",
   },
 };
 

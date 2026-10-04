@@ -1,6 +1,6 @@
 import { D } from './decimal.js';
 import { agregarHongoFondo } from './state.js';
-import { HONGUITOS, MEJORAS, EDIFICIOS, PRESTIGIO } from './data.js';
+import { HONGUITOS, MEJORAS, EDIFICIOS, PRESTIGIO, BOLSA } from './data.js';
 
 // Lógica pura del juego: nada de DOM ni canvas acá.
 
@@ -49,7 +49,19 @@ export function produccionPorSeg(state) {
 
 // dt en segundos. Sin progreso offline: el llamador topea dt (ver main.js).
 export function tick(state, dt) {
-  const ganancia = produccionPorSeg(state).mul(dt);
+  // los traders no cobran de a poco: acumulan tiempo y pagan todo junto al cerrar cada ciclo de bolsa
+  const trader = produccionPorTipo(state, "trader");
+  let ganancia = produccionPorSeg(state).sub(trader).mul(dt);
+  if (trader.gt(0)) {
+    const b = state.bolsa;
+    b.t += dt;
+    const ciclos = Math.floor(b.t / BOLSA.ciclo);
+    if (ciclos > 0) {
+      b.t -= ciclos * BOLSA.ciclo;
+      b.n += ciclos;
+      ganancia = ganancia.add(trader.mul(BOLSA.ciclo * ciclos));
+    }
+  }
   state.esporas = state.esporas.add(ganancia);
   state.total = state.total.add(ganancia);
 }

@@ -1,5 +1,14 @@
 export const CHANGELOG = [
   {
+    v: "0.15.0",
+    fecha: "2026-10-03",
+    cambios: [
+      "Nuevo edificio: Trade center hongil (sombrero dorado con cinta de cotizaciones, signo $ arriba y una pantalla en el tallo con el gráfico de acciones). En modo prueba cuesta 1.",
+      "Nuevo honguito: Trader (dorado, con corbata, 1000 esporas/s por unidad promedio, 10 veces un Atleta). Camina junto al trade center, hace un llamado con el teléfono y manda una acción al edificio.",
+      "Las ganancias de los traders llegan de golpe: el gráfico sube durante un ciclo de 18 s y al tocar el techo cobran todas las esporas juntas con una lluvia de esporas hacia el hongo madre. Funciona también con la pestaña en segundo plano.",
+    ],
+  },
+  {
     v: "0.14.0",
     fecha: "2026-10-03",
     cambios: [

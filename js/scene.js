@@ -3,7 +3,7 @@
 // del arte) y se escala con un factor entero sin suavizado. No hay sprites ni fotogramas:
 // los honguitos son un bitmap diminuto que se mueve con rebotes y estiramientos por código.
 
-const TIPOS_VISUALES = ['basico', 'musico', 'jardinero', 'atleta']; // el número dibujado por tipo lo da el ajuste "honguitos visibles" (el real puede ser enorme)
+const TIPOS_VISUALES = ['basico', 'musico', 'jardinero', 'atleta', 'trader']; // el número dibujado por tipo lo da el ajuste "honguitos visibles" (el real puede ser enorme)
 let limiteVisibles = 20; // honguitos dibujados por tipo (Ajustes)
 const maxParticulas = () => 150 + limiteVisibles * 8;
 const maxBrotes = () => Math.max(6, limiteVisibles * 2); // honguitos pasajeros que dejan los jardineros
@@ -49,6 +49,8 @@ const VIOLETA = "#a77bff";
 const BONUS_CONSERV = 1.15; // el conservatorio agranda al hongo madre
 const VERDE = "#2fa84f";
 const NARANJA = "#ff8a1f";
+const DORADO = "#f5c518";
+const CICLO_BOLSA = 18; // segundos entre cobros (igual que BOLSA.ciclo en data.js)
 const GIGANTE = "#222232"; // hongos gigantes del fondo: apenas más oscuros que el cielo
 const GIGANTE_MANCHA = "#252535";
 // medidas de los edificios (mismo formato que MADRE)
@@ -56,6 +58,7 @@ const TAM_BASE = {
   conservatorio: { w: 36, ch: 19, sw: 15, sh: 13 },
   vivero: { w: 38, ch: 20, sw: 16, sh: 14 },
   gimnasio: { w: 42, ch: 20, sw: 18, sh: 14 },
+  trade: { w: 42, ch: 20, sw: 18, sh: 15 },
 };
 const NOTA = ["..##.", "..#.#", "..#..", "..#..", "###..", "###.."];
 
@@ -95,6 +98,8 @@ export function crearEscena(canvas) {
     const nivel = f >= 1.22 ? 2 : f >= 1.1 ? 1 : 0;
     return (cacheTam[clave] = { w: Math.round(b.w * f), ch: Math.round(b.ch * f), sw: Math.round(b.sw * f), sh: Math.round(b.sh * f), nivel, lado });
   }
+  let tBolsa = 0, nBolsa = null, hayTraders = false; // reflejo de state.bolsa para dibujar el gráfico
+  const cola = []; // acciones diferidas {t, fn}
   const madre = { x: 0, pulso: 0, brillo: 0 };
   const edif = {}; // id -> { x } en celdas, para los edificios construidos
   const brillos = {}; // id -> destello del edificio (0..1)
@@ -131,6 +136,14 @@ export function crearEscena(canvas) {
   const spritesMusico = [hacerSprite(VIOLETA, PATAS[0], false), hacerSprite(VIOLETA, PATAS[1], false), hacerSprite(VIOLETA, PATAS[0], 1), hacerSprite(VIOLETA, PATAS[0], 2)];
   const spritesJard = [0, 1].map((pose) => hacerSprite(VERDE, PATAS[pose], 0));
   const spritesAtl = [0, 1].map((pose) => hacerSprite(NARANJA, PATAS[pose], 0));
+  // trader: sombrero dorado y corbata roja que cuelga entre las patitas; con boca para hablar por teléfono
+  const spritesTrader = [[0, false], [1, false], [0, 1], [0, 2]].map(([pose, boca]) => {
+    const c = hacerSprite(DORADO, PATAS[pose], boca);
+    const x = c.getContext("2d");
+    x.fillStyle = "#e23b3b";
+    x.fillRect(4, 7, 1, 2);
+    return c;
+  });
   const BROTE = [".ccc.", "ccccc", ".www.", ".www."];
   const spritesBrote = PALETA.map((col) => {
     const c = document.createElement("canvas");
@@ -313,6 +326,10 @@ export function crearEscena(canvas) {
   }
   function aroPart(x, y, r1, dur = 0.5) { part(x, y, 0, 0, { tipo: "aro", r1, dur }); }
 
+  // partícula viajera hacia un punto cualquiera
+  function lanzarA(x, y, x1, y1, col, dur = 0.8) {
+    part(x, y, 0, 0, { tipo: "viaje", col, x0: x, y0: y, x1, y1, dur, arco: 14 + Math.random() * 14, estela: 0 });
+  }
   const emitirEspora = (v) => lanzarEspora(v.x, groundY - 14, PALETA[v.col]);
   function lanzarEspora(x, y, col) {
     const m = medidas();
@@ -434,6 +451,45 @@ export function crearEscena(canvas) {
     }
   }
 
+  // Trader: camina junto al trade center, hace un llamado con el teléfono y manda una acción al edificio.
+  function actualizarTrader(v, dt) {
+    v.alfa = Math.min(1, v.alfa + dt * 2.5);
+    v.animT += dt;
+    v.hop = 0;
+    v.estira = 0;
+    if (v.modo === "idle") {
+      v.estira = Math.sin(v.animT * 3 + v.i) * 0.5;
+      v.espera -= dt;
+      if (v.espera <= 0) {
+        const gx = edif.trade.x, mw = tam("trade").w / 2;
+        v.meta = clamp(gx + (Math.random() < 0.5 ? -1 : 1) * (mw + 6 + Math.random() * 28), 12, Wc - 12);
+        v.dir = Math.sign(v.meta - v.x) || 1;
+        v.modo = "walk";
+      }
+    } else if (v.modo === "walk") {
+      v.hop = Math.abs(Math.sin(v.animT * 11)) * 1.5;
+      const d = v.meta - v.x, paso = VEL * 0.8 * dt;
+      if (Math.abs(d) <= paso) {
+        v.x = v.meta; v.modo = "llama"; v.tLlama = 0; v.hablaT = 0;
+        v.dir = Math.sign(edif.trade.x - v.x) || 1;
+      } else v.x += Math.sign(d) * paso;
+    } else if (v.modo === "llama") {
+      v.tLlama += dt;
+      v.hablaT -= dt;
+      v.hop = Math.abs(Math.sin(v.tLlama * 9)) * 0.8; // se agita hablando
+      if (v.hablaT <= 0) {
+        v.hablaT = 0.45;
+        part(v.x - v.dir * 2, groundY - HH - 4, (Math.random() - 0.5) * 8, -16, { tipo: "mota", dur: 0.9, col: DORADO, r: 2 });
+      }
+      if (v.tLlama > 2.6) {
+        // cuelga y manda una acción al gráfico del trade center
+        const m = tam("trade");
+        lanzarA(v.x, groundY - 12, edif.trade.x + (Math.random() - 0.5) * 8, groundY - m.sh - m.ch * 0.4, DORADO, 0.7);
+        v.modo = "idle"; v.espera = 1 + Math.random() * 2.5;
+      }
+    }
+  }
+
   function actualizarMusico(v, dt) {
     v.alfa = Math.min(1, v.alfa + dt * 2.5);
     v.animT += dt;
@@ -473,6 +529,15 @@ export function crearEscena(canvas) {
     }
   }
 
+  // las acciones tocaron el techo: lluvia de esporas de golpe hacia el hongo madre
+  function cobroBolsa() {
+    const m = tam("trade"), ex = edif.trade.x, ey = groundY - m.sh - m.ch;
+    brillos.trade = 1;
+    aroPart(ex, ey + m.ch * 0.4, 50, 0.7);
+    motas(ex, ey, 18, 1.6, DORADO);
+    for (let i = 0; i < 26; i++) cola.push({ t: i * 0.045, fn: () => lanzarEspora(ex + (Math.random() - 0.5) * m.w * 0.6, ey + Math.random() * m.ch * 0.5, i % 3 ? DORADO : PALETA[i % PALETA.length]) });
+  }
+
   // ---------- update ----------
   function update(dt, state, etapa) {
     t += dt;
@@ -492,6 +557,15 @@ export function crearEscena(canvas) {
 
     // edificios (el jugador los ubica; la posición se guarda como fracción del ancho)
     semilla = state.semilla || 0;
+    tBolsa = state.bolsa?.t || 0;
+    hayTraders = (state.honguitos.trader || 0) > 0;
+    if (nBolsa === null) nBolsa = state.bolsa?.n || 0;
+    if ((state.bolsa?.n || 0) !== nBolsa) {
+      const hubo = (state.bolsa?.n || 0) > nBolsa;
+      nBolsa = state.bolsa.n;
+      if (hubo && edif.trade) cobroBolsa();
+    }
+    for (let i = cola.length - 1; i >= 0; i--) { cola[i].t -= dt; if (cola[i].t <= 0) { cola[i].fn(); cola.splice(i, 1); } }
     bonusMadre = Object.keys(state.edificios).some((id) => EDIFICIOS[id]?.crecimientoMadre);
     coloresMadre = ["#ff4d4d", ...Object.keys(state.edificios).filter((id) => EDIFICIOS[id]).map((id) => EDIFICIOS[id].color)];
     const obst = [{ x: madre.x, w: medidas().w }];
@@ -524,6 +598,7 @@ export function crearEscena(canvas) {
       if (v.tipo === "musico") { actualizarMusico(v, dt); continue; }
       if (v.tipo === "jardinero") { actualizarJardinero(v, dt); continue; }
       if (v.tipo === "atleta") { actualizarAtleta(v, dt); continue; }
+      if (v.tipo === "trader") { actualizarTrader(v, dt); continue; }
       v.alfa = Math.min(1, v.alfa + dt * 2.5);
       v.animT += dt;
       v.hop = 0;
@@ -764,7 +839,7 @@ export function crearEscena(canvas) {
     g.globalAlpha = alfa;
     const col = EDIFICIOS[id].color;
     const { capBase, ch, rx, mitad } = hongoBase(cx, m, 0, brillos[id] || 0, col, col);
-    manchasDe(id + ":" + semilla, (id === "conservatorio" ? 5 : id === "vivero" ? 11 : 23) + semilla, 7 + m.nivel * 2).forEach((q) => {
+    manchasDe(id + ":" + semilla, (id === "conservatorio" ? 5 : id === "vivero" ? 11 : id === "gimnasio" ? 23 : 37) + semilla, 7 + m.nivel * 2).forEach((q) => {
       const c2 = q.v < 0.5 ? mezcla(col, "#ffffff", 0.35) : mezcla(col, "#000000", 0.45);
       manchaCap(cx, capBase, rx, ch, cx + Math.round(q.u * rx), capBase - 2 - Math.round(q.h * ch), Math.max(1, Math.round(ch * q.f * 0.7)), c2, false);
     });
@@ -818,6 +893,37 @@ export function crearEscena(canvas) {
       g.fillStyle = col; g.fillRect(dx, groundY - 4, 1, 3); g.fillRect(dx + 4, groundY - 4, 1, 3);
       g.fillStyle = BLANCO; g.fillRect(dx + 1, groundY - 7, 3, 1);
       g.fillStyle = col; g.fillRect(dx, groundY - 8, 1, 3); g.fillRect(dx + 4, groundY - 8, 1, 3);
+    } else if (id === "trade") {
+      // cinta de cotizaciones corriendo por el sombrero y un signo $ arriba
+      const dyT = Math.round(ch * 0.5);
+      const wT = Math.round(rx * Math.sqrt(Math.max(0, 1 - (dyT / ch) ** 2))) - 2;
+      const off = Math.floor(t * 8);
+      for (let i = -wT; i < wT; i++) {
+        const k = (((i + off) % 6) + 6) % 6;
+        g.fillStyle = k < 3 ? "#3ddc84" : k < 5 ? "#ff5a5a" : "#14141d";
+        g.fillRect(cx + i, capBase - 2 - dyT, 1, 1);
+      }
+      g.fillStyle = col;
+      ["..#..", ".####", "#.#..", ".###.", "..#.#", "####.", "..#.."].forEach((fila, yy) => {
+        for (let xx = 0; xx < 5; xx++) if (fila[xx] === "#") g.fillRect(cx - 2 + xx, capBase - ch - 10 + yy, 1, 1);
+      });
+      // tallo: pantalla con el gráfico de acciones
+      const W = mitad * 2 - 4, H = m.sh - 7, sx0 = cx - mitad + 2, sy0 = capBase + 4;
+      g.fillStyle = "#0c1614";
+      g.fillRect(sx0, sy0, W, H);
+      g.fillStyle = col;
+      for (let i = 0; i < W; i += 2) g.fillRect(sx0 + i, sy0, 1, 1); // línea del techo: al tocarla se cobra
+      let prev = null;
+      for (let i = 0; i < W; i++) {
+        const ti = (hayTraders ? tBolsa : t * 0.5) - (W - 1 - i) * 0.7;
+        const fr = hayTraders ? (((ti % CICLO_BOLSA) + CICLO_BOLSA) % CICLO_BOLSA) / CICLO_BOLSA : 0.25;
+        const v = clamp(fr * 0.9 + 0.08 * Math.sin(ti * 2.3) + 0.05 * Math.sin(ti * 5.7 + 1), 0, 1);
+        const yy = sy0 + H - 1 - Math.round(v * (H - 2));
+        g.fillStyle = i === W - 1 ? BLANCO : "#3ddc84";
+        g.fillRect(sx0 + i, yy, 1, 1);
+        if (prev !== null && Math.abs(prev - yy) > 1) g.fillRect(sx0 + i, Math.min(prev, yy), 1, Math.abs(prev - yy));
+        prev = yy;
+      }
     } else if (id === "vivero") {
       // brotes verdes en el sombrero, gota de agua arriba y hojas colgando del borde
       [[-9, 3], [-3, 5], [4, 3], [10, 5]].forEach(([dx, h]) => {
@@ -875,7 +981,7 @@ export function crearEscena(canvas) {
     const base = Math.round(groundY - v.hop);
     const pose = v.modo === "walk" ? (Math.floor(v.animT * 11) % 2) : 0;
     const spr = v.tipo === "musico" ? spritesMusico[v.modo === "canta" ? [0, 2, 3, 2][Math.floor(v.tCanta * 8) % 4] : pose]
-      : v.tipo === "jardinero" ? spritesJard[pose] : v.tipo === "atleta" ? spritesAtl[pose] : spritesHongo[v.col][pose];
+      : v.tipo === "jardinero" ? spritesJard[pose] : v.tipo === "atleta" ? spritesAtl[pose] : v.tipo === "trader" ? spritesTrader[v.modo === "llama" ? (Math.floor(v.tLlama * 6) % 2 ? 2 : 3) : pose] : spritesHongo[v.col][pose];
     const alto = HH + Math.round(v.estira);
     const x = Math.round(v.x);
     g.globalAlpha = v.alfa;
@@ -884,6 +990,17 @@ export function crearEscena(canvas) {
     g.drawImage(spr, x - 4, base - alto, HW, alto);
     g.restore();
     g.globalAlpha = 1;
+    if (v.modo === "llama") {
+      // teléfono pegado a la cabeza con el brazo levantado
+      const px = x + v.dir * 5;
+      g.fillStyle = BLANCO;
+      g.fillRect(x + v.dir * 4, base - 6, 1, 3);
+      g.fillStyle = "#5b5b78";
+      g.fillRect(px - (v.dir < 0 ? 1 : 0), base - 11, 2, 5);
+      g.fillStyle = BLANCO;
+      g.fillRect(px - (v.dir < 0 ? 1 : 0), base - 11, 2, 1);
+      g.fillRect(px - (v.dir < 0 ? 1 : 0), base - 7, 2, 1);
+    }
     if (v.modo === "entrena") {
       // mancuerna: sube y baja sobre la cabeza; los brazos son dos palitos blancos hasta la barra
       const bajo = base - 5, alto2 = base - alto - 5;
