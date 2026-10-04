@@ -490,10 +490,13 @@ export function crearEscena(canvas, opciones = {}) {
   const emitirEspora = (v) => lanzarEspora(v.x, groundY - 14, PALETA[v.col]);
   function lanzarEspora(x, y, col) {
     const m = medidas();
+    // destino al azar dentro del sombrero (media elipse), no en una línea fija
+    const dx = (Math.random() - 0.5) * m.w * 0.8;
+    const alto = m.ch * Math.sqrt(Math.max(0, 1 - Math.pow((2 * dx) / m.w, 2)));
     part(x, y, 0, 0, {
       tipo: "viaje", col,
       x0: x, y0: y,
-      x1: madre.x + (Math.random() - 0.5) * m.w * 0.5, y1: groundY - m.sh - m.ch * 0.5,
+      x1: madre.x + dx, y1: groundY - m.sh - Math.random() * alto * 0.9,
       dur: 0.8 + Math.random() * 0.3, arco: 20 + Math.random() * 24, estela: 0,
     });
   }

@@ -1,5 +1,12 @@
 export const CHANGELOG = [
   {
+    v: "0.22.7",
+    fecha: "2026-10-04",
+    cambios: [
+      "Las esporas ya no llegan todas a una misma línea del sombrero del hongo madre: cada una viaja a un punto al azar dentro del sombrero.",
+    ],
+  },
+  {
     v: "0.22.6",
     fecha: "2026-10-04",
     cambios: [
