@@ -7,11 +7,31 @@ export const SAVE_VERSION = 1;
 // Hongos gigantes del fondo (decorativos, muy oscuros): uno por edificio nuevo y uno cada
 // 5 niveles de prestigio. Se guarda su posición (fracción del ancho) y su tamaño relativo.
 export const MAX_HONGOS_FONDO = 30;
-export function nuevoHongoFondo() {
-  return { x: 0.04 + Math.random() * 0.92, s: 0.6 + Math.random() * 0.7, v: Math.floor(Math.random() * 1e6) };
+const SEP_FONDO = 0.075; // separación mínima entre hongos gigantes (fracción del ancho)
+// Posición al azar que respeta la separación con los ya puestos; si no hay lugar, la más alejada.
+export function nuevoHongoFondo(otros = []) {
+  let mejor = null, mejorD = -1;
+  const buenos = [];
+  for (let i = 0; i < 40; i++) {
+    const x = 0.04 + Math.random() * 0.92;
+    const d = otros.reduce((m, o) => Math.min(m, Math.abs(o.x - x)), 9);
+    if (d >= SEP_FONDO) buenos.push(x);
+    if (d > mejorD) { mejorD = d; mejor = x; }
+  }
+  const x = buenos.length ? buenos[Math.floor(Math.random() * buenos.length)] : mejor;
+  return { x, s: 0.6 + Math.random() * 0.7, v: Math.floor(Math.random() * 1e6) };
+}
+// Partidas viejas: vuelve a ubicar los que quedaron pegados o uno encima del otro.
+function espaciarFondo(fondo) {
+  const puestos = [];
+  for (const h of fondo) {
+    const pegado = puestos.some((o) => Math.abs(o.x - h.x) < SEP_FONDO);
+    puestos.push(pegado ? { ...h, x: nuevoHongoFondo(puestos).x } : h);
+  }
+  return puestos;
 }
 export function agregarHongoFondo(state) {
-  state.fondo.push(nuevoHongoFondo());
+  state.fondo.push(nuevoHongoFondo(state.fondo));
   if (state.fondo.length > MAX_HONGOS_FONDO) state.fondo.shift();
 }
 
@@ -61,7 +81,7 @@ function deserializar(raw) {
     mejoras: { ...raw.mejoras },
     edificios: { ...raw.edificios },
     // partidas viejas: un hongo de fondo por cada edificio que ya tenían
-    fondo: Array.isArray(raw.fondo) ? raw.fondo : Object.keys(raw.edificios || {}).map(nuevoHongoFondo),
+    fondo: Array.isArray(raw.fondo) ? espaciarFondo(raw.fondo) : espaciarFondo(Object.keys(raw.edificios || {}).map(() => nuevoHongoFondo())),
     hitos: raw.hitos ?? 0,
     flags: { ...raw.flags },
   };

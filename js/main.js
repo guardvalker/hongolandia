@@ -68,14 +68,26 @@ canvas.addEventListener("click", (e) => {
   }
 });
 
-// Sin progreso offline: el delta se topea a 1 s, así que una pestaña en segundo
-// plano o un lag no producen saltos de producción.
-let ultimo = performance.now();
+// La economía corre con el reloj real: sigue andando con la pestaña en segundo plano (el
+// navegador frena los timers, pero cada tick usa el tiempo real transcurrido, hasta 1 h).
+// La escena y los honguitos solo se animan mientras la pestaña se ve.
+const MAX_AUSENCIA = 3600;
+let ultimoEco = performance.now();
+function economia(ahora) {
+  const dt = Math.min((ahora - ultimoEco) / 1000, MAX_AUSENCIA);
+  ultimoEco = ahora;
+  if (dt > 0) tick(state, dt);
+  return dt;
+}
+setInterval(() => {
+  if (!document.hidden) return;
+  economia(performance.now());
+  revisarHitos(state);
+}, 1000);
+
 let proximoHud = 0;
 function frame(ahora) {
-  const dt = Math.min((ahora - ultimo) / 1000, 1);
-  ultimo = ahora;
-  tick(state, dt);
+  const dt = Math.min(economia(ahora), 1);
   escena.update(dt, state, etapaDe(state));
   escena.draw();
   if (ahora >= proximoHud) {
@@ -91,7 +103,6 @@ requestAnimationFrame(frame);
 setInterval(() => guardar(state), 5000);
 document.addEventListener("visibilitychange", () => {
   if (document.hidden) guardar(state);
-  else ultimo = performance.now();
 });
 window.addEventListener("pagehide", () => guardar(state));
 

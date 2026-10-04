@@ -1,6 +1,6 @@
 import { HONGUITOS, MEJORAS, EDIFICIOS } from './data.js';
 import { fmt, fmtRate } from './format.js';
-import { produccionPorSeg, produccionPorTipo, prestigio, costoHonguito, costoHonguitos, comprarHonguitos, comprarMejora } from './engine.js';
+import { produccionPorSeg, produccionPorTipo, prestigio, costoHonguito, costoHonguitos, maxHonguitos, comprarHonguitos, comprarMejora } from './engine.js';
 import { exportar, importar, borrarGuardado } from './state.js';
 import { CHANGELOG } from './changelog.js';
 
@@ -90,14 +90,15 @@ export function crearUI(api) {
     seccion("Honguitos");
     const sel = document.createElement("div");
     sel.className = "cant";
-    const botonesCant = [1, 10].map((k) => {
+    const OPC = [1, 10, 100, "max"];
+    const botonesCant = OPC.map((k) => {
       const b = document.createElement("button");
       b.className = "cant-btn";
-      b.textContent = "×" + k;
+      b.textContent = k === "max" ? "Máx" : "×" + k;
       b.addEventListener("click", () => {
         ajustes.cantidad = k;
         guardarAjustes();
-        botonesCant.forEach((x, i) => x.classList.toggle("activo", [1, 10][i] === k));
+        botonesCant.forEach((x, i) => x.classList.toggle("activo", OPC[i] === k));
         actualizar(true);
       });
       b.classList.toggle("activo", (ajustes.cantidad || 1) === k);
@@ -342,9 +343,11 @@ export function crearUI(api) {
     if (abierta !== "madre" && abierta !== "casa" && !forzar) return;
     for (const f of filas) {
       if (f.tipo === "honguito") {
-        const c = costoHonguitos(s, f.id, ajustes.cantidad || 1);
+        const cant = ajustes.cantidad || 1;
+        const k = cant === "max" ? Math.max(1, maxHonguitos(s, f.id)) : cant;
+        const c = costoHonguitos(s, f.id, k);
         f.titulo.textContent = `${HONGUITOS[f.id].nombre} ×${fmt(s.honguitos[f.id] || 0)}`;
-        f.btn.textContent = fmt(c);
+        f.btn.textContent = cant === "max" ? `×${fmt(k)} · ${fmt(c)}` : fmt(c);
         f.btn.disabled = s.esporas.lt(c);
       } else if (f.tipo === "edificio") {
         f.btn.textContent = fmt(f.ed.costo);

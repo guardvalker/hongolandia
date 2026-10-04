@@ -61,16 +61,40 @@ export function costoHonguito(state, id) {
 }
 
 // Costo de comprar k honguitos seguidos (cada uno sale lo que sale con los que ya tenés).
+// Los primeros se calculan uno por uno; el resto con la fórmula de la serie geométrica.
 export function costoHonguitos(state, id, k = 1) {
   const t = HONGUITOS[id];
   const n = state.honguitos[id] || 0;
+  const g = t.crecimiento;
+  const unit = (i) => t.costoBase.mul(D(g).pow(Math.max(0, n + i - 1))).ceil();
   let total = D(0);
-  for (let i = 0; i < k; i++) total = total.add(t.costoBase.mul(D(t.crecimiento).pow(Math.max(0, n + i - 1))).ceil());
+  const exactos = Math.min(k, 3);
+  for (let i = 0; i < exactos; i++) total = total.add(unit(i));
+  const m = k - exactos;
+  if (m > 0) {
+    const c = t.costoBase.mul(D(g).pow(Math.max(0, n + exactos - 1)));
+    total = total.add(g === 1 ? c.mul(m).ceil() : c.mul(D(g).pow(m).sub(1)).div(g - 1).ceil());
+  }
   return total;
 }
 
-// Compra k de una (todo o nada).
+// Cuántos honguitos se pueden comprar con las esporas actuales.
+export function maxHonguitos(state, id) {
+  const E = state.esporas;
+  if (E.lt(costoHonguitos(state, id, 1))) return 0;
+  const t = HONGUITOS[id], g = t.crecimiento;
+  const c1 = costoHonguitos(state, id, 1);
+  let k = g === 1 ? Math.floor(E.div(c1).toNumber()) : Math.floor(E.mul(g - 1).div(c1).add(1).log10().toNumber() / Math.log10(g)) + 1;
+  k = Math.max(1, k);
+  while (k > 1 && costoHonguitos(state, id, k).gt(E)) k--;
+  for (let i = 0; i < 5 && costoHonguitos(state, id, k + 1).lte(E); i++) k++;
+  return k;
+}
+
+// Compra k de una (todo o nada). k = "max" compra todos los que alcancen.
 export function comprarHonguitos(state, id, k = 1) {
+  if (k === "max") k = maxHonguitos(state, id);
+  if (k < 1) return false;
   const c = costoHonguitos(state, id, k);
   if (state.esporas.lt(c)) return false;
   state.esporas = state.esporas.sub(c);

@@ -1,5 +1,14 @@
 export const CHANGELOG = [
   {
+    v: "0.14.0",
+    fecha: "2026-10-03",
+    cambios: [
+      "Compra por cantidad: se suman ×100 y Máx (compra todos los honguitos que alcancen con las esporas actuales; el botón muestra cuántos y el costo).",
+      "Los hongos gigantes del fondo ya no se amontonan: cada uno nuevo aparece en un lugar al azar pero separado de los demás. Las partidas viejas los reubican solas.",
+      "El juego sigue funcionando en segundo plano: al irte de la pestaña las esporas siguen sumando con el tiempo real (hasta 1 hora de ausencia por vez). Los honguitos solo se animan mientras la pestaña se ve.",
+    ],
+  },
+  {
     v: "0.13.1",
     fecha: "2026-10-03",
     cambios: [
