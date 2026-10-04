@@ -1,5 +1,12 @@
 export const CHANGELOG = [
   {
+    v: "0.29.1",
+    fecha: "2026-10-04",
+    cambios: [
+      "El número de versión ahora también se ve abajo a la izquierda de la pantalla, chiquito, como referencia rápida.",
+    ],
+  },
+  {
     v: "0.29.0",
     fecha: "2026-10-04",
     cambios: [
