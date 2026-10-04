@@ -1,5 +1,13 @@
 export const CHANGELOG = [
   {
+    v: "0.19.1",
+    fecha: "2026-10-04",
+    cambios: [
+      "El hongo madre ya no tiene un rectángulo gigante de clic: ahora responde solo en el tronco y el sombrero (elipse). Los edificios se pueden ubicar y tocar casi pegados al tronco, incluso bajo el sombrero, si caben abajo; si el madre es chico y el edificio es más alto que su tronco, sigue haciendo falta el espacio del sombrero.",
+      "Los edificios están más separados en tamaño: de su tamaño base hasta ~80% más grandes (antes ~30%). Los muy grandes suman dos ramas hongo más.",
+    ],
+  },
+  {
     v: "0.19.0",
     fecha: "2026-10-04",
     cambios: [

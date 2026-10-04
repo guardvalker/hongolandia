@@ -98,7 +98,7 @@ export function crearEscena(canvas) {
   let fondo = null;
   let t = 0, etapaPrev = null, inicial = true, flash = 0;
 
-  // Tamaño de cada edificio: nunca menor al base, hasta ~30% más grande según la semilla de la
+  // Tamaño de cada edificio: nunca menor al base, hasta ~80% más grande según la semilla de la
   // partida (state.semilla; cambia con cada prestigio). nivel 1/2 = más complejo (ramas hongo).
   let semilla = 0;
   const cacheTam = {};
@@ -109,9 +109,9 @@ export function crearEscena(canvas) {
     let h = 7;
     for (const c of id) h = (h * 31 + c.charCodeAt(0)) >>> 0;
     const r = rng(h + semilla * 2654435761);
-    const f = 1 + r() * 0.3;
+    const f = 1 + r() * 0.8;
     const lado = r() < 0.5 ? -1 : 1;
-    const nivel = f >= 1.22 ? 2 : f >= 1.1 ? 1 : 0;
+    const nivel = f >= 1.55 ? 3 : f >= 1.3 ? 2 : f >= 1.12 ? 1 : 0;
     return (cacheTam[clave] = { w: Math.round(b.w * f), ch: Math.round(b.ch * f), sw: Math.round(b.sw * f), sh: Math.round(b.sh * f), nivel, lado });
   }
   let tBolsa = 0, nBolsa = null, hayTraders = false; // reflejo de state.bolsa para dibujar el gráfico
@@ -485,7 +485,7 @@ export function crearEscena(canvas) {
     for (let pasada = 0; pasada < 4; pasada++) {
       let movido = false;
       for (const o of obst) {
-        const hueco = o.w / 2 + ancho / 2 + 6;
+        const hueco = o.w / 2 + ancho / 2 + 3;
         if (Math.abs(x - o.x) >= hueco) continue;
         const der = o.x + hueco, izq = o.x - hueco;
         const okDer = der <= LIM1() - lim, okIzq = izq >= LIM0() + lim;
@@ -497,7 +497,11 @@ export function crearEscena(canvas) {
     }
     return x;
   }
-  const obstaculos = () => [{ x: madre.x, w: medidas().w }, ...Object.entries(edif).filter(([id]) => !(colocando?.mover && colocando.id === id)).map(([id, e]) => ({ x: e.x, w: tam(id).w }))];
+  // El hongo madre estorba solo con su tronco si lo que se ubica entra bajo su sombrero; si es más
+  // alto que el tronco (madre chico), estorba con todo el sombrero.
+  const obstaculoMadre = (alto) => { const m = medidas(); return { x: madre.x, w: alto + 2 <= m.sh ? m.sw + 8 : m.w }; };
+  const altoEdif = (id) => tam(id).ch + tam(id).sh + 8;
+  const obstaculos = (alto = 99) => [obstaculoMadre(alto), ...Object.entries(edif).filter(([id]) => !(colocando?.mover && colocando.id === id)).map(([id, e]) => ({ x: e.x, w: tam(id).w }))];
 
   // Jardinero: camina a un punto libre del piso, lo riega y ahí brota un honguito pasajero.
   function actualizarJardinero(v, dt) {
@@ -510,7 +514,7 @@ export function crearEscena(canvas) {
       v.espera -= dt;
       if (v.espera <= 0) {
         if (brotes.length >= maxBrotes()) { v.espera = 2; return; }
-        v.meta = xLibre(LIM0() + 12 + Math.random() * (2 * extent - 24), 30, obstaculos());
+        v.meta = xLibre(LIM0() + 12 + Math.random() * (2 * extent - 24), 30, obstaculos(14));
         v.dir = Math.sign(v.meta - v.x) || 1;
         v.modo = "walk";
       }
@@ -987,15 +991,15 @@ export function crearEscena(canvas) {
     bonusMadre = Object.keys(state.edificios).some((id) => EDIFICIOS[id]?.crecimientoMadre);
     medM = medidasMadre(state.total.toNumber(), Object.keys(state.edificios).length, bonusMadre);
     coloresMadre = ["#ff4d4d", ...Object.keys(state.edificios).filter((id) => EDIFICIOS[id]).map((id) => EDIFICIOS[id].color)];
-    const obst = [{ x: madre.x, w: medidas().w }];
+    const otros = [];
     for (const id of Object.keys(EDIFICIOS)) {
       const ec = state.edificios[id];
       if (!ec) { delete edif[id]; continue; }
       const nuevo = !edif[id];
       if (ec.dx === undefined) ec.dx = ((ec.x ?? 0.5) - 0.5) * Wc0; // partidas viejas: fracción de pantalla -> celdas desde el madre
-      const x = xLibre(C0 + ec.dx, tam(id).w, obst);
+      const x = xLibre(C0 + ec.dx, tam(id).w, [obstaculoMadre(altoEdif(id)), ...otros]);
       edif[id] = { x };
-      obst.push({ x, w: tam(id).w });
+      otros.push({ x, w: tam(id).w });
       if (nuevo && !inicial) {
         const cy = groundY - tam(id).ch - tam(id).sh * 0.5;
         flash = 0.6;
@@ -1503,12 +1507,17 @@ export function crearEscena(canvas) {
     // edificios más grandes: ramas con hongos chiquitos saliendo del tallo
     if (m.nivel >= 1) ramaHongo(cx, capBase, mitad, m.lado, col, 5);
     if (m.nivel >= 2 && id !== "astropuerto") ramaHongo(cx, capBase, mitad, -m.lado, col, 3);
+    if (m.nivel >= 3) { // los más grandes: dos ramas más, más abajo y más largas
+      const yy = Math.round(m.sh * 0.72);
+      ramaHongo(cx, capBase, mitad, m.lado, col, 8, yy);
+      if (id !== "astropuerto") ramaHongo(cx, capBase, mitad, -m.lado, col, 7, yy);
+    }
     g.globalAlpha = 1;
   }
 
   // brazo que sale del costado del tallo con un mini hongo encima
-  function ramaHongo(cx, capBase, mitad, s, col, largo) {
-    const y = capBase + 8, x1 = cx + s * (mitad + largo);
+  function ramaHongo(cx, capBase, mitad, s, col, largo, yy = 8) {
+    const y = capBase + yy, x1 = cx + s * (mitad + largo);
     g.fillStyle = BLANCO;
     g.fillRect(Math.min(cx + s * mitad, x1), y, largo + 1, 1);
     g.fillRect(x1, y - 3, 1, 3);
@@ -1759,7 +1768,7 @@ export function crearEscena(canvas) {
     }
     for (const v of visuales) dibujarHonguito(v);
     dibujarParticulas();
-    if (colocando) dibujarEdificio(colocando.id, xLibre(colocando.x, tam(colocando.id).w, obstaculos()), 0.55);
+    if (colocando) dibujarEdificio(colocando.id, xLibre(colocando.x, tam(colocando.id).w, obstaculos(altoEdif(colocando.id))), 0.55);
     g.restore();
 
     if (flash > 0.01) { g.globalAlpha = flash * 0.3; g.fillStyle = BLANCO; g.fillRect(0, 0, Wc, Hc); g.globalAlpha = 1; }
@@ -1773,7 +1782,11 @@ export function crearEscena(canvas) {
     const cx = (px * dpr) / S - offX();
     const cy = (py * dpr) / S;
     const m = medidas();
-    if (Math.abs(cx - madre.x) < m.w / 2 && cy > groundY - alturaMadre() && cy < groundY + 2) return { quien: "madre" };
+    // el hongo madre: el tronco o el sombrero (elipse), no el rectángulo que los envuelve
+    const enTronco = Math.abs(cx - madre.x) < m.sw / 2 + 3 && cy > groundY - m.sh && cy < groundY + 2;
+    const dyCap = groundY - m.sh - cy;
+    const enSombrero = dyCap >= -1 && dyCap < m.ch && Math.abs(cx - madre.x) < (m.w / 2) * Math.sqrt(Math.max(0, 1 - (dyCap / m.ch) ** 2));
+    if (enTronco || enSombrero) return { quien: "madre" };
     for (const id in edif) {
       if (colocando?.mover && colocando.id === id) continue;
       const m = tam(id);
@@ -1807,7 +1820,7 @@ export function crearEscena(canvas) {
   const cancelarColocacion = () => { colocando = null; };
   function confirmarColocacion(px) {
     if (!colocando) return null;
-    const x = xLibre(aCeldas(px) - offX(), tam(colocando.id).w, obstaculos());
+    const x = xLibre(aCeldas(px) - offX(), tam(colocando.id).w, obstaculos(altoEdif(colocando.id)));
     colocando = null;
     return x - C0; // celdas desde el hongo madre
   }
