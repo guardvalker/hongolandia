@@ -17,7 +17,7 @@ export const EDIFICIOS = {
     id: "conservatorio",
     nombre: "Conservatorio hongil",
     desc: "Un hongo con aires musicales. Hace crecer un 15% al hongo madre y habilita a los músicos.",
-    costo: D(1000),
+    costo: D(1),
     desbloqueo: D(0), // total de esporas a partir del cual aparece en el hongo madre
     crecimientoMadre: 1.15,
   },
@@ -25,8 +25,8 @@ export const EDIFICIOS = {
     id: "vivero",
     nombre: "Vivero hongil",
     desc: "Un hongo con invernadero. Habilita a los jardineros, que riegan el piso y hacen brotar honguitos pasajeros.",
-    costo: D(40000),
-    desbloqueo: D(10000),
+    costo: D(1),
+    desbloqueo: D(0),
   },
 };
 
@@ -41,8 +41,8 @@ export const HONGUITOS = {
     nombre: "Honguito",
     sprite: "honguito",
     desc: "Carga esporas al hongo madre.",
-    costoBase: D(8),
-    crecimiento: 1.25,
+    costoBase: D(1),
+    crecimiento: 1,
     prod: D(0.1), // esporas/seg por unidad
     color: "#ff6fb5", // color en el contador de esporas/s
   },
@@ -51,8 +51,8 @@ export const HONGUITOS = {
     nombre: "Músico",
     sprite: "musico",
     desc: "Canta cada tanto y su música rinde esporas.",
-    costoBase: D(1000),
-    crecimiento: 1.4,
+    costoBase: D(1),
+    crecimiento: 1,
     prod: D(1), // 10 veces un honguito común
     color: "#a77bff",
     casa: "conservatorio", // se compra desde ese edificio, no desde el hongo madre
@@ -62,8 +62,8 @@ export const HONGUITOS = {
     nombre: "Jardinero",
     sprite: "jardinero",
     desc: "Riega el piso y brotan honguitos que se desvanecen y se vuelven esporas.",
-    costoBase: D(30000),
-    crecimiento: 1.45,
+    costoBase: D(1),
+    crecimiento: 1,
     prod: D(10), // 10 veces un músico
     color: "#2fa84f",
     casa: "vivero",
@@ -76,7 +76,7 @@ export const MEJORAS = [
     id: "micelio",
     nombre: "Micelio",
     desc: "Todos los honguitos producen ×2.",
-    costo: D(250),
+    costo: D(1),
     aplica: "todos",
     mult: D(2),
   },
@@ -84,7 +84,7 @@ export const MEJORAS = [
     id: "rocio",
     nombre: "Rocío",
     desc: "Los honguitos básicos producen ×2.",
-    costo: D(1500),
+    costo: D(1),
     aplica: "basico",
     mult: D(2),
   },

@@ -1,5 +1,12 @@
 export const CHANGELOG = [
   {
+    v: "0.10.1",
+    fecha: "2026-10-03",
+    cambios: [
+      "Modo prueba: todos los costos (honguitos, edificios y mejoras) valen 1 esporas y no crecen; el Vivero aparece desde el inicio. Los valores reales se calibran después.",
+    ],
+  },
+  {
     v: "0.10.0",
     fecha: "2026-10-03",
     cambios: [
