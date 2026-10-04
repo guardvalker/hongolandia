@@ -92,10 +92,13 @@ export function crearEscena(canvas, opciones = {}) {
   const g = lo.getContext("2d");
   let dpr = 1, S = 1, Wc = 0, Hc = 0, groundY = 0;
   // cámara: Wc/Hc = celdas visibles; S = px por celda (niveles enteros para que el pixel art quede nítido)
-  let groundRef = 220, S0 = 1, Wc0 = 300, Hc0 = 300, niveles = [1], zoomIdx = null, camX = C0, extent = 150;
+  let groundRef = 220, S0 = 1, Wc0 = 300, Hc0 = 300, niveles = [1], zoomIdx = null, camX = C0, camY = 0, extent = 150;
   const LIM0 = () => C0 - extent, LIM1 = () => C0 + extent; // hasta dónde llega lo que hay en el mundo
   const offX = () => Math.round(Wc / 2 - camX);
+  // camY = cuánto se bajó el mundo para ver más cielo: hasta la altura que se ve con el zoom más alejado
+  const offY = () => Math.round(camY);
   function limitarCam() {
+    camY = clamp(camY, 0, Math.max(0, 0.74 * (canvas.height - Hc)));
     camX = Wc >= 2 * extent ? C0 : clamp(camX, C0 - extent + Wc / 2, C0 + extent - Wc / 2);
   }
   let fondo = null;
@@ -504,7 +507,7 @@ export function crearEscena(canvas, opciones = {}) {
   }
   const colHongo = (v) => (v.tipo === "basico" ? ROJO : PALETA[v.col]);
   const emitirEspora = (v) => lanzarEspora(v.x, groundY - 14, colHongo(v));
-  function lanzarEspora(x, y, col) {
+  function lanzarEspora(x, y, col, lento = 0) {
     const m = medidas();
     // destino al azar dentro del sombrero (media elipse), no en una línea fija
     const dx = (Math.random() - 0.5) * m.w * 0.8;
@@ -513,7 +516,7 @@ export function crearEscena(canvas, opciones = {}) {
       tipo: "viaje", col,
       x0: x, y0: y,
       x1: madre.x + dx, y1: groundY - m.sh - Math.random() * alto * 0.9,
-      dur: 0.8 + Math.random() * 0.3, arco: 20 + Math.random() * 24, estela: 0,
+      dur: 0.8 + Math.random() * 0.3 + lento, arco: 20 + Math.random() * 24, estela: 0,
     });
   }
 
@@ -723,7 +726,17 @@ export function crearEscena(canvas, opciones = {}) {
       c.prog = clamp((c.t - 0.15) / 1.0, 0, 1);
     }
     for (let i = pulsos.length - 1; i >= 0; i--) {
-      pulsos[i].t += dt;
+      const pu = pulsos[i];
+      pu.t += dt;
+      // el pulso termina en esporas: cada base que alcanza lanza una espora hacia el hongo madre
+      const L = geomLuna();
+      for (let j = 0; j < lunaBases.length; j++) {
+        if (pu.listas.has(j) || pu.dist[j] === Infinity || pu.t * PULSO_VEL < pu.dist[j]) continue;
+        pu.listas.add(j);
+        const b = lunaBases[j], bx = L.x + b.x * L.r, by = L.y + b.y * L.r;
+        lanzarEspora(bx, by, CELESTE, 0.9 + Math.random() * 0.4);
+        motas(bx, by, 3, 0.5, b.c);
+      }
       if (pulsos[i].t * PULSO_VEL > pulsos[i].max + PULSO_COLA + 0.3) pulsos.splice(i, 1);
     }
   }
@@ -744,7 +757,7 @@ export function crearEscena(canvas, opciones = {}) {
       }
     }
     const max = dist.reduce((m, d) => (d < Infinity ? Math.max(m, d) : m), 0);
-    pulsos.push({ origen, dist, max, t: 0 });
+    pulsos.push({ origen, dist, max, t: 0, listas: new Set() });
   }
   function iniciarExpedicion() {
     const astros = visuales.filter((v) => v.tipo === "astronauta" && !v.oculto);
@@ -807,7 +820,6 @@ export function crearEscena(canvas, opciones = {}) {
           v.oculto = false; v.alfa = 0; v.x = pad.x + (Math.random() - 0.5) * 10; v.modo = "idle"; v.espera = 0.6 + Math.random();
         }
         cohete.trip = [];
-        for (let i = 0; i < 6; i++) cola.push({ t: i * 0.1, fn: () => lanzarEspora(pad.x, groundY - 12, CELESTE) });
         cohete.fase = "espera"; cohete.t = 0;
       }
     }
@@ -2174,23 +2186,26 @@ export function crearEscena(canvas, opciones = {}) {
     g.imageSmoothingEnabled = false;
     g.globalAlpha = 1;
     g.clearRect(0, 0, Wc, Hc);
-    g.drawImage(fondo, 0, 0);
+    g.fillStyle = BG;
+    g.fillRect(0, 0, Wc, Hc);
+    const oy = offY();
+    g.drawImage(fondo, 0, oy);
     for (const gi of gigantes) {
       const hT = gi.cv.height, h = Math.max(1, Math.round(hT * suave(gi.p)));
-      g.drawImage(gi.cv, 0, hT - h, gi.cv.width, h, Math.round(gi.x * Wc - gi.cv.width / 2), groundY - h, gi.cv.width, h);
+      g.drawImage(gi.cv, 0, hT - h, gi.cv.width, h, Math.round(gi.x * Wc - gi.cv.width / 2), groundY - h + oy, gi.cv.width, h);
     }
     // estrellitas y manchas flotantes (fondo)
     for (const s of estrellas) {
       const a = 0.25 + 0.45 * Math.sin(t * 1.5 + s.ph) ** 2;
       g.fillStyle = `rgba(255,255,255,${a})`;
-      g.fillRect(s.x, s.y, 1, 1);
+      g.fillRect(s.x, (s.y + Math.round(oy * 0.3)) % Math.round(groundY * 0.8), 1, 1);
     }
     g.globalAlpha = 0.55;
     for (const f of flotantes) { g.fillStyle = f.col; g.fillRect(Math.round(f.x + Math.sin(t * f.sp + f.ph) * f.ax), Math.round(f.y), f.r, f.r); }
     g.globalAlpha = 1;
 
     g.save();
-    g.translate(offX(), 0);
+    g.translate(offX(), oy);
     dibujarLuna();
     dibujarNubes();
     dibujarMadre();
@@ -2218,7 +2233,7 @@ export function crearEscena(canvas, opciones = {}) {
   // ---------- toques ----------
   function toque(px, py) {
     const cx = (px * dpr) / S - offX();
-    const cy = (py * dpr) / S;
+    const cy = (py * dpr) / S - offY();
     for (const ev of cielo) if (Math.abs(cx - ev.x) < 9 && Math.abs(cy - evY(ev)) < 9) return { quien: "evento", ev };
     const m = medidas();
     // el hongo madre: el tronco o el sombrero (elipse), no el rectángulo que los envuelve
@@ -2244,12 +2259,12 @@ export function crearEscena(canvas, opciones = {}) {
   // rectángulo del hongo madre en px CSS (para anclar su ventana de mejoras al costado)
   function rectMadre() {
     const m = medidas(), k = S / dpr;
-    return { x0: (madre.x - m.w / 2 + offX()) * k, x1: (madre.x + m.w / 2 + offX()) * k, y0: (groundY - alturaMadre()) * k, y1: groundY * k };
+    return { x0: (madre.x - m.w / 2 + offX()) * k, x1: (madre.x + m.w / 2 + offX()) * k, y0: (groundY - alturaMadre() + offY()) * k, y1: (groundY + offY()) * k };
   }
 
   function rectEdificio(id) {
     const k = S / dpr, m = tam(id), x = edif[id].x;
-    return { x0: (x - m.w / 2 + offX()) * k, x1: (x + m.w / 2 + offX()) * k, y0: (groundY - m.ch - m.sh) * k, y1: groundY * k };
+    return { x0: (x - m.w / 2 + offX()) * k, x1: (x + m.w / 2 + offX()) * k, y0: (groundY - m.ch - m.sh + offY()) * k, y1: (groundY + offY()) * k };
   }
 
   // ---- colocación: el jugador elige dónde poner un edificio comprado ----
@@ -2278,8 +2293,8 @@ export function crearEscena(canvas, opciones = {}) {
     zoomIdx = nuevo;
     resize();
   }
-  const pan = (px) => { camX -= (px * dpr) / S; limitarCam(); };
-  const recentrar = () => { camX = C0; limitarCam(); };
+  const pan = (px, py = 0) => { camX -= (px * dpr) / S; camY += (py * dpr) / S; limitarCam(); };
+  const recentrar = () => { camX = C0; camY = 0; limitarCam(); };
 
   const tomar = (ev) => tomarEvento(ev);
 

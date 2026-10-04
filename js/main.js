@@ -67,26 +67,26 @@ window.addEventListener("keydown", (e) => {
 
 // ---- cámara: arrastrar para desplazar, pellizcar o rueda para zoom ----
 const punteros = new Map();
-let arrastro = false, inicioX = 0, distPinch = 0;
+let arrastro = false, inicioX = 0, inicioY = 0, distPinch = 0;
 const distancia = () => { const [a, b] = [...punteros.values()]; return Math.hypot(a.x - b.x, a.y - b.y); };
 canvas.addEventListener("pointerdown", (e) => {
   punteros.set(e.pointerId, { x: e.clientX, y: e.clientY });
-  if (punteros.size === 1) { arrastro = false; inicioX = e.clientX; }
+  if (punteros.size === 1) { arrastro = false; inicioX = e.clientX; inicioY = e.clientY; }
   if (punteros.size === 2) { distPinch = distancia(); arrastro = true; }
 });
 canvas.addEventListener("pointermove", (e) => {
   if (colocando || moviendo) escena.moverColocacion(e.clientX - canvas.getBoundingClientRect().left);
   const p = punteros.get(e.pointerId);
   if (!p) return;
-  const dx = e.clientX - p.x;
+  const dx = e.clientX - p.x, dy = e.clientY - p.y;
   p.x = e.clientX; p.y = e.clientY;
   if (punteros.size === 2) {
     const d = distancia();
     if (d / distPinch > 1.35) { escena.zoom(1); distPinch = d; }
     else if (d / distPinch < 0.74) { escena.zoom(-1); distPinch = d; }
   } else if (punteros.size === 1 && !colocando && !moviendo) {
-    if (Math.abs(e.clientX - inicioX) > 8) arrastro = true;
-    if (arrastro) escena.pan(dx);
+    if (Math.abs(e.clientX - inicioX) > 8 || Math.abs(e.clientY - inicioY) > 8) arrastro = true;
+    if (arrastro) escena.pan(dx, dy);
   }
 });
 const soltar = (e) => { punteros.delete(e.pointerId); };

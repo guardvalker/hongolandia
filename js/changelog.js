@@ -1,5 +1,13 @@
 export const CHANGELOG = [
   {
+    v: "0.25.0",
+    fecha: "2026-10-04",
+    cambios: [
+      "El pulso de energía de la luna ahora termina en esporas: cuando el frente de luz llega a cada base, esa base lanza una espora que viaja por el cielo hasta el hongo madre. Esa es la animación de producción del Astronauta (ya no salen esporas de golpe en la plataforma al volver).",
+      "Con el zoom acercado ahora también se puede mover la pantalla de arriba a abajo, no solo de izquierda a derecha: arrastrá hacia abajo para ver más cielo (hasta la altura que se ve con el zoom más alejado). El botón de recentrar también vuelve a la altura original.",
+    ],
+  },
+  {
     v: "0.24.0",
     fecha: "2026-10-04",
     cambios: [
