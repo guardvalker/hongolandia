@@ -101,7 +101,7 @@ export const getRun = () => run;
 export const consumirResultado = () => { const r = resultado; resultado = null; return r; };
 
 const rnd = (a, b) => a + Math.random() * (b - a);
-const escalaJefes = (state) => Math.pow(1.12, state.dungeon.jefes || 0);
+export const escalaJefes = (state) => Math.pow(1.12, state.dungeon.jefes || 0);
 
 function crearUnidad(base, extra) {
   return { vivo: true, cd: rnd(0.2, 1), x: 0, golpe: 0, escudo: 0, veneno: null, esp: rnd(2, 5), ...base, ...extra };
@@ -299,6 +299,8 @@ function cerrar(state, r, victoria) {
     if (participaron.has(id)) m.nivel = Math.min(60, m.nivel + 1 + (r.jefe ? 1 : 0));
   }
   state.dungeon.expediciones++;
+  if (victoria) state.dungeon.victorias = (state.dungeon.victorias || 0) + 1; else state.dungeon.derrotas = (state.dungeon.derrotas || 0) + 1;
+  state.dungeon.mejorEtapa = Math.max(state.dungeon.mejorEtapa || 0, r.etapasHechas);
   const res = { victoria, etapas: r.etapasHechas, jefe: r.jefe, cristal, esporas, caidos, n: r.n, items: r.items.length };
   state.dungeon.ultimo = res.victoria ? "victoria" : "derrota";
   r.fin = res; r.fase = "fin"; r.finT = 0;
@@ -377,11 +379,14 @@ function darObjeto(state, r) {
   else o.aplica(r.mult, f);
   r.itemNuevo = { ...o, raro };
   r.items.push({ id: o.id, raro });
+  const reg = (state.dungeon.objetos = state.dungeon.objetos || {});
+  reg[o.id] = (reg[o.id] || 0) + 1;
+  if (raro) state.dungeon.objetosRaros = (state.dungeon.objetosRaros || 0) + 1;
   // los objetos de vida suben también la vida máxima actual
   if (o.id === "escudo") for (const u of r.party) { const k = 1 + 0.1 * f; u.hpMax *= k; u.hp *= k; }
   ev(r, { tipo: "objeto", o: r.itemNuevo });
 }
 
 export function nuevoEstadoDungeon() {
-  return { merc: {}, cristales: 0, jefes: 0, expediciones: 0, auto: true, ultimo: null };
+  return { merc: {}, cristales: 0, jefes: 0, expediciones: 0, victorias: 0, derrotas: 0, mejorEtapa: 0, objetos: {}, objetosRaros: 0, auto: true, ultimo: null };
 }

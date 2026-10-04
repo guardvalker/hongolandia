@@ -46,7 +46,7 @@ export function nuevoEstado() {
     fondo: [], // hongos gigantes decorativos del fondo
     hitos: 0, // cuántos hitos de prestigio (cada 5 niveles) ya dieron su hongo
     flags: {},
-    dungeon: { merc: {}, cristales: 0, jefes: 0, expediciones: 0, auto: true, ultimo: null }, // taberna y exploración de la dungeon
+    dungeon: { merc: {}, cristales: 0, jefes: 0, expediciones: 0, victorias: 0, derrotas: 0, mejorEtapa: 0, objetos: {}, objetosRaros: 0, auto: true, ultimo: null }, // taberna y exploración de la dungeon
     luna: { t: 0, n: 0, bases: [] }, // expediciones lunares y las bases que ya tiene la luna
     invest: { actual: null, prog: {} }, // investigación en curso y puntos acumulados por tecnología
     contam: 0, // contaminación (en 'nubes', 0 a 10): la genera la fábrica y la purifican los magos
@@ -96,7 +96,7 @@ function deserializar(raw) {
     habil: { ...raw.habil },
     contam: raw.contam ?? 0,
     evento: { mult: 1, hasta: 0, ...raw.evento },
-    dungeon: { ...base.dungeon, ...raw.dungeon, merc: { ...raw.dungeon?.merc } },
+    dungeon: { ...base.dungeon, ...raw.dungeon, merc: { ...raw.dungeon?.merc }, objetos: { ...raw.dungeon?.objetos } },
     luna: { ...base.luna, ...raw.luna, bases: Array.isArray(raw.luna?.bases) ? raw.luna.bases : [] },
   };
 }

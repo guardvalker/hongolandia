@@ -77,6 +77,32 @@ export function dibujarMerc(g, id, x, y, opt = {}) {
   g.globalAlpha = 1;
 }
 
+// ---- Íconos de los objetos de la dungeon (9x9) ----
+const ICONOS = {
+  espada: { p: { b: "#d8d8ec", w: "#9db4c8", g: "#c28a4f", h: "#8a5a2a" }, f: [".......bb", "......bbw", ".....bbw.", "....bbw..", "...bbw...", "g.bbw....", ".ggw.....", ".hg......", "h........"] },
+  escudo: { p: { s: "#6a4a2a", b: "#a8793a", w: "#e8d8a8" }, f: [".sssssss.", "ssbbbbbss", "sbbwbwbbs", "sbbbwbbbs", "sbbwbwbbs", "sbbbbbbbs", ".sbbbbbs.", "..sbbbs..", "...sss..."] },
+  botas: { p: { b: "#c28a4f", h: "#6a4a2a", d: "#3a2410", w: "#e8c08a" }, f: ["..hhh....", "..bbb....", "..bwb....", "..bbb....", "..bbbb...", "..bbbbbb.", ".bbbbbbbb", ".dddddddd", "........."] },
+  pocion: { p: { c: "#8a5a2a", w: "#d8f0ff", p: "#ff5a8a", l: "#ffb0c8" }, f: ["...ccc...", "...www...", "...www...", "..wwwww..", ".wpppppw.", ".wplpppw.", ".wpppppw.", "..wpppw..", "...www..."] },
+  amuleto: { p: { y: "#ffd23f", g: "#3fe08a", w: "#fff" }, f: ["..y...y..", "...y.y...", "....y....", "...yyy...", "..ygggy..", "..ygwgy..", "..ygggy..", "...yyy...", "........."] },
+  casco: { p: { s: "#9db4c8", w: "#e8f0f8", d: "#5a6a7a", e: "#1d1d2a" }, f: ["..sssss..", ".sswssss.", "sssssssss", "sssssssss", "sddddddds", "s.eeeee.s", "s.e...e.s", "..........", "........."] },
+  runa: { p: { d: "#4a4a66", r: "#ff7a3d", l: "#5a5a78" }, f: [".ddddddd.", "dllddddld", "dddrdrddd", "ddrrdrrdd", "dddrrrddd", "ddrrdrrdd", "dddrdrddd", "dlddrdlld", ".ddddddd."] },
+  capa: { p: { y: "#ffd23f", g: "#3fe08a", d: "#2a8a4f" }, f: ["..yyyyy..", ".ggggggg.", ".ggggggg.", "gggggggdg", "gggggggdg", "ggggggddg", "ggg...ggg", "gg.....gg", "g.......g"] },
+};
+const cacheIco = {};
+// URL (data:) del ícono de un objeto, escalado `k` veces
+export function iconoObjeto(id, k = 3) {
+  const clave = id + k;
+  if (cacheIco[clave]) return cacheIco[clave];
+  const d = ICONOS[id];
+  const c = document.createElement("canvas");
+  c.width = c.height = 9 * k;
+  if (d) {
+    const x = c.getContext("2d");
+    d.f.forEach((fila, yy) => { for (let i = 0; i < 9; i++) { const ch = fila[i]; if (ch === ".") continue; x.fillStyle = d.p[ch]; x.fillRect(i * k, yy * k, k, k); } });
+  }
+  return (cacheIco[clave] = c.toDataURL());
+}
+
 // ---- Enemigos ----
 // números chiquitos de 3x5 para los golpes (nítidos a cualquier escala)
 const DIG = { 0: "111101101101111", 1: "010110010010111", 2: "111001111100111", 3: "111001111001111", 4: "101101111001001", 5: "111100111001111", 6: "111100111101111", 7: "111001001010010", 8: "111101111101111", 9: "111101111001111", "+": "000010111010000" };
@@ -171,7 +197,7 @@ export function crearVistaDungeon({ rectMina, onCerrarAviso }) {
       else if (e.tipo === "invoca") efectos.push({ tipo: "humo", u: e.a, t: 0, dur: 0.5 });
       else if (e.tipo === "escudo") efectos.push({ tipo: "escudo", u: e.a, t: 0, dur: 1.2 });
       else if (e.tipo === "temblor") sacudida = 0.45;
-      else if (e.tipo === "objeto") { avisoT = 2.8; elAviso.innerHTML = '<i style="background:' + e.o.color + '"></i><span><b>' + (e.o.raro ? '★ ' : '') + e.o.nombre + '</b> ' + e.o.desc + '</span>'; elAviso.classList.toggle('raro', !!e.o.raro); elAviso.hidden = false; }
+      else if (e.tipo === "objeto") { avisoT = 2.8; elAviso.innerHTML = '<img class="ico" src="' + iconoObjeto(e.o.id, 3) + '" alt=""><span><b>' + (e.o.raro ? '★ ' : '') + e.o.nombre + '</b> ' + e.o.desc + '</span>'; elAviso.classList.toggle('raro', !!e.o.raro); elAviso.hidden = false; }
     }
   }
   function fondo(r) {

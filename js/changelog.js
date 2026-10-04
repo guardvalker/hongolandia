@@ -1,5 +1,14 @@
 export const CHANGELOG = [
   {
+    v: "0.36.0",
+    fecha: "2026-10-04",
+    cambios: [
+      "Todas las ventanas (hongo madre, cada edificio, dungeon) ahora son como la del hongo madre: se abren centradas en la pantalla, con el mismo tamaño y el mismo layout compacto, usan casi toda la altura y ya no se cortan contra el piso ni hay que scrollear tanto. Solo Ajustes sigue siendo la tarjeta ancha de abajo.",
+      "La puerta de la dungeon ahora abre la ventana «Dungeon hongil» con las estadísticas: estado, exploraciones, victorias y retiradas, Rey Moho vencido, mejor etapa, cristales radiantes (con cuánto suben la producción), peligro de los enemigos y mercenarios (con cuántos heridos). Se actualiza en vivo.",
+      "Objetos de la dungeon con ícono de píxeles propio: espada, escudo, botas, poción, amuleto, casco, runa y capa. La ventana muestra cuántos de cada uno encontraste en total (y cuántos raros) y, durante una exploración, cuáles están activos, con las estadísticas del party ya afectadas por ellos: ataque, defensa, vida, velocidad de ataque, críticos, esquiva y recompensa. El cartelito del objeto encontrado en la ventana de exploración también lleva su ícono.",
+    ],
+  },
+  {
     v: "0.35.1",
     fecha: "2026-10-04",
     cambios: [

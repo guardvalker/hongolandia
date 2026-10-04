@@ -1,4 +1,5 @@
-import { CLASES, TABERNA_MEJ, costoMerc, contratar, comprarTab, nivelTab, costoTab, sanos, iniciar as iniciarExploracion, getRun, PARTY_MAX, mercStats, CRISTAL_MULT } from './dungeon.js';
+import { iconoObjeto } from './dungeonVista.js';
+import { OBJETOS, escalaJefes, CLASES, TABERNA_MEJ, costoMerc, contratar, comprarTab, nivelTab, costoTab, sanos, iniciar as iniciarExploracion, getRun, PARTY_MAX, mercStats, CRISTAL_MULT } from './dungeon.js';
 import { HONGUITOS, MEJORAS, EDIFICIOS, TECNOLOGIAS, MEJ_EDIF, TEC_POR_ID, HITOS, NIVELES_TEC } from './data.js';
 import { fmt, fmtRate } from './format.js';
 import { factorAcido, produccionPorSeg, produccionPorTipo, prestigio, costoHonguito, costoHonguitos, maxHonguitos, comprarHonguitos, comprarMejora, tecDisponible, pctTec, invPorSeg, proximoHito, elegirInvestigacion, comprarMejoraEdificio, activarHabilidad, buffActivo, nivelMej, costoMej, durBuff, cdHabilidad, alternarSobrecarga, trabajoEf } from './engine.js';
@@ -31,34 +32,24 @@ export function crearUI(api) {
     hoja.classList.remove("abierta");
   }
 
-  // Ventana de un edificio: aparece a su derecha, apoyada en el suelo. Si no entra, se corre
-  // hacia la derecha de la pantalla y pasa a layout angosto. Sin edificio: tarjeta abajo.
+  // Todas las ventanas (hongo madre, edificios, dungeon) se abren centradas, del mismo tamaño y
+  // con el mismo layout compacto; solo Ajustes es la tarjeta ancha de abajo.
   function colocar() {
     hoja.style.cssText = "";
     hoja.style.setProperty("--ac", acentoActual);
     hoja.classList.remove("anclada");
-    if (!anclaFn) return;
-    const r = anclaFn();
+    if (!anclaFn && abierta !== "dungeon") return;
     const vw = window.innerWidth, vh = window.innerHeight, margen = 10;
-    const w = Math.min(260, vw - 2 * margen); // siempre el mismo tamaño, sin importar el edificio ni el zoom
-    const left = r.x1 + margen;
+    const w = Math.min(300, vw - 2 * margen);
     hoja.classList.add("anclada");
     hoja.style.right = "auto";
     hoja.style.width = w + "px";
     hoja.style.height = "auto";
-    if (left + w <= vw - margen && r.y1 > 160 && r.y1 < vh + 40) {
-      // entra al costado del edificio: anclada a su base
-      hoja.style.left = left + "px";
-      hoja.style.bottom = Math.max(margen, vh - r.y1) + "px";
-      hoja.style.maxHeight = Math.max(140, Math.min(vh - 2 * margen, r.y1 - 90)) + "px";
-    } else {
-      // no entra (edificio muy grande, zoom o pantalla chica): se abre en el medio de la pantalla
-      hoja.style.left = Math.round((vw - w) / 2) + "px";
-      hoja.style.top = "50%";
-      hoja.style.bottom = "auto";
-      hoja.style.transform = "translateY(-50%)";
-      hoja.style.maxHeight = Math.max(160, vh - 100) + "px";
-    }
+    hoja.style.left = Math.round((vw - w) / 2) + "px";
+    hoja.style.top = "50%";
+    hoja.style.bottom = "auto";
+    hoja.style.transform = "translateY(-50%)";
+    hoja.style.maxHeight = Math.max(160, vh - 90) + "px";
   }
 
   let entrar = false, flashIdx = -1, acentoActual = "#b5e61d";
@@ -432,19 +423,87 @@ export function crearUI(api) {
     }, ancla);
   }
 
-  // ---- Dungeon: aviso al encontrarla (primera vez) o al tocar su puerta en la mina ----
+  // ---- Dungeon: aviso al encontrarla (primera vez) o estadísticas al tocar su puerta en la mina ----
+  const mult2 = (x) => "×" + x.toFixed(2).replace(".", ",");
   function mostrarDungeon(primera) {
-    abrir("dungeon", primera ? "¡Dungeon encontrada!" : "La puerta de la dungeon", () => {
+    abrir("dungeon", primera ? "¡Dungeon encontrada!" : "Dungeon hongil", () => {
+      const st0 = api.estado();
       if (primera) {
         nota("Los mineros terminaron de cavar toda la mina... y al fondo encontraron una puerta antigua que late con una luz violeta.").classList.add("hecha");
-        nota("Detrás hay una dungeon para explorar.").classList.add("hecha");
+        nota("Detrás hay una dungeon para explorar: construí la Taberna hongil y contratá mercenarios.").classList.add("hecha");
       } else {
-        nota("Al fondo de la mina, una puerta antigua late con una luz violeta.").classList.add("hecha");
+        nota(st0.edificios.taberna ? "Los mercenarios de la taberna exploran la dungeon que hay detrás de esta puerta." : "Detrás de la puerta hay una dungeon. Construí la Taberna hongil para contratar mercenarios y explorarla.").classList.add("hecha");
       }
-      nota("Todavía no se puede entrar: la exploración llega en una próxima versión.");
+      // estadísticas generales
+      seccion("Estadísticas");
+      const grid = document.createElement("dl");
+      grid.className = "stats";
+      hojaCuerpo.append(grid);
+      const fs = {};
+      for (const [k, nombre] of [["estado", "Estado"], ["exp", "Exploraciones"], ["vic", "Victorias / retiradas"], ["jefes", "Rey Moho vencido"], ["etapa", "Mejor etapa"], ["cris", "Cristales radiantes"], ["pelig", "Peligro (enemigos)"], ["merc", "Mercenarios"]]) {
+        const dt = document.createElement("dt"), dd = document.createElement("dd");
+        dt.textContent = nombre;
+        grid.append(dt, dd);
+        fs[k] = dd;
+      }
+      // objetos encontrados (en total)
+      seccion("Objetos encontrados");
+      const objs = document.createElement("div");
+      objs.className = "objs";
+      const celdas = {};
+      for (const o of OBJETOS) {
+        const c = document.createElement("div");
+        c.className = "obj";
+        c.title = o.nombre + ": " + o.desc;
+        c.innerHTML = '<img src="' + iconoObjeto(o.id, 3) + '" alt=""><b></b><small>' + o.nombre + "</small>";
+        objs.append(c);
+        celdas[o.id] = c;
+      }
+      hojaCuerpo.append(objs);
+      const raros = nota("");
+      // objetos activos y estadísticas del party en la exploración en curso
+      seccion("Exploración en curso");
+      const activos = document.createElement("div");
+      hojaCuerpo.append(activos);
+      let firma = "";
+      filas.push({ refresh: (st) => {
+        const d = st.dungeon, run = getRun();
+        fs.estado.textContent = run ? (run.fase === "fin" ? "Terminando" : `Explorando · etapa ${Math.min(run.etapa + 1, 5)}/5`) : st.edificios.taberna ? "Descansando" : "Sin taberna";
+        fs.exp.textContent = d.expediciones;
+        fs.vic.textContent = `${d.victorias || 0} / ${d.derrotas || 0}`;
+        fs.jefes.textContent = d.jefes;
+        fs.etapa.textContent = `${d.mejorEtapa || 0}/5`;
+        fs.cris.textContent = d.cristales ? `${d.cristales} (producción ${mult2(Math.pow(CRISTAL_MULT, d.cristales))})` : "0";
+        fs.pelig.textContent = mult2(escalaJefes(st));
+        const ids = Object.keys(d.merc), heridos = ids.filter((i) => d.merc[i].herido > 0).length;
+        fs.merc.textContent = `${ids.length}/10` + (heridos ? ` · ${heridos} ${heridos === 1 ? "herido" : "heridos"}` : "");
+        for (const o of OBJETOS) { const n = (d.objetos || {})[o.id] || 0; celdas[o.id].querySelector("b").textContent = "×" + n; celdas[o.id].classList.toggle("cero", !n); }
+        raros.textContent = `Objetos raros (efecto ×1,6): ${d.objetosRaros || 0}.`;
+        // activos
+        const m = run ? run.mult : { atk: 1, def: 0, hp: 1, cd: 1, crit: 0, esquiva: 0, recompensa: 1 };
+        const cuenta = {};
+        for (const it of run ? run.items : []) { const c = (cuenta[it.id] = cuenta[it.id] || { n: 0, raro: 0 }); c.n++; if (it.raro) c.raro++; }
+        const f2 = JSON.stringify([!!run, cuenta, m]);
+        if (f2 === firma) return;
+        firma = f2;
+        const lista = OBJETOS.filter((o) => cuenta[o.id]);
+        let h = "";
+        if (!run) h += '<p class="nota">Los objetos valen durante una exploración: al final de cada etapa el party encuentra uno al azar.</p>';
+        else if (!lista.length) h += '<p class="nota">Todavía no encontraron ningún objeto en esta exploración.</p>';
+        for (const o of lista) {
+          const c = cuenta[o.id];
+          h += '<div class="obj-fila"><img src="' + iconoObjeto(o.id, 3) + '" alt=""><span><b>' + o.nombre + " ×" + c.n + (c.raro ? " ★" + c.raro : "") + "</b><small>" + o.desc + "</small></span></div>";
+        }
+        const fila = (a, v, cambio) => "<dt>" + a + "</dt><dd" + (cambio ? ' class="mod"' : "") + ">" + v + "</dd>";
+        h += '<dl class="stats">'
+          + fila("Ataque del party", mult2(m.atk), m.atk !== 1) + fila("Defensa", "+" + m.def.toFixed(0).replace(".", ","), m.def !== 0) + fila("Vida", mult2(m.hp), m.hp !== 1)
+          + fila("Velocidad de ataque", mult2(1 / m.cd), m.cd !== 1) + fila("Golpes críticos", "+" + Math.round(m.crit * 100) + "%", m.crit !== 0) + fila("Esquiva", Math.round(m.esquiva * 100) + "%", m.esquiva !== 0)
+          + fila("Recompensa", mult2(m.recompensa), m.recompensa !== 1) + "</dl>";
+        activos.innerHTML = h;
+      } });
       const b = document.createElement("button");
       b.className = "btn";
-      b.textContent = "Entendido";
+      b.textContent = "Cerrar";
       b.addEventListener("click", cerrar);
       const caja = document.createElement("div");
       caja.className = "botones";
@@ -673,7 +732,7 @@ export function crearUI(api) {
     elHint.classList.toggle("visible", puedeComprar && !s.flags.abrioMadre && abierta !== "madre");
 
     if (abierta && anclaFn) colocar(); // sigue al edificio si cambia de tamaño
-    if (abierta !== "madre" && abierta !== "casa" && !forzar) return;
+    if (abierta !== "madre" && abierta !== "casa" && abierta !== "dungeon" && !forzar) return;
     const marcar = (f) => { // fila en verde/brillante si podés comprarla; apagada si no; destello al pasar a "podés"
       if (!f.el || !f.btn || f.sinMarca || f.btn.classList.contains("activa")) return;
       const puede = !f.btn.disabled;
