@@ -1,9 +1,9 @@
 export const CHANGELOG = [
   {
-    v: "0.22.4",
+    v: "0.22.5",
     fecha: "2026-10-04",
     cambios: [
-      "La luna es un poco más grande. Sigue en el cielo, fija a la derecha del hongo madre: con el zoom al máximo queda fuera de pantalla y no se ve.",
+      "La luna es un poco más grande y ahora está fija en el mundo, en el cielo a la derecha del hongo madre: al acercar el zoom crece junto con todo y se sale de la pantalla, como una nube.",
     ],
   },
   {

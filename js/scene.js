@@ -653,11 +653,12 @@ export function crearEscena(canvas, opciones = {}) {
 
   // ---- Luna y expediciones ----
   function geomLuna() {
-    // siempre en el cielo: a un 28% de la altura de la pantalla y del mismo tamaño en pantalla con
-    // cualquier zoom; horizontalmente queda fija en el mundo
-    const r = Math.max(18, Math.round(Math.min(Wc0, Hc0) * 0.12 * (S0 / S)));
+    // fija en el mundo (como las nubes): tamaño y altura respecto al piso calculados para la vista más
+    // alejada (1 px por celda); al acercar se agranda con el mundo y se sale de la pantalla
+    const cw = canvas.width, chh = canvas.height;
+    const r = Math.max(18, Math.round(Math.min(cw, chh) * 0.12));
     // nunca detrás del sombrero del madre, por grande que se ponga
-    return { r, x: Math.round(Math.max(C0 + Wc0 * 0.4, C0 + medidas().w / 2 + r + 10)), y: Math.round(Hc * 0.28) };
+    return { r, x: Math.round(Math.max(C0 + Wc0 * 0.4, C0 + medidas().w / 2 + r + 10)), y: Math.round(groundY - chh * 0.46) };
   }
   // posición de la plataforma: bajo el sombrero, del lado contrario a la rama hongo
   function padCohete() {
