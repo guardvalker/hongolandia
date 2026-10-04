@@ -1,12 +1,12 @@
 import { HONGUITOS, MEJORAS, EDIFICIOS } from './data.js';
 import { fmt, fmtRate } from './format.js';
-import { produccionPorSeg, produccionPorTipo, prestigio, costoHonguito, comprarHonguito, comprarMejora } from './engine.js';
+import { produccionPorSeg, produccionPorTipo, prestigio, costoHonguito, costoHonguitos, comprarHonguitos, comprarMejora } from './engine.js';
 import { exportar, importar, borrarGuardado } from './state.js';
 import { CHANGELOG } from './changelog.js';
 
 // Preferencias de interfaz (no forman parte de la partida): guardadas aparte.
 const KEY_AJ = "hongolandia-ajustes";
-const AJ_BASE = { transparencia: false, dpsPlegado: false, visibles: 20 };
+const AJ_BASE = { transparencia: false, dpsPlegado: false, visibles: 20, cantidad: 1 };
 export const ajustes = (() => {
   try { return { ...AJ_BASE, ...JSON.parse(localStorage.getItem(KEY_AJ) || "{}") }; } catch (_) { return { ...AJ_BASE }; }
 })();
@@ -88,11 +88,28 @@ export function crearUI(api) {
 
   function filasHonguitos(casa) {
     seccion("Honguitos");
+    const sel = document.createElement("div");
+    sel.className = "cant";
+    const botonesCant = [1, 10].map((k) => {
+      const b = document.createElement("button");
+      b.className = "cant-btn";
+      b.textContent = "×" + k;
+      b.addEventListener("click", () => {
+        ajustes.cantidad = k;
+        guardarAjustes();
+        botonesCant.forEach((x, i) => x.classList.toggle("activo", [1, 10][i] === k));
+        actualizar(true);
+      });
+      b.classList.toggle("activo", (ajustes.cantidad || 1) === k);
+      sel.append(b);
+      return b;
+    });
+    hojaCuerpo.append(sel);
     for (const id in HONGUITOS) {
       const tipo = HONGUITOS[id];
       if (tipo.casa !== casa) continue;
       const f = fila(tipo.nombre, tipo.desc, () => {
-        if (comprarHonguito(api.estado(), id)) api.guardar();
+        if (comprarHonguitos(api.estado(), id, ajustes.cantidad || 1)) api.guardar();
         actualizar(true);
       });
       filas.push({ tipo: "honguito", id, ...f });
@@ -325,7 +342,7 @@ export function crearUI(api) {
     if (abierta !== "madre" && abierta !== "casa" && !forzar) return;
     for (const f of filas) {
       if (f.tipo === "honguito") {
-        const c = costoHonguito(s, f.id);
+        const c = costoHonguitos(s, f.id, ajustes.cantidad || 1);
         f.titulo.textContent = `${HONGUITOS[f.id].nombre} ×${fmt(s.honguitos[f.id] || 0)}`;
         f.btn.textContent = fmt(c);
         f.btn.disabled = s.esporas.lt(c);

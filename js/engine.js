@@ -60,13 +60,25 @@ export function costoHonguito(state, id) {
   return t.costoBase.mul(D(t.crecimiento).pow(Math.max(0, n - 1))).ceil();
 }
 
-export function comprarHonguito(state, id) {
-  const c = costoHonguito(state, id);
+// Costo de comprar k honguitos seguidos (cada uno sale lo que sale con los que ya tenés).
+export function costoHonguitos(state, id, k = 1) {
+  const t = HONGUITOS[id];
+  const n = state.honguitos[id] || 0;
+  let total = D(0);
+  for (let i = 0; i < k; i++) total = total.add(t.costoBase.mul(D(t.crecimiento).pow(Math.max(0, n + i - 1))).ceil());
+  return total;
+}
+
+// Compra k de una (todo o nada).
+export function comprarHonguitos(state, id, k = 1) {
+  const c = costoHonguitos(state, id, k);
   if (state.esporas.lt(c)) return false;
   state.esporas = state.esporas.sub(c);
-  state.honguitos[id] = (state.honguitos[id] || 0) + 1;
+  state.honguitos[id] = (state.honguitos[id] || 0) + k;
   return true;
 }
+
+export const comprarHonguito = (state, id) => comprarHonguitos(state, id, 1);
 
 // Se paga al ubicarlo en el piso (x = fracción del ancho de pantalla).
 export function colocarEdificio(state, id, x) {

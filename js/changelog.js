@@ -1,5 +1,12 @@
 export const CHANGELOG = [
   {
+    v: "0.13.1",
+    fecha: "2026-10-03",
+    cambios: [
+      "Compra por cantidad: botones ×1 y ×10 arriba de la lista de honguitos (en el hongo madre y en cada edificio). El botón muestra el costo total de la tanda y compra todo o nada; la elección se recuerda.",
+    ],
+  },
+  {
     v: "0.13.0",
     fecha: "2026-10-03",
     cambios: [
