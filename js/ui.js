@@ -6,9 +6,11 @@ import { CHANGELOG } from './changelog.js';
 
 // Preferencias de interfaz (no forman parte de la partida): guardadas aparte.
 const KEY_AJ = "hongolandia-ajustes";
-const ajustes = (() => {
-  try { return { transparencia: false, dpsPlegado: false, ...JSON.parse(localStorage.getItem(KEY_AJ) || "{}") }; } catch (_) { return { transparencia: false, dpsPlegado: false }; }
+const AJ_BASE = { transparencia: false, dpsPlegado: false, visibles: 20 };
+export const ajustes = (() => {
+  try { return { ...AJ_BASE, ...JSON.parse(localStorage.getItem(KEY_AJ) || "{}") }; } catch (_) { return { ...AJ_BASE }; }
 })();
+const guardarAjustes = () => { try { localStorage.setItem(KEY_AJ, JSON.stringify(ajustes)); } catch (_) {} };
 const aplicarAjustes = () => document.body.classList.toggle("transp", !!ajustes.transparencia);
 aplicarAjustes();
 
@@ -163,6 +165,31 @@ export function crearUI(api) {
       });
       filaT.append(txt, chk);
       hojaCuerpo.append(filaT);
+
+      seccion("Rendimiento");
+      const filaV = document.createElement("div");
+      filaV.className = "fila fila-rango";
+      const infoV = document.createElement("div");
+      infoV.className = "fila-info";
+      const tv = document.createElement("b");
+      const dv = document.createElement("span");
+      dv.textContent = "Cuántos honguitos de cada tipo se ven a la vez en pantalla. Bajalo si tu PC va lenta; subilo si querés llenarla.";
+      infoV.append(tv, dv);
+      const rng = document.createElement("input");
+      rng.type = "range";
+      rng.min = 0; rng.max = 100; rng.step = 1;
+      // escala exponencial: 3 .. 300
+      rng.value = Math.round(100 * Math.log(ajustes.visibles / 3) / Math.log(100));
+      const texto = () => { tv.textContent = "Honguitos visibles: " + ajustes.visibles + " por tipo"; };
+      texto();
+      rng.addEventListener("input", () => {
+        ajustes.visibles = Math.round(3 * Math.pow(100, rng.value / 100));
+        texto();
+        guardarAjustes();
+        api.limiteVisibles?.(ajustes.visibles);
+      });
+      filaV.append(infoV, rng);
+      hojaCuerpo.append(filaV);
 
       seccion("Partida");
       const ta = document.createElement("textarea");

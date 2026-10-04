@@ -1,5 +1,12 @@
 export const CHANGELOG = [
   {
+    v: "0.13.0",
+    fecha: "2026-10-03",
+    cambios: [
+      "Ajustes > Rendimiento: barra para elegir cuántos honguitos de cada tipo se ven a la vez en pantalla, de 3 a 300 (por defecto 20). También escala los brotes de los jardineros y las partículas. Si tenés una PC floja, bajala; si querés llenar la pantalla, subila.",
+    ],
+  },
+  {
     v: "0.12.1",
     fecha: "2026-10-03",
     cambios: [

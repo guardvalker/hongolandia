@@ -1,7 +1,7 @@
 import { cargar, guardar, nuevoEstado, etapaDe } from './state.js';
 import { tick, colocarEdificio, revisarHitos } from './engine.js';
 import { crearEscena } from './scene.js';
-import { crearUI } from './ui.js';
+import { crearUI, ajustes } from './ui.js';
 
 import { EDIFICIOS } from './data.js';
 
@@ -11,7 +11,10 @@ let colocando = null; // id del edificio que se está ubicando
 const canvas = document.getElementById("juego");
 const escena = crearEscena(canvas);
 
+escena.setLimite(ajustes.visibles);
+
 const ui = crearUI({
+  limiteVisibles: (n) => escena.setLimite(n),
   estado: () => state,
   guardar: () => guardar(state),
   reemplazar(nuevo) {

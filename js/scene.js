@@ -3,9 +3,10 @@
 // del arte) y se escala con un factor entero sin suavizado. No hay sprites ni fotogramas:
 // los honguitos son un bitmap diminuto que se mueve con rebotes y estiramientos por código.
 
-const MAX_VISUALES = { basico: 28, musico: 16, jardinero: 10, atleta: 10 }; // honguitos dibujados por tipo (el número real puede ser enorme)
-const MAX_PARTICULAS = 300;
-const MAX_BROTES = 40; // honguitos pasajeros que dejan los jardineros
+const TIPOS_VISUALES = ['basico', 'musico', 'jardinero', 'atleta']; // el número dibujado por tipo lo da el ajuste "honguitos visibles" (el real puede ser enorme)
+let limiteVisibles = 20; // honguitos dibujados por tipo (Ajustes)
+const maxParticulas = () => 150 + limiteVisibles * 8;
+const maxBrotes = () => Math.max(6, limiteVisibles * 2); // honguitos pasajeros que dejan los jardineros
 const ANCHO_REF = 300; // celdas del lado corto de la pantalla
 const VEL = 28; // celdas/seg al caminar
 const TAU = Math.PI * 2;
@@ -278,11 +279,16 @@ export function crearEscena(canvas) {
   }
 
   function sincronizarVisuales(state) {
-    for (const tipo of Object.keys(MAX_VISUALES)) {
+    for (const tipo of TIPOS_VISUALES) {
       const casa = HONGUITOS[tipo].casa;
       if (casa && !edif[casa]) continue;
-      const n = Math.min(state.honguitos[tipo] || 0, MAX_VISUALES[tipo]);
+      const n = Math.min(state.honguitos[tipo] || 0, limiteVisibles);
       let cuenta = visuales.filter((v) => v.tipo === tipo).length;
+      while (cuenta > n) { // se bajó el límite: sacar los sobrantes
+        const k = visuales.findLastIndex((v) => v.tipo === tipo);
+        visuales.splice(k, 1);
+        cuenta--;
+      }
       while (cuenta < n) {
         const v = nuevoVisual(visuales.length, tipo, !inicial);
         if (!inicial) { motas(v.x, groundY - 6, 6, 0.6, PALETA[v.col]); aroPart(v.x, groundY - 4, 9, 0.4); }
@@ -294,7 +300,7 @@ export function crearEscena(canvas) {
   }
 
   function part(x, y, vx, vy, extraP) {
-    if (particulas.length < MAX_PARTICULAS) particulas.push({ x, y, vx, vy, t: 0, ...extraP });
+    if (particulas.length < maxParticulas()) particulas.push({ x, y, vx, vy, t: 0, ...extraP });
   }
   function motas(x, y, n, fuerza = 1, col) {
     for (let i = 0; i < n; i++) {
@@ -356,7 +362,7 @@ export function crearEscena(canvas) {
       v.estira = Math.sin(v.animT * 3 + v.i) * 0.5;
       v.espera -= dt;
       if (v.espera <= 0) {
-        if (brotes.length >= MAX_BROTES) { v.espera = 2; return; }
+        if (brotes.length >= maxBrotes()) { v.espera = 2; return; }
         v.meta = xLibre(12 + Math.random() * (Wc - 24), 30, obstaculos());
         v.dir = Math.sign(v.meta - v.x) || 1;
         v.modo = "walk";
@@ -1030,5 +1036,10 @@ export function crearEscena(canvas) {
     aroPart(madre.x, groundY - alturaMadre() * 0.6, 34, 0.5);
   }
 
-  return { resize, update, draw, toque, pulsoMadre, rectMadre, rectEdificio, iniciarColocacion, moverColocacion, cancelarColocacion, confirmarColocacion };
+  function setLimite(n) {
+    limiteVisibles = clamp(Math.round(n) || 20, 3, 300);
+    while (brotes.length > maxBrotes()) brotes.shift();
+  }
+
+  return { setLimite, resize, update, draw, toque, pulsoMadre, rectMadre, rectEdificio, iniciarColocacion, moverColocacion, cancelarColocacion, confirmarColocacion };
 }
