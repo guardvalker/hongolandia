@@ -126,7 +126,10 @@ export function crearEscena(canvas, opciones = {}) {
   const nubes = []; // nubes de contaminación sobre la fábrica: { x0, y, w, ph, p, llueve }
   const lluvia = { activa: false, t: 0, prox: 25, zonas: [] };
   // luna de fondo y expediciones: el cohete hace un viaje por cada expedición que cuenta el motor
-  let lunaBases = [], lunaVisibles = 0, nLuna = null, lunaFlash = 0;
+  let lunaBases = [], lunaVisibles = 0, nLuna = null, lunaFlash = 0, lunaDestino = 0;
+  // caminos entre bases ({a,b,prog,len}) y pulsos de energía que recorren la red desde la base donde aterriza la nave
+  let caminos = [], caminosN = 0;
+  const pulsos = [];
   const cohete = { fase: "espera", t: 0, x: 0, y: 0, ang: 0, sc: 1, trip: [], llama: 0 };
   const madre = { x: 0, pulso: 0, brillo: 0 };
   const edif = {}; // id -> { x } en celdas, para los edificios construidos
@@ -668,6 +671,7 @@ export function crearEscena(canvas, opciones = {}) {
   }
 
   // ---- Luna y expediciones ----
+  const PULSO_VEL = 0.55, PULSO_COLA = 0.28; // en radios lunares por segundo / largo de la estela
   function geomLuna() {
     // fija en el mundo (como las nubes): tamaño y altura respecto al piso calculados para la vista más
     // alejada (1 px por celda); al acercar se agranda con el mundo y se sale de la pantalla
@@ -681,15 +685,71 @@ export function crearEscena(canvas, opciones = {}) {
     const m = tam("astropuerto");
     return { x: Math.round(edif.astropuerto.x) - m.lado * (Math.round(m.sw / 2) + 6), y: groundY - 5 };
   }
-  function trayecto(u) { // curva del pad a la luna: sube casi vertical y se inclina hacia la luna
-    const p0 = padCohete(), L = geomLuna();
+  // punto de aterrizaje: la base de esta expedición (o el centro si no hay)
+  function destinoLuna() {
+    const L = geomLuna(), b = lunaBases[cohete.dest];
+    return b ? { x: L.x + b.x * L.r, y: L.y + b.y * L.r } : { x: L.x, y: L.y };
+  }
+  function trayecto(u) { // curva del pad a la base: sube casi vertical y se inclina hacia ella
+    const p0 = padCohete(), L = destinoLuna();
     const p1 = { x: p0.x, y: L.y + (p0.y - L.y) * 0.35 };
     const a = (1 - u) * (1 - u), b = 2 * (1 - u) * u, c = u * u;
     return { x: a * p0.x + b * p1.x + c * L.x, y: a * p0.y + b * p1.y + c * L.y };
   }
+  // ---- Caminos entre bases y pulsos de energía ----
+  // Cada base nueva se une a su vecina más cercana de las anteriores (y a la segunda si queda cerca):
+  // la red sale de las posiciones, que no cambian, así que se puede recalcular siempre igual.
+  function sincronizarCaminos(animar) {
+    const viejos = new Map(caminos.map((c) => [c.a + "-" + c.b, c]));
+    caminos = [];
+    for (let i = 1; i < lunaBases.length; i++) {
+      const bi = lunaBases[i];
+      const vec = [];
+      for (let j = 0; j < i; j++) vec.push([j, Math.hypot(lunaBases[j].x - bi.x, lunaBases[j].y - bi.y)]);
+      vec.sort((p, q) => p[1] - q[1]);
+      const elegidos = [vec[0]];
+      if (vec[1] && vec[1][1] < 0.5) elegidos.push(vec[1]);
+      for (const [j, len] of elegidos) {
+        const k = j + "-" + i, v = viejos.get(k);
+        caminos.push(v || { a: j, b: i, len, prog: animar ? 0 : 1, t: 0 });
+      }
+    }
+    caminosN = lunaBases.length;
+  }
+  function actualizarCaminos(dt) {
+    for (const c of caminos) {
+      if (c.prog >= 1 || c.b >= lunaVisibles) continue;
+      c.t += dt;
+      c.prog = clamp((c.t - 0.15) / 1.0, 0, 1);
+    }
+    for (let i = pulsos.length - 1; i >= 0; i--) {
+      pulsos[i].t += dt;
+      if (pulsos[i].t * PULSO_VEL > pulsos[i].max + PULSO_COLA + 0.3) pulsos.splice(i, 1);
+    }
+  }
+  // distancia (en radios lunares) de cada base al origen siguiendo los caminos ya construidos
+  function lanzarPulso(origen) {
+    const n = lunaBases.length, dist = new Array(n).fill(Infinity), hecho = new Array(n).fill(false);
+    if (!lunaBases[origen]) return;
+    dist[origen] = 0;
+    for (let paso = 0; paso < n; paso++) {
+      let u = -1;
+      for (let i = 0; i < n; i++) if (!hecho[i] && dist[i] < Infinity && (u < 0 || dist[i] < dist[u])) u = i;
+      if (u < 0) break;
+      hecho[u] = true;
+      for (const c of caminos) {
+        if (c.prog < 1) continue;
+        const v = c.a === u ? c.b : c.b === u ? c.a : -1;
+        if (v >= 0 && dist[u] + c.len < dist[v]) dist[v] = dist[u] + c.len;
+      }
+    }
+    const max = dist.reduce((m, d) => (d < Infinity ? Math.max(m, d) : m), 0);
+    pulsos.push({ origen, dist, max, t: 0 });
+  }
   function iniciarExpedicion() {
     const astros = visuales.filter((v) => v.tipo === "astronauta" && !v.oculto);
     if (!astros.length || !edif.astropuerto || cohete.fase !== "espera") return false;
+    cohete.dest = lunaDestino;
     const pad = padCohete();
     astros.sort((a, b) => Math.abs(a.x - pad.x) - Math.abs(b.x - pad.x));
     cohete.trip = astros.slice(0, Math.min(3, astros.length));
@@ -721,20 +781,23 @@ export function crearEscena(canvas, opciones = {}) {
       const cx = q.x - Math.sin(cohete.ang) * 5 * cohete.sc, cy = q.y + Math.cos(cohete.ang) * 5 * cohete.sc;
       if (Math.random() < dt * 40) llamaCohete(cx, cy, 1, 0.5);
       if (u >= 1) {
-        cohete.fase = "luna"; cohete.t = 0;
-        // llegada: aparece la base nueva en la luna
+        cohete.fase = "luna"; cohete.t = 0; cohete.pulso = false;
+        // llegada: la base nueva aparece donde aterriza la nave
         lunaVisibles = lunaBases.length;
         lunaFlash = 1;
-        const L = geomLuna(), b = lunaBases[lunaBases.length - 1];
+        const L = geomLuna(), d = destinoLuna(), b = lunaBases[cohete.dest];
+        cohete.x = d.x; cohete.y = d.y; cohete.ang = 0; cohete.sc = 0.45;
         aroPart(L.x, L.y, L.r + 8, 0.9);
-        if (b) { const bx = L.x + b.x * L.r, by = L.y + b.y * L.r; motas(bx, by, 14, 1.2, b.c); aroPart(bx, by, 10, 0.6); }
+        if (b) { motas(d.x, d.y, 14, 1.2, b.c); aroPart(d.x, d.y, 10, 0.6); }
       }
     } else if (cohete.fase === "luna") {
-      if (cohete.t > 2.5) { cohete.fase = "regreso"; cohete.t = 0; }
+      // los caminos nuevos se arman primero y recién entonces sale el pulso de energía desde la base
+      if (!cohete.pulso && cohete.t > 1.3) { cohete.pulso = true; lanzarPulso(cohete.dest); }
+      if (cohete.t > 3.2) { cohete.fase = "regreso"; cohete.t = 0; }
     } else if (cohete.fase === "regreso") {
       const dur = 5.5, u = clamp(cohete.t / dur, 0, 1), k = 1 - (u * u * (3 - 2 * u) * 0.6 + u * u * 0.4);
       const q = trayecto(k);
-      cohete.x = q.x; cohete.y = q.y; cohete.ang = (1 - u) * 0.35 * (pad.x < geomLuna().x ? 1 : -1) * (1 - u); cohete.sc = 1 - 0.55 * k;
+      cohete.x = q.x; cohete.y = q.y; cohete.ang = (1 - u) * 0.35 * (pad.x < destinoLuna().x ? 1 : -1) * (1 - u); cohete.sc = 1 - 0.55 * k;
       if (Math.random() < dt * 40) llamaCohete(q.x, q.y + 5 * cohete.sc, 1, 0.5);
       if (u >= 1) { cohete.fase = "aterriza"; cohete.t = 0; motas(pad.x, groundY - 1, 14, 0.9, "#c8c8dc"); aroPart(pad.x, groundY - 2, 14, 0.5); }
     } else if (cohete.fase === "aterriza") {
@@ -1210,8 +1273,13 @@ export function crearEscena(canvas, opciones = {}) {
       const varias = nL - nLuna > 1;
       nLuna = nL;
       lunaVisibles = Math.max(lunaVisibles, lunaBases.length - 1);
-      if (varias || !iniciarExpedicion()) lunaVisibles = lunaBases.length; // sin animación: la base aparece directo
+      lunaDestino = state.luna.destino ?? lunaBases.length - 1;
+      const animado = !varias && iniciarExpedicion();
+      if (!animado) lunaVisibles = lunaBases.length; // sin animación: la base aparece directo
+      if (caminosN !== lunaBases.length) sincronizarCaminos(animado);
     }
+    if (caminosN !== lunaBases.length) sincronizarCaminos(false);
+    actualizarCaminos(dt);
     lunaFlash = Math.max(0, lunaFlash - dt * 0.8);
     if (nBolsa === null) nBolsa = state.bolsa?.n || 0;
     if ((state.bolsa?.n || 0) !== nBolsa) {
@@ -1851,6 +1919,48 @@ export function crearEscena(canvas, opciones = {}) {
     g.globalAlpha = 0.28 + lunaFlash * 0.4;
     aro(L.x, L.y, L.r, BLANCO);
     g.globalAlpha = 1;
+    // caminos entre bases (se van armando desde la base vieja hacia la nueva)
+    const vis = Math.min(lunaVisibles, lunaBases.length);
+    const pos = (i) => ({ x: L.x + lunaBases[i].x * L.r, y: L.y + lunaBases[i].y * L.r });
+    g.fillStyle = "#6a6a94";
+    for (const c of caminos) {
+      if (c.b >= vis || c.prog <= 0) continue;
+      const A = pos(c.a), B = pos(c.b), n = Math.floor(Math.hypot(B.x - A.x, B.y - A.y) * c.prog);
+      for (let k = 0; k < n; k++) {
+        if (k % 4 === 3) continue; // punteado
+        const f = k / Math.max(1, Math.hypot(B.x - A.x, B.y - A.y));
+        g.fillRect(Math.round(A.x + (B.x - A.x) * f), Math.round(A.y + (B.y - A.y) * f), 1, 1);
+      }
+    }
+    // pulsos de energía: un frente que viaja por los caminos desde la base donde aterrizó la nave
+    const brilloBase = new Array(lunaBases.length).fill(0);
+    for (const pu of pulsos) {
+      const d = pu.t * PULSO_VEL;
+      for (const c of caminos) {
+        if (c.prog < 1 || c.b >= vis) continue;
+        const da = pu.dist[c.a], db = pu.dist[c.b];
+        if (da === Infinity && db === Infinity) continue;
+        const de = da <= db ? c.a : c.b, ha = de === c.a ? c.b : c.a, d0 = pu.dist[de];
+        const A = pos(de), B = pos(ha), px = Math.hypot(B.x - A.x, B.y - A.y), nPasos = Math.floor(px);
+        for (let k = 0; k < nPasos; k++) {
+          const dd = d0 + (k / px) * c.len, atras = d - dd;
+          if (atras < 0 || atras > PULSO_COLA) continue;
+          g.globalAlpha = 1 - atras / PULSO_COLA;
+          g.fillStyle = atras < 0.05 ? BLANCO : "#9fe8ff";
+          const f = k / px;
+          g.fillRect(Math.round(A.x + (B.x - A.x) * f), Math.round(A.y + (B.y - A.y) * f) - 1, 1, 3);
+        }
+        g.globalAlpha = 1;
+      }
+      for (let i = 0; i < lunaBases.length; i++) {
+        if (pu.dist[i] === Infinity) continue;
+        const atras = d - pu.dist[i];
+        if (atras >= 0 && atras < 0.45) brilloBase[i] = Math.max(brilloBase[i], 1 - atras / 0.45);
+      }
+      // onda que sale de la base de origen
+      const O = pos(pu.origen), ro = d * L.r;
+      if (ro < L.r * 0.5) { g.globalAlpha = 0.6 * (1 - ro / (L.r * 0.5)); aro(O.x, O.y, Math.max(2, Math.round(ro)), "#9fe8ff"); g.globalAlpha = 1; }
+    }
     // bases lunares: un parche de color que se va extendiendo + un hongo-cúpula de ese color
     for (let i = 0; i < Math.min(lunaVisibles, lunaBases.length); i++) {
       const b = lunaBases[i];
@@ -1859,6 +1969,7 @@ export function crearEscena(canvas, opciones = {}) {
       const rad = Math.max(1, Math.min(Math.round(2 + b.s * 1.6), Math.floor(L.r - dist - 1)));
       g.globalAlpha = 0.28;
       disco(bx, by, rad, b.c);
+      if (brilloBase[i] > 0) { g.globalAlpha = 0.55 * brilloBase[i]; disco(bx, by, rad + 4, "#9fe8ff"); }
       g.globalAlpha = 1;
       g.fillStyle = b.c;
       g.fillRect(bx - 2, by - 1, 5, 1); g.fillRect(bx - 1, by - 2, 3, 1);
@@ -1885,7 +1996,7 @@ export function crearEscena(canvas, opciones = {}) {
   }
 
   function dibujarCoheteEnVuelo() {
-    if (cohete.fase !== "vuelo" && cohete.fase !== "regreso") return;
+    if (cohete.fase !== "vuelo" && cohete.fase !== "regreso" && cohete.fase !== "luna") return;
     g.save();
     g.translate(Math.round(cohete.x), Math.round(cohete.y));
     g.rotate(cohete.ang);

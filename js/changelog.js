@@ -1,5 +1,15 @@
 export const CHANGELOG = [
   {
+    v: "0.24.0",
+    fecha: "2026-10-04",
+    cambios: [
+      "La luna ahora tiene menos bases (hasta 24 en vez de 80). Cuando se llena, las expediciones hacen crecer las bases que ya hay.",
+      "Las bases se van uniendo con caminos punteados: cada base nueva se conecta con su vecina más cercana (y con una segunda si queda cerca), y el camino se construye en el momento en que llega la nave.",
+      "La nave ya no aterriza en el centro de la luna: aterriza en la base de cada expedición (en la nueva, y cuando la luna está llena, en una base al azar) y se queda posada ahí unos segundos.",
+      "Cuando la nave aterriza en una base y se arman los caminos, sale de esa base un pulso de energía que recorre toda la red conectada, iluminando cada base a su paso.",
+    ],
+  },
+  {
     v: "0.23.0",
     fecha: "2026-10-04",
     cambios: [

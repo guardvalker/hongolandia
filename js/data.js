@@ -119,8 +119,9 @@ export const BOLSA = { ciclo: 18 };
 export const ACIDO = { pct: 0.4, dur: 20 };
 
 // Luna: cada `ciclo` segundos con astronautas se hace una expedición y la luna suma una base
-// (hasta `maxBases`; después las bases existentes crecen).
-export const LUNA = { ciclo: 30, maxBases: 80 };
+// (hasta `maxBases`; después las bases existentes crecen). Las bases se unen con caminos y la nave
+// aterriza en la base de cada expedición.
+export const LUNA = { ciclo: 30, maxBases: 24 };
 
 // Barra de prestigio (arriba): se llena con el total de esporas ganadas. Cada punto cuesta
 // `crecimiento` veces más que el anterior: el punto k necesita base * crecimiento^(k-1) esporas.

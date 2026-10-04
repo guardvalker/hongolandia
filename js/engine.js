@@ -157,6 +157,7 @@ function expedicionLunar(state) {
     const b = L.bases[Math.floor(Math.random() * L.bases.length)];
     b.s = Math.min(4, b.s + 1);
     b.c = col;
+    L.destino = L.bases.indexOf(b); // con la luna llena la nave aterriza en una base al azar
     return;
   }
   let mejor = null, mejorD = -1;
@@ -167,6 +168,7 @@ function expedicionLunar(state) {
     if (d > mejorD) { mejorD = d; mejor = { x, y }; }
   }
   L.bases.push({ ...mejor, c: col, s: 1 });
+  L.destino = L.bases.length - 1;
 }
 
 export function tick(state, dt) {
