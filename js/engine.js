@@ -1,6 +1,6 @@
 import { D } from './decimal.js';
 import { agregarHongoFondo } from './state.js';
-import { HONGUITOS, MEJORAS, EDIFICIOS, PRESTIGIO, BOLSA, LUNA, ACIDO, TECNOLOGIAS, TEC_POR_ID, MEJ_EDIF, MEJ_EDIF_POR_ID, HITOS } from './data.js';
+import { HONGUITOS, MEJORAS, EDIFICIOS, PRESTIGIO, BOLSA, LUNA, ACIDO, TECNOLOGIAS, TEC_POR_ID, MEJ_EDIF, MEJ_EDIF_POR_ID, HITOS, MODO_PRUEBA, EVENTOS, EVENTO_CFG } from './data.js';
 
 // Lógica pura del juego: nada de DOM ni canvas acá.
 
@@ -8,7 +8,7 @@ import { HONGUITOS, MEJORAS, EDIFICIOS, PRESTIGIO, BOLSA, LUNA, ACIDO, TECNOLOGI
 // por tipo, la fracción de sus honguitos mojados y hasta cuándo dura (ms). No se guarda.
 export const improd = {};
 // efectos que no son multiplicadores (se recalculan en cada tick)
-export const efectos = { acidoMenos: 0 };
+export const efectos = { acidoMenos: 0, paraguas: 1, autoEvento: 0, eventoFreq: 1, eventoDur: 0, purga: 1, descInv: 0, offline: 0 };
 export function factorAcido(id) {
   const m = improd[id];
   return m && m.hasta > Date.now() ? 1 - ACIDO.pct * (1 - efectos.acidoMenos) * m.f : 1;
@@ -34,34 +34,74 @@ export function pctTec(state, t) {
 export const tecDisponible = (state, t) =>
   !state.mejoras[t.id] && !!state.edificios[t.edificio] && (!t.req || !!state.mejoras[t.req]);
 
-// ---- Mejoras de edificio: habilidades activas, velocidad, sinergias ----
+// ---- Mejoras de edificio (por niveles) ----
+export const nivelMej = (state, id) => { const v = state.mejoras[id]; return typeof v === "number" ? v : v ? 1 : 0; };
+export const costoMej = (state, m) => (MODO_PRUEBA ? D(1) : m.costo.mul(D(m.esc).pow(nivelMej(state, m.id))).ceil());
+const sumaNiveles = (state, ef, campo) => MEJ_EDIF.reduce((a, m) => (m.ef === ef ? a + (m[campo] ?? 0) * nivelMej(state, m.id) : a), 0);
+// habilidad activa con buff: duración y recarga según el nivel
+export const durBuff = (m, n) => m.dur0 + m.dur1 * (n - 1);
+export const cdHabilidad = (m, n) => Math.max(45, m.cd0 - (m.cd1 || 0) * (n - 1));
 export const buffActivo = (state, m) => (state.habil[m.id]?.hasta || 0) > Date.now();
-export const buffTipoActivo = (state, tipo) => MEJ_EDIF.some((m) => m.ef === "buff" && m.aplica === tipo && state.mejoras[m.id] && buffActivo(state, m));
+export const buffTipoActivo = (state, tipo) => MEJ_EDIF.some((m) => m.ef === "buff" && m.aplica === tipo && nivelMej(state, m.id) > 0 && buffActivo(state, m));
 export function velocidad(state, tipo) {
   let v = 1;
-  for (const m of MEJ_EDIF) if (m.ef === "vel" && m.aplica === tipo && state.mejoras[m.id]) v *= m.mult;
+  for (const m of MEJ_EDIF) if (m.ef === "vel" && m.aplica === tipo) v *= 1 + m.a * nivelMej(state, m.id);
   return v;
 }
 // bono de las sinergias que apuntan a `objetivo` (un tipo, "todos" o "investigacion")
 function bonoSinergia(state, objetivo) {
   let m = 1;
   for (const e of MEJ_EDIF) {
-    if (e.ef === "sinergia" && state.mejoras[e.id] && e.objetivo === objetivo) m *= 1 + e.bono * Math.floor(cuenta(state, e.fuente) / e.cada);
+    if (e.ef === "sinergia" && nivelMej(state, e.id) > 0 && e.objetivo === objetivo) m *= 1 + e.bono * Math.floor(cuenta(state, e.fuente) / e.cada);
   }
   return m;
+}
+// precio de los honguitos: las mejoras de descuento achican lo que sube con cada compra
+function crecEf(state, id) {
+  const g = HONGUITOS[id].crecimiento;
+  const desc = MEJ_EDIF.reduce((a, m) => (m.ef === "descuento" && m.tipo === id ? a + m.a * nivelMej(state, m.id) : a), 0);
+  return 1 + (g - 1) * (1 - Math.min(0.7, desc));
+}
+// tope de ausencia (segundos de producción sin conexión que se cuentan)
+export const maxAusencia = (state) => 3600 + sumaNiveles(state, "offline", "a");
+// investigar cuesta menos con las becas
+export const trabajoEf = (state, t) => t.trabajo * (1 - Math.min(0.7, sumaNiveles(state, "descInv", "a")));
+
+// ---- Eventos de productividad ----
+export const eventoMult = (state) => (state.evento && state.evento.hasta > Date.now() ? state.evento.mult : 1);
+export function cobrarEvento(state, tipo) {
+  if (tipo === "fiebre") {
+    state.evento = { mult: EVENTO_CFG.fiebreMult, hasta: Date.now() + EVENTO_CFG.fiebreSeg * 1000 };
+    return { texto: `¡Fiebre del micelio! Todo ×${EVENTO_CFG.fiebreMult} por ${EVENTO_CFG.fiebreSeg} s` };
+  }
+  if (tipo === "cometa" && invPorSeg(state) > 0) {
+    const pts = invPorSeg(state) * 150;
+    avanzarInvestigacion(state, pts);
+    return { texto: `¡Cometa de ideas! +${Math.round(pts)} puntos de investigación` };
+  }
+  const lump = produccionPorSeg(state).mul(60 + Math.random() * 140);
+  const ganancia = lump.lt(13) ? D(13) : lump;
+  state.esporas = state.esporas.add(ganancia);
+  state.total = state.total.add(ganancia);
+  return { texto: "¡Espora dorada!", ganancia };
 }
 
 export function multiplicador(state, tipoId) {
   let m = 1;
   for (const mj of MEJORAS) if (state.mejoras[mj.id] && (mj.aplica === "todos" || mj.aplica === tipoId)) m *= mj.mult.toNumber();
   for (const t of TECNOLOGIAS) if (state.mejoras[t.id] && (t.target === "todos" || t.target === tipoId)) m *= 1 + pctTec(state, t) / 100;
+  let bases = 0;
   for (const e of MEJ_EDIF) {
-    if (!state.mejoras[e.id]) continue;
-    if (e.ef === "prod" && e.aplica === tipoId) m *= e.mult;
-    else if (e.ef === "vel" && e.aplica === tipoId) m *= 1 + (e.mult - 1) * 0.5; // trabajar más rápido rinde un poco
+    const n = nivelMej(state, e.id);
+    if (!n) continue;
+    if (e.ef === "prod" && e.aplica === tipoId) m *= 1 + e.a * n;
+    else if (e.ef === "vel" && e.aplica === tipoId) m *= 1 + e.a * n * 0.5; // trabajar más rápido rinde un poco
     else if (e.ef === "buff" && e.aplica === tipoId && buffActivo(state, e)) m *= e.mult;
+    else if (e.ef === "luna") bases += e.a * n;
+    else if (e.ef === "sobrecarga" && tipoId === "obrero" && state.flags.sobrecarga) m *= 2.5;
   }
-  m *= bonoSinergia(state, tipoId) * bonoSinergia(state, "todos");
+  if (bases) m *= 1 + bases * (state.luna?.bases.length || 0);
+  m *= bonoSinergia(state, tipoId) * bonoSinergia(state, "todos") * eventoMult(state);
   m *= multHitos(cuenta(state, tipoId));
   return D(m);
 }
@@ -130,7 +170,13 @@ function expedicionLunar(state) {
 }
 
 export function tick(state, dt) {
-  efectos.acidoMenos = MEJ_EDIF.reduce((a, e) => (state.mejoras[e.id] && e.ef === "acido" ? 1 - (1 - a) * (1 - e.acidoMenos) : a), 0);
+  efectos.acidoMenos = Math.min(0.8, sumaNiveles(state, "acido", "a"));
+  efectos.paraguas = Math.max(0.3, 1 - sumaNiveles(state, "paraguas", "a"));
+  efectos.autoEvento = Math.min(0.9, sumaNiveles(state, "autoevento", "a"));
+  efectos.eventoFreq = 1 + sumaNiveles(state, "eventos", "a");
+  efectos.eventoDur = sumaNiveles(state, "eventos", "d");
+  efectos.purga = 1 + sumaNiveles(state, "purga", "a");
+  efectos.offline = sumaNiveles(state, "offline", "a");
   // los traders no cobran de a poco: acumulan tiempo y pagan todo junto al cerrar cada ciclo de bolsa
   const trader = produccionPorTipo(state, "trader");
   let ganancia = produccionPorSeg(state).sub(trader).mul(dt);
@@ -157,16 +203,30 @@ export function tick(state, dt) {
       for (let i = 0; i < Math.min(ciclos, 200); i++) expedicionLunar(state);
     }
   }
+  // contaminación: la fábrica la genera, los magos la purifican y cada nube purificada da esporas
+  const nObr = cuenta(state, "obrero"), nMag = cuenta(state, "mago");
+  const objetivoNubes = nObr > 0 ? Math.min(10, 1 + Math.log2(nObr) * 0.9) : 0;
+  const gen = 0.02 * objetivoNubes * (state.flags.sobrecarga && nivelMej(state, "obrero_sobrecarga") ? 2.5 : 1);
+  const purga = nMag * 0.01 * efectos.purga * velocidad(state, "mago");
+  let restante = dt;
+  while (restante > 0) {
+    const h = Math.min(restante, 5);
+    restante -= h;
+    const purificado = Math.min(purga * h, state.contam + gen * h);
+    state.contam = Math.min(10, Math.max(0, state.contam + gen * h - purificado - 0.002 * state.contam * h));
+    if (purificado > 0) ganancia = ganancia.add(produccionPorSeg(state).mul(purificado * 2));
+  }
   // golpes críticos de las mejoras de edificio: de golpe `seg` segundos de producción de ese tipo
   let puntosInv = invPorSeg(state) * dt;
   for (const e of MEJ_EDIF) {
-    if (e.ef !== "crit" || !state.mejoras[e.id]) continue;
+    if (e.ef !== "crit" || !nivelMej(state, e.id)) continue;
+    const prob = e.p0 + e.p1 * (nivelMej(state, e.id) - 1);
     const cient = e.aplica === "cientifico";
     const tasa = cient ? invPorSeg(state) : produccionPorTipo(state, e.aplica);
     if (cient ? tasa <= 0 : tasa.lte(0)) continue;
     let veces = 0;
-    if (dt > 2) veces = e.prob * dt; // mucho tiempo junto (segundo plano): se usa el valor esperado
-    else if (Math.random() < e.prob * dt) { veces = 1; emitir({ tipo: e.aplica, crit: true }); }
+    if (dt > 2) veces = prob * dt; // mucho tiempo junto (segundo plano): se usa el valor esperado
+    else if (Math.random() < prob * dt) { veces = 1; emitir({ tipo: e.aplica, crit: true }); }
     if (!veces) continue;
     if (cient) puntosInv += tasa * e.seg * veces;
     else ganancia = ganancia.add(tasa.mul(e.seg * veces));
@@ -182,7 +242,7 @@ function avanzarInvestigacion(state, puntos) {
   for (let i = 0; i < 60 && inv.actual && puntos > 0; i++) {
     const t = TEC_POR_ID[inv.actual];
     if (!t) { inv.actual = null; break; }
-    const falta = t.trabajo - (inv.prog[t.id] || 0);
+    const falta = trabajoEf(state, t) - (inv.prog[t.id] || 0);
     if (puntos < falta) { inv.prog[t.id] = (inv.prog[t.id] || 0) + puntos; return; }
     puntos -= falta;
     delete inv.prog[t.id];
@@ -200,28 +260,60 @@ export function elegirInvestigacion(state, id) {
   return true;
 }
 
-// Mejora de edificio: esporas + tener suficientes honguitos del tipo.
+// Mejora de edificio: un nivel más (esporas + tener suficientes honguitos del tipo).
 export function comprarMejoraEdificio(state, id) {
   const m = MEJ_EDIF_POR_ID[id];
-  if (!m || state.mejoras[id] || !state.edificios[m.edificio] || cuenta(state, m.tipo) < m.req || state.esporas.lt(m.costo)) return false;
-  state.esporas = state.esporas.sub(m.costo);
-  state.mejoras[id] = true;
+  const n = m ? nivelMej(state, id) : 0;
+  const costo = m ? costoMej(state, m) : null;
+  if (!m || n >= m.max || !state.edificios[m.edificio] || cuenta(state, m.tipo) < m.req || state.esporas.lt(costo)) return false;
+  state.esporas = state.esporas.sub(costo);
+  state.mejoras[id] = n + 1;
   return true;
 }
 
-// Habilidad activa (buff temporal con recarga). Usa el reloj real: sigue con la pestaña oculta.
+// Interruptor de la sobrecarga de la fábrica.
+export function alternarSobrecarga(state) {
+  if (!nivelMej(state, "obrero_sobrecarga")) return false;
+  state.flags.sobrecarga = !state.flags.sobrecarga;
+  return true;
+}
+
+// Habilidades activas: buffs temporales, apuesta y hechizo. Usan el reloj real (siguen con la pestaña oculta).
+// Devuelve un texto para mostrar, o null si no se pudo usar.
 export function activarHabilidad(state, id) {
   const m = MEJ_EDIF_POR_ID[id];
+  const n = m ? nivelMej(state, id) : 0;
   const ahora = Date.now();
-  if (!m || m.ef !== "buff" || !state.mejoras[id] || ahora < (state.habil[id]?.listoEn || 0)) return false;
-  state.habil[id] = { hasta: ahora + m.dur * 1000, listoEn: ahora + m.cd * 1000 };
-  return true;
+  if (!m || !n || ahora < (state.habil[id]?.listoEn || 0)) return null;
+  if (m.ef === "buff") {
+    state.habil[id] = { hasta: ahora + durBuff(m, n) * 1000, listoEn: ahora + cdHabilidad(m, n) * 1000 };
+    return `${m.nombre}: ×${m.mult} a los ${HONGUITOS[m.aplica].nombre.toLowerCase()}s por ${durBuff(m, n)} s`;
+  }
+  if (m.ef === "hechizo") {
+    state.habil[id] = { hasta: 0, listoEn: ahora + cdHabilidad(m, n) * 1000 };
+    emitir({ spawnEvento: true });
+    return "¡Mano del destino! Apareció algo en el cielo";
+  }
+  if (m.ef === "apuesta") {
+    const monto = state.esporas.mul(0.1);
+    if (monto.lt(1)) return null;
+    state.habil[id] = { hasta: 0, listoEn: ahora + m.cd0 * 1000 };
+    if (Math.random() < 0.55) {
+      const ganancia = monto.mul(1.2);
+      state.esporas = state.esporas.add(ganancia);
+      state.total = state.total.add(ganancia);
+      return "¡La apuesta salió bien! +" + ganancia.toExponential(2).replace("e+", "e");
+    }
+    state.esporas = state.esporas.sub(monto);
+    return "La apuesta salió mal… perdiste el 10% de tus esporas";
+  }
+  return null;
 }
 
 export function costoHonguito(state, id) {
   const t = HONGUITOS[id];
   const n = state.honguitos[id] || 0;
-  return t.costoBase.mul(D(t.crecimiento).pow(Math.max(0, n - 1))).ceil();
+  return t.costoBase.mul(D(crecEf(state, id)).pow(Math.max(0, n - 1))).ceil();
 }
 
 // Costo de comprar k honguitos seguidos (cada uno sale lo que sale con los que ya tenés).
@@ -229,7 +321,7 @@ export function costoHonguito(state, id) {
 export function costoHonguitos(state, id, k = 1) {
   const t = HONGUITOS[id];
   const n = state.honguitos[id] || 0;
-  const g = t.crecimiento;
+  const g = crecEf(state, id);
   const unit = (i) => t.costoBase.mul(D(g).pow(Math.max(0, n + i - 1))).ceil();
   let total = D(0);
   const exactos = Math.min(k, 3);
@@ -246,7 +338,7 @@ export function costoHonguitos(state, id, k = 1) {
 export function maxHonguitos(state, id) {
   const E = state.esporas;
   if (E.lt(costoHonguitos(state, id, 1))) return 0;
-  const t = HONGUITOS[id], g = t.crecimiento;
+  const t = HONGUITOS[id], g = crecEf(state, id);
   const c1 = costoHonguitos(state, id, 1);
   let k = g === 1 ? Math.floor(E.div(c1).toNumber()) : Math.floor(E.mul(g - 1).div(c1).add(1).log10().toNumber() / Math.log10(g)) + 1;
   k = Math.max(1, k);

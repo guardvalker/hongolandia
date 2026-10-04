@@ -48,6 +48,8 @@ export function nuevoEstado() {
     flags: {},
     luna: { t: 0, n: 0, bases: [] }, // expediciones lunares y las bases que ya tiene la luna
     invest: { actual: null, prog: {} }, // investigación en curso y puntos acumulados por tecnología
+    contam: 0, // contaminación (en 'nubes', 0 a 10): la genera la fábrica y la purifican los magos
+    evento: { mult: 1, hasta: 0 }, // fiebre del micelio activa
     habil: {}, // habilidades activas: { id: { hasta, listoEn } } en ms (reloj real)
     bolsa: { t: 0, n: 0 }, // ciclo de los traders: segundos transcurridos y cuántos cobros hubo
     semilla: Math.floor(Math.random() * 1e6), // define el tamaño relativo de los edificios; cambia con cada prestigio
@@ -91,6 +93,8 @@ function deserializar(raw) {
     bolsa: { ...base.bolsa, ...raw.bolsa },
     invest: { actual: raw.invest?.actual ?? null, prog: { ...raw.invest?.prog } },
     habil: { ...raw.habil },
+    contam: raw.contam ?? 0,
+    evento: { mult: 1, hasta: 0, ...raw.evento },
     luna: { ...base.luna, ...raw.luna, bases: Array.isArray(raw.luna?.bases) ? raw.luna.bases : [] },
   };
 }

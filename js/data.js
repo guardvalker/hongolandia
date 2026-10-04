@@ -78,22 +78,29 @@ const EDIF_DEF = [
     color: "#9db4c8",
   },
   {
-    id: "gimnasio",
+    id: "torre",
     tier: 5,
+    nombre: "Torre de magos hongil",
+    desc: "Una torre con sombrero de mago y un caldero. Habilita a los magos: hacen pociones de hongos que dan esporas y purifican las nubes de contaminación, convirtiéndolas en esporas.",
+    color: "#d12bff",
+  },
+  {
+    id: "gimnasio",
+    tier: 6,
     nombre: "Gym hongil",
     desc: "Un hongo con pesas. Habilita a los atletas, que entrenan afuera con mancuernas y sudan esporas.",
     color: "#ff8a1f",
   },
   {
     id: "trade",
-    tier: 6,
+    tier: 7,
     nombre: "Trade center hongil",
     desc: "Un hongo con pantallas de bolsa. Habilita a los traders: sus acciones suben y, al llegar arriba, cobran todas las esporas de golpe.",
     color: "#f5c518",
   },
   {
     id: "astropuerto",
-    tier: 7,
+    tier: 8,
     nombre: "Astropuerto hongil",
     desc: "Un hongo con un cohete-hongo estacionado. Habilita a los astronautas, que viajan a la luna y la van llenando de bases hongiles.",
     color: "#4fb4ff",
@@ -127,9 +134,10 @@ const HONG_DEF = [
   { id: "cientifico", tier: 3.5, tierCosto: 2.5, inv: 1, nombre: "Científico", sprite: "cientifico", desc: "Hace experimentos y genera investigación: cuantos más hay, más rápido se investiga.", color: "#2fd4c4", casa: "universidad" },
   { id: "jardinero", tier: 3, nombre: "Jardinero", sprite: "jardinero", desc: "Riega el piso y brotan honguitos que se desvanecen y se vuelven esporas.", color: "#2fa84f", casa: "vivero" },
   { id: "obrero", tier: 4, nombre: "Obrero", sprite: "obrero", desc: "Trabaja en la fábrica: entra, arma hongos chiquitos y los deja en la cinta. Cuantos más hay, más humo y más lluvia ácida.", color: "#9db4c8", casa: "fabrica" },
-  { id: "atleta", tier: 5, nombre: "Atleta", sprite: "atleta", desc: "Entrena con mancuernas al lado del gym y transpira esporas.", color: "#ff8a1f", casa: "gimnasio" },
-  { id: "trader", tier: 6, nombre: "Trader", sprite: "trader", desc: "Hace llamados y mueve acciones en el trade center. Cada ciclo de bolsa cobra todo junto.", color: "#f5c518", casa: "trade" },
-  { id: "astronauta", tier: 7, nombre: "Astronauta", sprite: "astronauta", desc: "Se sube al cohete, viaja a la luna y vuelve con esporas. Cada expedición suma una base hongil lunar.", color: "#4fb4ff", casa: "astropuerto" },
+  { id: "mago", tier: 5, nombre: "Mago", sprite: "mago", desc: "Prepara pociones de hongos en su caldero (esporas) y purifica las nubes de contaminación: cada nube purificada se vuelve esporas.", color: "#d12bff", casa: "torre" },
+  { id: "atleta", tier: 6, nombre: "Atleta", sprite: "atleta", desc: "Entrena con mancuernas al lado del gym y transpira esporas.", color: "#ff8a1f", casa: "gimnasio" },
+  { id: "trader", tier: 7, nombre: "Trader", sprite: "trader", desc: "Hace llamados y mueve acciones en el trade center. Cada ciclo de bolsa cobra todo junto.", color: "#f5c518", casa: "trade" },
+  { id: "astronauta", tier: 8, nombre: "Astronauta", sprite: "astronauta", desc: "Se sube al cohete, viaja a la luna y vuelve con esporas. Cada expedición suma una base hongil lunar.", color: "#4fb4ff", casa: "astropuerto" },
 ];
 export const HONGUITOS = Object.fromEntries(HONG_DEF.map((h) => {
   const v = valoresTier(h.tierCosto ?? h.tier);
@@ -181,6 +189,7 @@ const TEC_NOMBRES = {
   atleta: ["Proteína de micelio", "Entrenamiento de élite", "Ropa deportiva técnica", "Fisioterapia hongil", "Dieta balanceada"],
   trader: ["Algoritmo de trading hongil", "Análisis de mercado", "Terminal de cotizaciones", "Cobertura de riesgo", "Información al instante"],
   astronauta: ["Trajes presurizados", "Propulsores de espora", "Navegación estelar", "Escudo térmico", "Observatorio lunar"],
+  mago: ["Recetario de hongos", "Varitas de hongo mágico", "Grimorio ilustrado", "Caldero de cobre", "Gran hechizo de purga"],
   cientifico: ["Microscopios mejorados", "Laboratorio de alta pureza", "Cuadernos de campo", "Cafetera industrial", "Supercomputadora de micelio"],
 };
 export const NIVELES_TEC = 10;
@@ -202,64 +211,88 @@ export const TECNOLOGIAS = Object.entries(TEC_NOMBRES).flatMap(([target, nombres
 export const TEC_POR_ID = Object.fromEntries(TECNOLOGIAS.map((t) => [t.id, t]));
 
 // ---- Mejoras de edificio (se compran con esporas en la ventana de cada edificio) ----
-// ef: "prod" (×producción), "vel" (más velocidad: animaciones y ciclos más cortos, y un poco de
-// producción), "crit" (cada segundo hay `prob` de chance de un golpe crítico: de golpe `seg`
-// segundos de producción), "buff" (habilidad activa: ×`mult` durante `dur` s, recarga `cd` s),
-// "sinergia" (cada `cada` honguitos de `fuente`, +`bono` a `objetivo`: un tipo, "todos" o
-// "investigacion") y "acido" (menos castigo de la lluvia ácida).
-// Cada una pide tener `req` honguitos de su tipo. Costo: costo base del tier × mul.
+// Cada una se compra por niveles (`max`; costo × `esc` por nivel) salvo las sinergias. Cada edificio
+// tiene su propio estilo de mejoras. `ef` (efecto por nivel n):
+//   prod       ×(1 + a·n) la producción de su tipo
+//   vel        velocidad ×(1 + a·n): animaciones y ciclos más cortos, y un poco de producción
+//   crit       golpes críticos: cada segundo `p0 + p1·n` de chance de `seg` s de producción de golpe
+//   buff       habilidad activa ×`mult` durante dur0 + dur1·(n−1) s, recarga cd0 − cd1·(n−1) s
+//   sinergia   (un solo nivel) cada `cada` honguitos de `fuente`: +`bono` a `objetivo`
+//   descuento  el precio de sus honguitos sube un a·n menos con cada compra
+//   autoevento chance a·n de que los eventos se recojan solos
+//   sobrecarga (interruptor) ×2,5 obreros pero ×2,5 contaminación
+//   acido      la lluvia ácida quita a·n menos     paraguas  el castigo dura a·n menos
+//   purga      los magos purifican a·n más rápido  eventos   a·n más frecuentes y +d·n s de duración
+//   hechizo    habilidad activa: invoca un evento ya (recarga cd0 − cd1·(n−1) s)
+//   apuesta    habilidad activa: arriesga el 10% de tus esporas
+//   luna       +a·n de producción total por cada base lunar
+//   offline    +a·n segundos de producción sin conexión   descInv  investigar cuesta a·n menos
+// Cada una pide tener `req` honguitos de su tipo. Costo base: costo base del tier × `mul`.
 const T = (tier, mul) => C(Math.ceil(valoresTier(tier).costoBase * mul));
-const M = (tipo, sufijo, nombre, mul, req, ef) => {
+const M = (tipo, sufijo, nombre, mul, req, esc, max, ef) => {
   const h = HONG_DEF.find((x) => x.id === tipo);
-  return { id: `${tipo}_${sufijo}`, edificio: h.casa, tipo, nombre, costo: T(h.tierCosto ?? h.tier, mul), req, aplica: tipo, ...ef };
+  return { id: `${tipo}_${sufijo}`, edificio: h.casa, tipo, nombre, costo: T(h.tierCosto ?? h.tier, mul), req, esc, max, aplica: tipo, ...ef };
 };
 export const MEJ_EDIF = [
-  M("maestro", "libros", "Libros de texto ilustrados", 4, 5, { ef: "prod", mult: 1.25 }),
-  M("maestro", "recreo", "Recreo extendido", 15, 10, { ef: "vel", mult: 1.3 }),
-  M("maestro", "honores", "Graduación con honores", 40, 15, { ef: "crit", prob: 0.03, seg: 12 }),
-  M("maestro", "tutorias", "Tutorías en red", 90, 20, { ef: "sinergia", fuente: "maestro", cada: 10, bono: 0.03, objetivo: "investigacion" }),
-  M("maestro", "examenes", "Semana de exámenes", 250, 25, { ef: "buff", mult: 2, dur: 30, cd: 300 }),
+  // Escuela: más alumnos, graduados que cobran los eventos, tutorías y exámenes
+  M("maestro", "aula", "Aula ampliada", 4, 5, 1.7, 10, { ef: "prod", a: 0.1 }),
+  M("maestro", "graduados", "Graduados recolectores", 30, 15, 2.2, 5, { ef: "autoevento", a: 0.1 }),
+  M("maestro", "tutorias", "Tutorías en red", 90, 20, 1, 1, { ef: "sinergia", fuente: "maestro", cada: 10, bono: 0.03, objetivo: "investigacion" }),
+  M("maestro", "examenes", "Semana de exámenes", 250, 25, 2, 5, { ef: "buff", mult: 2, dur0: 25, dur1: 5, cd0: 320, cd1: 30 }),
 
-  M("musico", "afinacion", "Afinación perfecta", 4, 5, { ef: "prod", mult: 1.25 }),
-  M("musico", "ritmo", "Ritmo acelerado", 15, 10, { ef: "vel", mult: 1.3 }),
-  M("musico", "solo", "Solo de virtuoso", 40, 15, { ef: "crit", prob: 0.03, seg: 12 }),
-  M("musico", "coro", "Coro hongil", 90, 20, { ef: "sinergia", fuente: "musico", cada: 15, bono: 0.02, objetivo: "todos" }),
-  M("musico", "gira", "Gira mundial", 250, 25, { ef: "buff", mult: 2, dur: 30, cd: 300 }),
+  // Conservatorio: repertorio, ritmo, coro y conciertos
+  M("musico", "repertorio", "Repertorio", 4, 5, 1.7, 10, { ef: "prod", a: 0.08 }),
+  M("musico", "ritmo", "Ritmo acelerado", 15, 10, 2, 5, { ef: "vel", a: 0.08 }),
+  M("musico", "coro", "Coro hongil", 90, 20, 1, 1, { ef: "sinergia", fuente: "musico", cada: 15, bono: 0.02, objetivo: "todos" }),
+  M("musico", "concierto", "Concierto benéfico", 200, 25, 2, 5, { ef: "buff", mult: 3, dur0: 12, dur1: 3, cd0: 300, cd1: 30 }),
 
-  M("jardinero", "fertilizante", "Fertilizante orgánico", 4, 5, { ef: "prod", mult: 1.25 }),
-  M("jardinero", "riego", "Riego automático", 15, 10, { ef: "vel", mult: 1.3 }),
-  M("jardinero", "semillas", "Semillas de colores", 40, 15, { ef: "crit", prob: 0.03, seg: 12 }),
-  M("jardinero", "huerta", "Huerta orgánica", 90, 20, { ef: "sinergia", fuente: "jardinero", cada: 10, bono: 0.02, objetivo: "atleta" }),
-  M("jardinero", "floracion", "Floración", 250, 25, { ef: "buff", mult: 2, dur: 30, cd: 300 }),
+  // Vivero: injertos, compost que abarata, cosecha doble y huerta
+  M("jardinero", "injertos", "Injertos", 4, 5, 1.7, 10, { ef: "prod", a: 0.1 }),
+  M("jardinero", "compost", "Compost", 25, 10, 2.2, 5, { ef: "descuento", a: 0.06 }),
+  M("jardinero", "cosecha", "Cosecha doble", 60, 15, 2, 5, { ef: "crit", p0: 0.015, p1: 0.005, seg: 15 }),
+  M("jardinero", "huerta", "Huerta orgánica", 90, 20, 1, 1, { ef: "sinergia", fuente: "jardinero", cada: 10, bono: 0.02, objetivo: "atleta" }),
 
-  M("obrero", "especializada", "Mano de obra especializada", 4, 5, { ef: "prod", mult: 1.25 }),
-  M("obrero", "turno", "Turno extra", 15, 10, { ef: "vel", mult: 1.3 }),
-  M("obrero", "lote", "Lote perfecto", 40, 15, { ef: "crit", prob: 0.03, seg: 12 }),
-  M("obrero", "filtros", "Filtros de chimenea hongiles", 60, 15, { ef: "acido", acidoMenos: 0.35 }),
-  M("obrero", "turbo", "Cinta turbo", 250, 25, { ef: "buff", mult: 2, dur: 30, cd: 300 }),
+  // Fábrica: sobrecarga (más producción y más humo), filtros y paraguas contra la lluvia ácida
+  M("obrero", "especializada", "Mano de obra especializada", 4, 5, 1.7, 10, { ef: "prod", a: 0.08 }),
+  M("obrero", "sobrecarga", "Sobrecarga de máquinas", 120, 15, 1, 1, { ef: "sobrecarga" }),
+  M("obrero", "filtros", "Filtros de chimenea hongiles", 60, 15, 2, 5, { ef: "acido", a: 0.12 }),
+  M("obrero", "paraguas", "Paraguas hongiles", 90, 20, 2.2, 4, { ef: "paraguas", a: 0.15 }),
 
-  M("atleta", "pesas", "Pesas olímpicas", 4, 5, { ef: "prod", mult: 1.25 }),
-  M("atleta", "entrenador", "Entrenador personal", 15, 10, { ef: "vel", mult: 1.3 }),
-  M("atleta", "record", "Récord personal", 40, 15, { ef: "crit", prob: 0.03, seg: 12 }),
-  M("atleta", "club", "Club deportivo", 90, 20, { ef: "sinergia", fuente: "atleta", cada: 10, bono: 0.02, objetivo: "obrero" }),
-  M("atleta", "batido", "Batido de proteína", 250, 25, { ef: "buff", mult: 2, dur: 30, cd: 300 }),
+  // Torre de magos: caldero, purga de nubes, bola de cristal (eventos) y mano del destino
+  M("mago", "caldero", "Caldero mayor", 4, 5, 1.7, 10, { ef: "prod", a: 0.1 }),
+  M("mago", "purga", "Hechizo de purga", 25, 8, 2, 6, { ef: "purga", a: 0.2 }),
+  M("mago", "cristal", "Bola de cristal", 80, 15, 2.2, 5, { ef: "eventos", a: 0.1, d: 1.5 }),
+  M("mago", "destino", "Mano del destino", 300, 25, 2, 5, { ef: "hechizo", cd0: 600, cd1: 60 }),
 
-  M("trader", "informacion", "Acceso a información", 4, 5, { ef: "prod", mult: 1.25 }),
-  M("trader", "frecuencia", "Terminal de alta frecuencia", 15, 10, { ef: "vel", mult: 1.3 }),
-  M("trader", "suerte", "Golpe de suerte", 40, 15, { ef: "crit", prob: 0.03, seg: 12 }),
-  M("trader", "fondo", "Fondo de inversión", 90, 20, { ef: "sinergia", fuente: "trader", cada: 10, bono: 0.02, objetivo: "todos" }),
-  M("trader", "burbuja", "Burbuja especulativa", 250, 25, { ef: "buff", mult: 2, dur: 30, cd: 300 }),
+  // Gimnasio: pesas, récords y club deportivo
+  M("atleta", "pesas", "Pesas olímpicas", 4, 5, 1.7, 10, { ef: "prod", a: 0.1 }),
+  M("atleta", "record", "Récord personal", 30, 15, 2, 5, { ef: "crit", p0: 0.02, p1: 0.005, seg: 12 }),
+  M("atleta", "club", "Club deportivo", 90, 20, 1, 1, { ef: "sinergia", fuente: "atleta", cada: 10, bono: 0.02, objetivo: "obrero" }),
 
-  M("astronauta", "combustible", "Combustible de espora", 4, 5, { ef: "prod", mult: 1.25 }),
-  M("astronauta", "reutilizable", "Cohete reutilizable", 15, 10, { ef: "vel", mult: 1.3 }),
-  M("astronauta", "descubrimiento", "Descubrimiento lunar", 40, 15, { ef: "crit", prob: 0.03, seg: 12 }),
-  M("astronauta", "observatorio", "Observatorio orbital", 90, 20, { ef: "sinergia", fuente: "astronauta", cada: 10, bono: 0.03, objetivo: "investigacion" }),
-  M("astronauta", "gravedad", "Gravedad cero", 250, 25, { ef: "buff", mult: 2, dur: 30, cd: 300 }),
+  // Trade center: información, alta frecuencia (ciclo de bolsa), apuesta y fondo
+  M("trader", "informacion", "Acceso a información", 4, 5, 1.7, 10, { ef: "prod", a: 0.08 }),
+  M("trader", "frecuencia", "Terminal de alta frecuencia", 15, 10, 2, 5, { ef: "vel", a: 0.08 }),
+  M("trader", "apuesta", "Apuesta de riesgo", 120, 15, 1, 1, { ef: "apuesta", cd0: 180 }),
+  M("trader", "fondo", "Fondo de inversión", 90, 20, 1, 1, { ef: "sinergia", fuente: "trader", cada: 10, bono: 0.02, objetivo: "todos" }),
 
-  M("cientifico", "laboratorio", "Laboratorio equipado", 4, 5, { ef: "prod", mult: 1.25 }),
-  M("cientifico", "cafe", "Café de laboratorio", 15, 10, { ef: "vel", mult: 1.3 }),
-  M("cientifico", "eureka", "¡Eureka!", 40, 15, { ef: "crit", prob: 0.03, seg: 12 }),
-  M("cientifico", "premios", "Premios de la academia", 90, 20, { ef: "sinergia", fuente: "cientifico", cada: 10, bono: 0.01, objetivo: "todos" }),
-  M("cientifico", "nocturno", "Turno nocturno", 250, 25, { ef: "buff", mult: 2, dur: 30, cd: 300 }),
+  // Astropuerto: combustible, colonia lunar (bases), satélites (offline) y observatorio
+  M("astronauta", "combustible", "Combustible de espora", 4, 5, 1.7, 10, { ef: "prod", a: 0.1 }),
+  M("astronauta", "colonia", "Colonia lunar", 60, 10, 2.2, 5, { ef: "luna", a: 0.001 }),
+  M("astronauta", "satelites", "Satélites de comunicación", 40, 15, 2, 6, { ef: "offline", a: 1800 }),
+  M("astronauta", "observatorio", "Observatorio orbital", 90, 20, 1, 1, { ef: "sinergia", fuente: "astronauta", cada: 10, bono: 0.03, objetivo: "investigacion" }),
+
+  // Universidad: laboratorio, becas (investigar sale más barato), eureka y premios
+  M("cientifico", "laboratorio", "Laboratorio equipado", 4, 5, 1.7, 10, { ef: "prod", a: 0.1 }),
+  M("cientifico", "becas", "Becas de investigación", 40, 10, 2, 6, { ef: "descInv", a: 0.05 }),
+  M("cientifico", "eureka", "¡Eureka!", 60, 15, 2, 5, { ef: "crit", p0: 0.02, p1: 0.005, seg: 15 }),
+  M("cientifico", "premios", "Premios de la academia", 90, 20, 1, 1, { ef: "sinergia", fuente: "cientifico", cada: 10, bono: 0.01, objetivo: "todos" }),
 ];
 export const MEJ_EDIF_POR_ID = Object.fromEntries(MEJ_EDIF.map((m) => [m.id, m]));
+
+// Eventos de productividad (aparecen en el cielo y hay que tocarlos antes de que se vayan).
+export const EVENTOS = {
+  dorada: { nombre: "Espora dorada", peso: 55 },
+  fiebre: { nombre: "Fiebre del micelio", peso: 30 },
+  cometa: { nombre: "Cometa de ideas", peso: 15 },
+};
+export const EVENTO_CFG = { intervaloMin: 80, intervaloMax: 170, vida: 15, fiebreMult: 7, fiebreSeg: 20 };

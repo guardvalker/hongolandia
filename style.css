@@ -21,6 +21,7 @@
 }
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
 html, body {
+  font-variant-ligatures: none; font-feature-settings: "liga" 0, "clig" 0;
   margin: 0; height: 100%; overflow: hidden; overscroll-behavior: none;
   background: #272736; color: var(--txt);
   font-family: "Pixelify Sans", ui-monospace, Menlo, Consolas, monospace;
@@ -67,6 +68,9 @@ html, body {
 #zoom button { width: 40px; height: 40px; border: 0; font: inherit; font-size: 22px; color: var(--txt); background: var(--panel); box-shadow: 0 0 0 2px var(--borde); cursor: pointer; }
 #zoom button:active { transform: translateY(2px); }
 .btn.mover { margin: 0 0 8px; font-size: 12px; }
+
+#toast { position: fixed; left: 50%; top: calc(env(safe-area-inset-top) + 110px); transform: translateX(-50%); max-width: calc(100vw - 24px); text-align: center; background: var(--panel); padding: 8px 14px; font-size: 14px; box-shadow: 0 0 0 2px #ffe14d; opacity: 0; pointer-events: none; transition: opacity .25s; z-index: 6; }
+#toast.visible { opacity: 1; }
 
 #hint {
   position: fixed; left: 50%; bottom: calc(env(safe-area-inset-bottom) + 30px);

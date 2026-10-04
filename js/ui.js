@@ -1,6 +1,6 @@
 import { HONGUITOS, MEJORAS, EDIFICIOS, TECNOLOGIAS, MEJ_EDIF, TEC_POR_ID, HITOS, NIVELES_TEC } from './data.js';
 import { fmt, fmtRate } from './format.js';
-import { factorAcido, produccionPorSeg, produccionPorTipo, prestigio, costoHonguito, costoHonguitos, maxHonguitos, comprarHonguitos, comprarMejora, tecDisponible, pctTec, invPorSeg, proximoHito, elegirInvestigacion, comprarMejoraEdificio, activarHabilidad, buffActivo } from './engine.js';
+import { factorAcido, produccionPorSeg, produccionPorTipo, prestigio, costoHonguito, costoHonguitos, maxHonguitos, comprarHonguitos, comprarMejora, tecDisponible, pctTec, invPorSeg, proximoHito, elegirInvestigacion, comprarMejoraEdificio, activarHabilidad, buffActivo, nivelMej, costoMej, durBuff, cdHabilidad, alternarSobrecarga, trabajoEf } from './engine.js';
 import { exportar, importar, borrarGuardado } from './state.js';
 import { CHANGELOG } from './changelog.js';
 
@@ -122,15 +122,29 @@ export function crearUI(api) {
   const num = (x) => String(+x.toFixed(2)).replace(".", ",");
   const plural = (id) => HONGUITOS[id].nombre.toLowerCase() + "s";
   const objetivoTxt = (o) => (o === "todos" ? "todos los honguitos" : o === "investigacion" ? "la velocidad de investigación" : "la producción de " + plural(o));
-  function descMej(m) {
+  const pct = (x) => num(x * 100);
+  // descripción del efecto de la mejora; n = nivel actual (el siguiente que se compra es n + 1)
+  function descMej(m, n) {
     const p = plural(m.aplica || m.tipo), prod = m.aplica === "cientifico" ? "investigación" : "producción";
+    const ahora = n > 0 && m.max > 1;
     switch (m.ef) {
-      case "prod": return `Los ${p} ${m.aplica === "cientifico" ? "investigan" : "producen"} ×${num(m.mult)}.`;
-      case "vel": return `+${Math.round((m.mult - 1) * 100)}% de velocidad para los ${p} (animaciones y ciclos más cortos) y un poco más de ${prod}.`;
-      case "crit": return `Cada segundo, ${Math.round(m.prob * 100)}% de chance de golpe crítico: ${m.seg} s de ${prod} de los ${p} de golpe.`;
-      case "buff": return `Habilidad: ×${m.mult} a los ${p} durante ${m.dur} s (recarga ${Math.round(m.cd / 60)} min).`;
+      case "prod": return `+${pct(m.a)}% de ${prod} de los ${p} por nivel${ahora ? ` (ahora +${pct(m.a * n)}%)` : ""}.`;
+      case "vel": return `+${pct(m.a)}% de velocidad de los ${p} por nivel (animaciones y ciclos más cortos) y un poco más de producción${ahora ? ` (ahora +${pct(m.a * n)}%)` : ""}.`;
+      case "crit": return `Cada segundo, ${num((m.p0 + m.p1 * n) * 100)}% de chance de golpe crítico: ${m.seg} s de ${prod} de los ${p} de golpe. Cada nivel sube la chance.`;
+      case "buff": return `Habilidad: ×${m.mult} a los ${p} durante ${durBuff(m, n + 1)} s (recarga ${Math.round(cdHabilidad(m, n + 1))} s). Cada nivel dura más y recarga antes.`;
       case "sinergia": return `Cada ${m.cada} ${plural(m.fuente)}: +${num(m.bono * 100)}% a ${objetivoTxt(m.objetivo)}.`;
-      case "acido": return `La lluvia ácida quita un ${Math.round(m.acidoMenos * 100)}% menos de producción.`;
+      case "descuento": return `El precio de los ${p} sube un ${pct(m.a)}% menos con cada compra, por nivel.`;
+      case "autoevento": return `+${pct(m.a)}% de chance por nivel de que los eventos del cielo se recojan solos.`;
+      case "sobrecarga": return "Interruptor: los obreros producen ×2,5 pero se genera ×2,5 de contaminación (los magos ayudan a limpiarla).";
+      case "acido": return `La lluvia ácida quita un ${pct(m.a)}% menos de producción, por nivel.`;
+      case "paraguas": return `El castigo de la lluvia ácida dura un ${pct(m.a)}% menos, por nivel.`;
+      case "purga": return `Los magos purifican las nubes un ${pct(m.a)}% más rápido, por nivel.`;
+      case "eventos": return `Los eventos del cielo aparecen un ${pct(m.a)}% más seguido y duran ${num(m.d)} s más, por nivel.`;
+      case "hechizo": return `Habilidad: invoca un evento en el cielo ya mismo (recarga ${Math.round(cdHabilidad(m, n + 1))} s; cada nivel la acorta).`;
+      case "apuesta": return "Habilidad: arriesgás el 10% de tus esporas: 55% de ganar un 120% extra de lo arriesgado, 45% de perderlo (recarga 3 min).";
+      case "luna": return `+${num(m.a * 100)}% de producción total por cada base lunar, por nivel.`;
+      case "offline": return `+${num(m.a / 60)} min de producción cuando no estás jugando, por nivel (sube el tope de 60 min).`;
+      case "descInv": return `Investigar cuesta un ${pct(m.a)}% menos, por nivel.`;
     }
     return "";
   }
@@ -151,43 +165,59 @@ export function crearUI(api) {
     }
   }
 
-  // ---- Mejoras de edificio y habilidades activas ----
+  // ---- Mejoras de edificio (por niveles), habilidades activas e interruptores ----
+  const ACTIVAS = ["buff", "hechizo", "apuesta"];
   function filasMejorasEdificio(id, reabrir) {
     const s = api.estado();
     const mias = MEJ_EDIF.filter((m) => m.edificio === id);
-    const pendientes = mias.filter((m) => !s.mejoras[m.id]);
-    const habilidades = mias.filter((m) => m.ef === "buff" && s.mejoras[m.id]);
-    const hechas = mias.filter((m) => s.mejoras[m.id] && m.ef !== "buff");
+    const pendientes = mias.filter((m) => nivelMej(s, m.id) < m.max);
+    const activas = mias.filter((m) => ACTIVAS.includes(m.ef) && nivelMej(s, m.id) > 0);
+    const completas = mias.filter((m) => nivelMej(s, m.id) >= m.max);
     if (pendientes.length) {
       seccion("Mejoras");
       for (const m of pendientes) {
-        const f = fila(m.nombre, descMej(m) + ` Requiere ${m.req} ${plural(m.tipo)}.`, () => {
+        const n = nivelMej(s, m.id);
+        const titulo = m.max > 1 ? `${m.nombre} · nivel ${n}/${m.max}` : m.nombre;
+        const f = fila(titulo, descMej(m, n) + ` Requiere ${m.req} ${plural(m.tipo)}.`, () => {
           if (comprarMejoraEdificio(api.estado(), m.id)) { api.guardar(); reabrir(); }
         });
         f.refresh = (st) => {
           const faltan = (st.honguitos[m.tipo] || 0) < m.req;
-          f.btn.textContent = faltan ? `${st.honguitos[m.tipo] || 0}/${m.req}` : fmt(m.costo);
-          f.btn.disabled = faltan || st.esporas.lt(m.costo);
+          const c = costoMej(st, m);
+          f.btn.textContent = faltan ? `${st.honguitos[m.tipo] || 0}/${m.req}` : fmt(c);
+          f.btn.disabled = faltan || st.esporas.lt(c);
         };
         filas.push(f);
       }
     }
-    if (habilidades.length) {
+    // interruptor de la sobrecarga de la fábrica
+    if (mias.some((m) => m.ef === "sobrecarga" && nivelMej(s, m.id) > 0)) {
+      seccion("Interruptores");
+      const f = fila("Sobrecarga de máquinas", "Obreros ×2,5 de producción y ×2,5 de contaminación.", () => { alternarSobrecarga(api.estado()); api.guardar(); actualizar(true); });
+      f.refresh = (st) => { f.btn.textContent = st.flags.sobrecarga ? "Encendida" : "Apagada"; f.btn.classList.toggle("activa", !!st.flags.sobrecarga); };
+      filas.push(f);
+    }
+    if (activas.length) {
       seccion("Habilidades");
-      for (const m of habilidades) {
-        const f = fila(m.nombre, descMej(m), () => { if (activarHabilidad(api.estado(), m.id)) { api.guardar(); actualizar(true); } });
+      for (const m of activas) {
+        const n = nivelMej(s, m.id);
+        const f = fila(m.nombre + (m.max > 1 ? ` · nivel ${n}` : ""), descMej(m, n - 1), () => {
+          const msg = activarHabilidad(api.estado(), m.id);
+          if (msg) { api.guardar(); api.toast?.(msg); actualizar(true); }
+        });
         f.refresh = (st) => {
           const ahora = Date.now(), h = st.habil[m.id];
           if (h && ahora < h.hasta) { f.btn.textContent = Math.ceil((h.hasta - ahora) / 1000) + " s"; f.btn.disabled = true; f.btn.classList.add("activa"); }
           else if (h && ahora < h.listoEn) { const r = Math.ceil((h.listoEn - ahora) / 1000); f.btn.textContent = Math.floor(r / 60) + ":" + String(r % 60).padStart(2, "0"); f.btn.disabled = true; f.btn.classList.remove("activa"); }
-          else { f.btn.textContent = "Activar"; f.btn.disabled = false; f.btn.classList.remove("activa"); }
+          else { f.btn.textContent = m.ef === "buff" ? "Activar" : "Usar"; f.btn.disabled = false; f.btn.classList.remove("activa"); }
         };
         filas.push(f);
       }
     }
+    const hechas = completas.filter((m) => !ACTIVAS.includes(m.ef) && m.ef !== "sobrecarga");
     if (hechas.length) {
-      seccion("Mejoras compradas");
-      for (const m of hechas) nota("✓ " + m.nombre + " — " + descMej(m));
+      seccion("Mejoras completas");
+      for (const m of hechas) nota("✓ " + m.nombre + (m.max > 1 ? ` (nivel ${m.max})` : "") + " — " + descMej(m, m.max));
     }
   }
 
@@ -211,7 +241,7 @@ export function crearUI(api) {
     const n0 = Object.keys(s.mejoras).length;
     filas.push({ refresh: (st) => {
       if (Object.keys(st.mejoras).length !== n0) { reabrir(); return; } // terminó una: se arma la lista de nuevo
-      const v = invPorSeg(st), act = st.invest.actual ? TEC_POR_ID[st.invest.actual] : null;
+      const v = invPorSeg(st), act0 = st.invest.actual ? TEC_POR_ID[st.invest.actual] : null, act = act0 && { ...act0, trabajo: trabajoEf(st, act0) };
       if (!act) { tit.textContent = "Sin investigación en curso"; det.textContent = `Elegí una abajo. Investigación: ${fmt(v)} pts/s.`; relleno.style.width = "0%"; return; }
       const p = st.invest.prog[act.id] || 0;
       tit.textContent = act.nombre;
@@ -223,10 +253,10 @@ export function crearUI(api) {
     if (!disponibles.length) nota("No hay nada para investigar por ahora: construí más edificios para abrir tecnologías de su tema.");
     for (const t of disponibles) {
       const tema = t.target === "todos" ? "General" : EDIFICIOS[t.edificio].nombre;
-      const f = fila(`${t.nombre} · nivel ${t.nivel}`, `${tema}: ${descTec(s, t)} (${fmt(t.trabajo)} pts)`, () => { if (elegirInvestigacion(api.estado(), t.id)) { api.guardar(); actualizar(true); } });
+      const f = fila(`${t.nombre} · nivel ${t.nivel}`, `${tema}: ${descTec(s, t)} (${fmt(trabajoEf(s, t))} pts)`, () => { if (elegirInvestigacion(api.estado(), t.id)) { api.guardar(); actualizar(true); } });
       f.refresh = (st) => {
         const en = st.invest.actual === t.id, p = st.invest.prog[t.id] || 0;
-        f.btn.textContent = en ? "En curso" : p > 0 ? Math.round((p / t.trabajo) * 100) + "%" : "Investigar";
+        f.btn.textContent = en ? "En curso" : p > 0 ? Math.round((p / trabajoEf(st, t)) * 100) + "%" : "Investigar";
         f.btn.disabled = en;
       };
       filas.push(f);
@@ -411,6 +441,14 @@ export function crearUI(api) {
   }
 
   window.addEventListener("resize", () => abierta && colocar());
+  const elToast = $("toast");
+  let toastT = 0;
+  function toast(texto) {
+    elToast.textContent = texto;
+    elToast.classList.add("visible");
+    clearTimeout(toastT);
+    toastT = setTimeout(() => elToast.classList.remove("visible"), 3200);
+  }
   $("hoja-cerrar").addEventListener("click", cerrar);
   $("fondo-hoja").addEventListener("click", cerrar);
   $("btn-ajustes").addEventListener("click", abrirAjustes);
@@ -501,6 +539,7 @@ export function crearUI(api) {
   }
 
   return {
+    toast,
     actualizar,
     abrirMadre,
     abrirCasa,

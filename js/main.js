@@ -1,5 +1,6 @@
 import { cargar, guardar, nuevoEstado, etapaDe } from './state.js';
-import { tick, colocarEdificio, revisarHitos } from './engine.js';
+import { tick, colocarEdificio, revisarHitos, cobrarEvento, maxAusencia } from './engine.js';
+import { fmt } from './format.js';
 import { crearEscena } from './scene.js';
 import { crearUI, ajustes } from './ui.js';
 
@@ -10,7 +11,13 @@ let colocando = null; // id del edificio que se está ubicando (comprado)
 let moviendo = null; // id del edificio que se está moviendo (ya construido)
 
 const canvas = document.getElementById("juego");
-const escena = crearEscena(canvas);
+// Un evento del cielo (tocado o recogido solo): se aplica y se avisa con un cartelito.
+function aplicarEvento(tipo) {
+  const r = cobrarEvento(state, tipo);
+  ui.toast(r.texto + (r.ganancia ? " +" + fmt(r.ganancia) + " esporas" : ""));
+  guardar(state);
+}
+const escena = crearEscena(canvas, { onEvento: aplicarEvento });
 
 escena.setLimite(ajustes.visibles);
 
@@ -121,8 +128,9 @@ canvas.addEventListener("click", (e) => {
     terminarColocacion();
     return;
   }
-  if (ui.hojaAbierta()) return;
   const hit = escena.toque(e.clientX - r.left, e.clientY - r.top);
+  if (hit && hit.quien === "evento") { escena.tomarEvento(hit.ev); aplicarEvento(hit.ev.tipo); return; }
+  if (ui.hojaAbierta()) return;
   if (hit && hit.quien === "madre") {
     escena.pulsoMadre();
     ui.abrirMadre(escena.rectMadre);
@@ -134,10 +142,9 @@ canvas.addEventListener("click", (e) => {
 // La economía corre con el reloj real: sigue andando con la pestaña en segundo plano (el
 // navegador frena los timers, pero cada tick usa el tiempo real transcurrido, hasta 1 h).
 // La escena y los honguitos solo se animan mientras la pestaña se ve.
-const MAX_AUSENCIA = 3600;
 let ultimoEco = performance.now();
 function economia(ahora) {
-  const dt = Math.min((ahora - ultimoEco) / 1000, MAX_AUSENCIA);
+  const dt = Math.min((ahora - ultimoEco) / 1000, maxAusencia(state));
   ultimoEco = ahora;
   if (dt > 0) tick(state, dt);
   return dt;

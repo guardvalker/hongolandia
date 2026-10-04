@@ -3,7 +3,7 @@
 // del arte) y se escala con un factor entero sin suavizado. No hay sprites ni fotogramas:
 // los honguitos son un bitmap diminuto que se mueve con rebotes y estiramientos por código.
 
-const TIPOS_VISUALES = ['basico', 'musico', 'jardinero', 'atleta', 'trader', 'astronauta', 'maestro', 'obrero', 'cientifico']; // el número dibujado por tipo lo da el ajuste "honguitos visibles" (el real puede ser enorme)
+const TIPOS_VISUALES = ['basico', 'musico', 'jardinero', 'atleta', 'trader', 'astronauta', 'maestro', 'obrero', 'cientifico', 'mago']; // el número dibujado por tipo lo da el ajuste "honguitos visibles" (el real puede ser enorme)
 let limiteVisibles = 20; // honguitos dibujados por tipo (Ajustes)
 const maxParticulas = () => 150 + limiteVisibles * 8;
 const maxBrotes = () => Math.max(6, limiteVisibles * 2); // honguitos pasajeros que dejan los jardineros
@@ -68,6 +68,7 @@ const TAM_BASE = {
   escuela: { w: 40, ch: 19, sw: 17, sh: 14 },
   fabrica: { w: 46, ch: 21, sw: 20, sh: 15 },
   universidad: { w: 44, ch: 21, sw: 20, sh: 16 },
+  torre: { w: 34, ch: 15, sw: 12, sh: 26, extra: 20 }, // extra: alto del sombrero de mago sobre el sombrero
 };
 const NOTA = ["..##.", "..#.#", "..#..", "..#..", "###..", "###.."];
 
@@ -79,12 +80,12 @@ const MADRE = [
   { w: 92, ch: 54, sw: 38, sh: 36 },
 ];
 
-import { EDIFICIOS, HONGUITOS, ACIDO } from './data.js';
-import { improd, velocidad, eventos, buffTipoActivo } from './engine.js';
+import { EDIFICIOS, HONGUITOS, ACIDO, EVENTOS, EVENTO_CFG } from './data.js';
+import { improd, velocidad, eventos, buffTipoActivo, efectos } from './engine.js';
 
 const MADRE_GRANDE = MADRE.map((m) => ({ w: Math.round(m.w * BONUS_CONSERV), ch: Math.round(m.ch * BONUS_CONSERV), sw: Math.round(m.sw * BONUS_CONSERV), sh: Math.round(m.sh * BONUS_CONSERV) }));
 
-export function crearEscena(canvas) {
+export function crearEscena(canvas, opciones = {}) {
   const ctx = canvas.getContext("2d");
   const lo = document.createElement("canvas");
   const g = lo.getContext("2d");
@@ -117,6 +118,8 @@ export function crearEscena(canvas) {
   }
   let tBolsa = 0, nBolsa = null, hayTraders = false; // reflejo de state.bolsa para dibujar el gráfico
   const cola = []; // acciones diferidas {t, fn}
+  let contam = 0, nMagos = 0, evT = /evento/.test(location.search) ? 2 : 40 + Math.random() * 60;
+  const cielo = []; // eventos del cielo: { tipo, x, y, vx, t, vida, ph, auto }
   let nObreros = 0, humoAcum = 0, cicloBolsa = CICLO_BOLSA;
   const velTipo = {}, buffTipos = {}; // velocidad y buff activo por tipo (de las mejoras de edificio)
   const nubes = []; // nubes de contaminación sobre la fábrica: { x0, y, w, ph, p, llueve }
@@ -229,6 +232,14 @@ export function crearEscena(canvas) {
     const x = c.getContext("2d");
     x.fillStyle = "#14808a"; x.fillRect(1, 4, 7, 1);
     x.fillStyle = "#bff7f0"; x.fillRect(2, 4, 1, 1); x.fillRect(6, 4, 1, 1);
+    return c;
+  });
+  // mago: sombrero magenta con un chal oscuro (el cono del sombrero se dibuja aparte)
+  const spritesMago = [0, 1].map((pose) => {
+    const c = hacerSprite("#d12bff", PATAS[pose], false);
+    const x = c.getContext("2d");
+    x.fillStyle = "#5a1f8f"; x.fillRect(1, 6, 7, 2);
+    x.fillStyle = "#ffe14d"; x.fillRect(3, 6, 1, 1); x.fillRect(5, 7, 1, 1);
     return c;
   });
   // alumnito: honguito más chico (7x6)
@@ -516,7 +527,7 @@ export function crearEscena(canvas) {
   // El hongo madre estorba solo con su tronco si lo que se ubica entra bajo su sombrero; si es más
   // alto que el tronco (madre chico), estorba con todo el sombrero.
   const obstaculoMadre = (alto) => { const m = medidas(); return { x: madre.x, w: alto + 2 <= m.sh ? m.sw + 8 : m.w }; };
-  const altoEdif = (id) => tam(id).ch + tam(id).sh + 8;
+  const altoEdif = (id) => tam(id).ch + tam(id).sh + (TAM_BASE[id].extra ?? 8);
   const obstaculos = (alto = 99) => [obstaculoMadre(alto), ...Object.entries(edif).filter(([id]) => !(colocando?.mover && colocando.id === id)).map(([id, e]) => ({ x: e.x, w: tam(id).w }))];
 
   // Jardinero: camina a un punto libre del piso, lo riega y ahí brota un honguito pasajero.
@@ -642,8 +653,10 @@ export function crearEscena(canvas) {
 
   // ---- Luna y expediciones ----
   function geomLuna() {
-    const r = Math.max(18, Math.round(Math.min(Wc0, Hc0) * 0.1));
-    return { r, x: Math.round(C0 + Wc0 * 0.32), y: Math.round(groundY - groundRef * 0.64) };
+    // siempre en el cielo: a un 28% de la altura de la pantalla y del mismo tamaño en pantalla con
+    // cualquier zoom; horizontalmente queda fija en el mundo
+    const r = Math.max(18, Math.round(Math.min(Wc0, Hc0) * 0.1 * (S0 / S)));
+    return { r, x: Math.round(C0 + Wc0 * 0.32), y: Math.round(Hc * 0.28) };
   }
   // posición de la plataforma: bajo el sombrero, del lado contrario a la rama hongo
   function padCohete() {
@@ -830,27 +843,40 @@ export function crearEscena(canvas) {
   const nubeY = (c) => groundY - groundRef * c.fy;
 
   function actualizarClima(dt) {
-    const obj = edif.fabrica && nObreros > 0 ? clamp(Math.round(1 + Math.log2(nObreros) * 0.9), 1, 10) : 0;
-    while (nubes.length < obj) {
+    const obj = clamp(Math.round(contam), 0, 10);
+    const vivas = () => nubes.filter((c) => !c.muere).length;
+    while (vivas() < obj) {
       const r = rng(nubes.length * 977 + 13);
       nubes.push({ x: LIM0() + r() * 2 * extent, vx: (r() < 0.5 ? -1 : 1) * (2 + r() * 4), fy: 0.48 + r() * 0.24, w: 26 + Math.round(r() * 14), ph: r() * TAU, p: 0, llueve: false });
     }
-    while (nubes.length > obj) nubes.pop();
+    while (vivas() > obj) { // una nube menos: se purifica (si hay magos) o se disipa
+      const cand = nubes.filter((c) => !c.muere);
+      const c = cand.sort((a, b) => (b.golpes || 0) - (a.golpes || 0))[0] || cand[0];
+      c.muere = true; c.llueve = false;
+      lluvia.zonas = lluvia.zonas.filter((z) => z !== c);
+      if (nMagos > 0) {
+        const x = c.x, y = nubeY(c);
+        motas(x, y, 14, 1.2, "#e9a8ff");
+        aroPart(x, y, 16, 0.5);
+        for (let i = 0; i < 3; i++) cola.push({ t: i * 0.12, fn: () => lanzarEspora(x, y, "#d12bff") });
+      }
+    }
+    for (let i = nubes.length - 1; i >= 0; i--) if (nubes[i].muere && nubes[i].p <= 0) nubes.splice(i, 1);
     for (const c of nubes) {
-      c.p = Math.min(1, c.p + dt * 0.4);
+      c.p = c.muere ? Math.max(0, c.p - dt * 1.2) : Math.min(1, c.p + dt * 0.4);
       if (!c.llueve) { // flotan por todo el mundo y dan la vuelta al llegar al borde
         c.x += c.vx * dt;
         if (c.x > LIM1() + 60) c.x = LIM0() - 60;
         else if (c.x < LIM0() - 60) c.x = LIM1() + 60;
       }
     }
-    if (!nubes.length) { lluvia.activa = false; return; }
+    if (!nubes.some((c) => !c.muere)) { lluvia.activa = false; return; }
     if (!lluvia.activa) {
       lluvia.prox -= dt;
       if (lluvia.prox <= 0) {
         // empieza a llover desde algunas nubes: se quedan quietas sobre la zona que mojan
         const k = clamp(Math.ceil(nubes.length / 3), 1, 3);
-        const elegidas = [...nubes].sort(() => Math.random() - 0.5).slice(0, k);
+        const elegidas = nubes.filter((c) => !c.muere).sort(() => Math.random() - 0.5).slice(0, k);
         lluvia.zonas = elegidas.map((c) => { c.llueve = true; return c; });
         lluvia.activa = true; lluvia.t = 0;
       }
@@ -863,7 +889,7 @@ export function crearEscena(canvas) {
           part(x, y0, 0, vy, { tipo: "lluvia", dur: Math.max(0.1, (groundY - y0) / vy) });
         }
         // todo honguito que toque la lluvia queda mojado (improductivo) y se le reinicia el tiempo
-        for (const v of visuales) if (!v.oculto && Math.abs(v.x - c.x) <= c.w / 2 + 2) v.acidoT = ACIDO.dur;
+        for (const v of visuales) if (!v.oculto && Math.abs(v.x - c.x) <= c.w / 2 + 2) v.acidoT = ACIDO.dur * efectos.paraguas;
       }
       if (lluvia.t > 8) {
         for (const c of lluvia.zonas) c.llueve = false;
@@ -907,6 +933,127 @@ export function crearEscena(canvas) {
         if (Math.random() < 0.5) { v.idea = 1; motas(v.x, groundY - 16, 5, 0.5, "#ffe14d"); }
         v.modo = "idle"; v.espera = 1 + Math.random() * 2.5;
       }
+    }
+  }
+
+  // ---- Torre de magos: caldero y purga de nubes ----
+  function posCaldero() {
+    const m = tam("torre");
+    return { x: Math.round(edif.torre.x) - m.lado * (Math.round(m.sw / 2) + 9), y: groundY - 2 };
+  }
+  function rayoMagico(x0, y0, x1, y1) {
+    for (let i = 0; i < 4; i++) {
+      const u = Math.random();
+      part(x0 + (x1 - x0) * u + (Math.random() - 0.5) * 3, y0 + (y1 - y0) * u + (Math.random() - 0.5) * 3, 0, 0, { tipo: "mota", dur: 0.35, col: Math.random() < 0.5 ? "#e9a8ff" : "#fff", r: 1 });
+    }
+  }
+  function actualizarMago(v, dt) {
+    v.alfa = Math.min(1, v.alfa + dt * 2.5);
+    v.animT += dt;
+    v.hop = 0;
+    v.estira = 0;
+    if (v.modo === "idle") {
+      v.estira = Math.sin(v.animT * 3 + v.i) * 0.5;
+      v.espera -= dt;
+      if (v.espera <= 0) {
+        const vivas = nubes.filter((c) => !c.muere && c.p > 0.5);
+        if (vivas.length && Math.random() < 0.45) { // a purificar una nube
+          vivas.sort((a, b) => Math.abs(a.x - v.x) - Math.abs(b.x - v.x));
+          v.objetivo = vivas[0]; v.modo = "purga"; v.tCast = 0; v.dir = Math.sign(v.objetivo.x - v.x) || v.dir;
+        } else {
+          const c = posCaldero();
+          v.meta = c.x + (Math.random() < 0.5 ? -1 : 1) * (7 + Math.random() * 8);
+          v.dir = Math.sign(v.meta - v.x) || 1;
+          v.modo = "walk";
+        }
+      }
+    } else if (v.modo === "walk") {
+      v.hop = Math.abs(Math.sin(v.animT * 11)) * 1.5;
+      const d = v.meta - v.x, paso = VEL * 0.7 * dt;
+      if (Math.abs(d) <= paso) { v.x = v.meta; v.modo = "remueve"; v.tRem = 0; v.burbT = 0; v.dir = Math.sign(posCaldero().x - v.x) || v.dir; }
+      else v.x += Math.sign(d) * paso;
+    } else if (v.modo === "remueve") {
+      v.tRem += dt;
+      v.burbT -= dt;
+      v.hop = Math.abs(Math.sin(v.tRem * 5)) * 0.5;
+      if (v.burbT <= 0) { v.burbT = 0.15; const c = posCaldero(); part(c.x + (Math.random() - 0.5) * 5, c.y - 8, (Math.random() - 0.5) * 6, -12, { tipo: "mota", dur: 0.6, col: Math.random() < 0.5 ? "#7fff3a" : "#e9a8ff", r: 1 }); }
+      if (v.tRem > 3.4) { // la poción está lista: salen esporas del caldero
+        const c = posCaldero();
+        motas(c.x, c.y - 9, 10, 1, "#e9a8ff");
+        for (let i = 0; i < 2; i++) cola.push({ t: i * 0.15, fn: () => lanzarEspora(c.x, c.y - 10, "#d12bff") });
+        v.modo = "idle"; v.espera = 0.8 + Math.random() * 2;
+      }
+    } else if (v.modo === "purga") {
+      v.tCast += dt;
+      v.hop = v.tCast < 0.4 ? 0 : Math.abs(Math.sin(v.tCast * 10)) * 0.8;
+      if (v.objetivo && v.tCast > 0.4) rayoMagico(v.x + v.dir * 5, groundY - 16, v.objetivo.x, nubeY(v.objetivo) + 5);
+      if (v.tCast > 1.8) {
+        if (v.objetivo) { v.objetivo.golpes = (v.objetivo.golpes || 0) + 1; motas(v.objetivo.x, nubeY(v.objetivo) + 4, 8, 0.8, "#e9a8ff"); }
+        v.objetivo = null; v.modo = "idle"; v.espera = 1 + Math.random() * 2.5;
+      }
+    }
+  }
+
+  // ---- Eventos del cielo (espora dorada, fiebre del micelio, cometa de ideas) ----
+  function spawnEvento(tipo) {
+    if (!tipo) {
+      const conCient = (visuales.some((v) => v.tipo === "cientifico"));
+      const pesos = Object.entries(EVENTOS).filter(([k]) => k !== "cometa" || conCient);
+      let r = Math.random() * pesos.reduce((a, [, e]) => a + e.peso, 0);
+      tipo = (pesos.find(([, e]) => (r -= e.peso) < 0) || pesos[0])[0];
+    }
+    const dir = Math.random() < 0.5 ? -1 : 1;
+    cielo.push({
+      tipo, x: camX + dir * -Wc * 0.45, y: groundY - groundRef * (0.35 + Math.random() * 0.4),
+      vx: dir * (7 + Math.random() * 7), t: 0, vida: EVENTO_CFG.vida + efectos.eventoDur, ph: Math.random() * TAU, auto: false,
+    });
+  }
+  function actualizarEventos(dt, state) {
+    evT -= dt;
+    if (evT <= 0) {
+      if (cielo.length < 2) spawnEvento();
+      evT = (EVENTO_CFG.intervaloMin + Math.random() * (EVENTO_CFG.intervaloMax - EVENTO_CFG.intervaloMin)) / efectos.eventoFreq;
+    }
+    for (let i = cielo.length - 1; i >= 0; i--) {
+      const ev = cielo[i];
+      ev.t += dt;
+      ev.x += ev.vx * dt;
+      if (ev.t > ev.vida) { cielo.splice(i, 1); continue; }
+      if (!ev.auto && ev.t > 2.5) { // los graduados recolectores a veces los cobran solos
+        ev.auto = true;
+        if (Math.random() < efectos.autoEvento) { tomarEvento(ev); opciones.onEvento?.(ev.tipo); }
+      }
+    }
+  }
+  function tomarEvento(ev) {
+    const i = cielo.indexOf(ev);
+    if (i >= 0) cielo.splice(i, 1);
+    motas(ev.x, evY(ev), 24, 1.6, ev.tipo === "fiebre" ? "#ff4fd8" : ev.tipo === "cometa" ? "#bff7f0" : "#ffd23f");
+    aroPart(ev.x, evY(ev), 24, 0.6);
+    return ev.tipo;
+  }
+  const evY = (ev) => ev.y + Math.sin(ev.t * 2 + ev.ph) * 4;
+  function dibujarEventos() {
+    for (const ev of cielo) {
+      const x = Math.round(ev.x), y = Math.round(evY(ev));
+      const falta = ev.vida - ev.t;
+      if (falta < 3 && Math.floor(ev.t * 6) % 2) continue; // titila antes de irse
+      g.globalAlpha = Math.min(1, ev.t * 2);
+      if (ev.tipo === "dorada") {
+        g.globalAlpha *= 0.3; disco(x, y, 8, "#ffd23f"); g.globalAlpha = Math.min(1, ev.t * 2);
+        disco(x, y, 4, "#ffd23f"); aro(x, y, 5, BLANCO);
+        g.fillStyle = "#fff6a8"; g.fillRect(x - 1, y - 2, 1, 1);
+        const k = Math.floor(t * 4) % 2 ? 7 : 6;
+        g.fillRect(x - k, y, 2, 1); g.fillRect(x + k - 1, y, 2, 1); g.fillRect(x, y - k, 1, 2); g.fillRect(x, y + k - 1, 1, 2);
+      } else if (ev.tipo === "fiebre") {
+        const col = ["#ff4fd8", "#4fb4ff", "#3ddc84", "#ffd23f"][Math.floor(t * 6) % 4];
+        g.globalAlpha *= 0.3; disco(x, y, 8, col); g.globalAlpha = Math.min(1, ev.t * 2);
+        disco(x, y, 4, col); aro(x, y, 5, BLANCO);
+      } else {
+        for (let k = 1; k <= 9; k++) { g.globalAlpha = Math.min(1, ev.t * 2) * (1 - k / 10); g.fillStyle = "#bff7f0"; g.fillRect(x - Math.sign(ev.vx) * k * 2, y + Math.round(k * 0.4), 2, 2); }
+        g.globalAlpha = Math.min(1, ev.t * 2); disco(x, y, 3, BLANCO);
+      }
+      g.globalAlpha = 1;
     }
   }
 
@@ -1093,6 +1240,8 @@ export function crearEscena(canvas) {
     for (const tp of TIPOS_VISUALES) { velTipo[tp] = velocidad(state, tp); buffTipos[tp] = buffTipoActivo(state, tp); }
     cicloBolsa = CICLO_BOLSA / velTipo.trader;
     nObreros = state.honguitos.obrero || 0;
+    contam = state.contam || 0;
+    nMagos = state.honguitos.mago || 0;
     for (const v of visuales) {
       const dt = (v.acidoT > 0 ? dtG * 0.6 : dtG) * (velTipo[v.tipo] || 1); // mojados: más lentos; mejoras de velocidad: más rápidos
       if (buffTipos[v.tipo] && Math.random() < dtG * 5) part(v.x + (Math.random() - 0.5) * 8, groundY - HH - 2, 0, -12, { tipo: "mota", dur: 0.5, col: "#ffe14d", r: 1 });
@@ -1108,6 +1257,7 @@ export function crearEscena(canvas) {
       if (v.tipo === "maestro") { actualizarMaestro(v, dt); continue; }
       if (v.tipo === "obrero") { actualizarObrero(v, dt); continue; }
       if (v.tipo === "cientifico") { actualizarCientifico(v, dt); continue; }
+      if (v.tipo === "mago") { actualizarMago(v, dt); continue; }
       v.alfa = Math.min(1, v.alfa + dt * 2.5);
       v.animT += dt;
       v.hop = 0;
@@ -1159,7 +1309,8 @@ export function crearEscena(canvas) {
     // eventos del motor: golpes críticos e investigaciones terminadas (máx. 6 por cuadro)
     for (let k = 0; k < 6 && eventos.length; k++) {
       const e = eventos.shift();
-      if (e.crit) criticoVisual(e.tipo);
+      if (e.spawnEvento) spawnEvento();
+      else if (e.crit) criticoVisual(e.tipo);
       else if (e.hecha && edif.universidad) {
         brillos.universidad = 1;
         const m = tam("universidad"), ex = edif.universidad.x, ey = groundY - m.sh - m.ch;
@@ -1169,6 +1320,7 @@ export function crearEscena(canvas) {
     }
     eventos.length = 0;
     actualizarClima(dtG);
+    actualizarEventos(dtG, state);
     // fracción de cada tipo que está mojada: el motor la usa para bajar su producción
     const total = {}, mojados = {}, restan = {};
     for (const v of visuales) {
@@ -1387,7 +1539,7 @@ export function crearEscena(canvas) {
     g.globalAlpha = alfa;
     const col = EDIFICIOS[id].color;
     const { capBase, ch, rx, mitad } = hongoBase(cx, m, 0, brillos[id] || 0, col, col);
-    manchasDe(id + ":" + semilla, (id === "conservatorio" ? 5 : id === "vivero" ? 11 : id === "gimnasio" ? 23 : id === "trade" ? 37 : id === "astropuerto" ? 53 : id === "escuela" ? 71 : id === "universidad" ? 97 : 89) + semilla, 7 + m.nivel * 2).forEach((q) => {
+    manchasDe(id + ":" + semilla, (id === "conservatorio" ? 5 : id === "vivero" ? 11 : id === "gimnasio" ? 23 : id === "trade" ? 37 : id === "astropuerto" ? 53 : id === "escuela" ? 71 : id === "universidad" ? 97 : id === "torre" ? 101 : 89) + semilla, 7 + m.nivel * 2).forEach((q) => {
       const c2 = q.v < 0.5 ? mezcla(col, "#ffffff", 0.35) : mezcla(col, "#000000", 0.45);
       manchaCap(cx, capBase, rx, ch, cx + Math.round(q.u * rx), capBase - 2 - Math.round(q.h * ch), Math.max(1, Math.round(ch * q.f * 0.7)), c2, false);
     });
@@ -1495,6 +1647,31 @@ export function crearEscena(canvas) {
         const tiembla = cohete.fase === "despegue" ? Math.round(Math.sin(t * 60) * (0.5 + cohete.llama)) : 0;
         g.drawImage(spriteCohete, px - 3 + tiembla, groundY - 11);
       }
+    } else if (id === "torre") {
+      // sombrero de mago (cono doblado con estrellas), ventanas encendidas y un caldero con fuego al costado
+      const H = 18, y0 = capBase - ch - 1;
+      for (let r = 0; r < H; r++) {
+        const w = Math.max(0, Math.round(6 * (1 - r / H))), off = Math.round((r / H) ** 2 * 5);
+        g.fillStyle = BLANCO; g.fillRect(cx - w + off - 1, y0 - r, 1, 1); g.fillRect(cx + w + off, y0 - r, 1, 1);
+        g.fillStyle = r % 5 === 2 ? "#7a2bd1" : "#5a1f8f"; g.fillRect(cx - w + off, y0 - r, w * 2, 1);
+      }
+      g.fillStyle = BLANCO; g.fillRect(cx + 5, y0 - H, 2, 1); g.fillRect(cx - 7, y0, 15, 1);
+      g.fillStyle = "#ffe14d"; g.fillRect(cx - 2, y0 - 6, 1, 1); g.fillRect(cx + 1, y0 - 10, 1, 1); g.fillRect(cx - 1, y0 - 3, 1, 1); g.fillRect(cx + 2, y0 - 14, 1, 1);
+      // tallo: ventanas en arco y puerta
+      for (const yy of [capBase + 5, capBase + 14]) {
+        g.fillStyle = Math.floor(t * 2 + yy) % 5 === 0 ? "#fff6a8" : "#ffe14d";
+        g.fillRect(cx - 1, yy, 3, 4); g.fillRect(cx, yy - 1, 1, 1);
+      }
+      g.fillStyle = "#2a0f45"; g.fillRect(cx - 2, groundY - 5, 5, 4);
+      g.fillStyle = col; g.fillRect(cx - 3, groundY - 5, 1, 4); g.fillRect(cx + 3, groundY - 5, 1, 4); g.fillRect(cx - 2, groundY - 6, 5, 1);
+      // caldero
+      const px = cx - m.lado * (mitad + 9), top = groundY - 8;
+      g.fillStyle = Math.floor(t * 8) % 2 ? "#ff8a1f" : "#ffe14d"; g.fillRect(px - 2, groundY - 2, 1, 2); g.fillRect(px + 1, groundY - 3, 1, 3);
+      g.fillStyle = "#8a5a2a"; g.fillRect(px - 4, groundY - 1, 9, 1);
+      g.fillStyle = BLANCO; g.fillRect(px - 4, top + 1, 9, 1); g.fillRect(px - 5, top + 2, 11, 4); g.fillRect(px - 4, top + 6, 9, 1);
+      g.fillStyle = "#2a2a3c"; g.fillRect(px - 4, top + 3, 9, 3); g.fillRect(px - 3, top + 6, 7, 0);
+      g.fillStyle = Math.floor(t * 1.5) % 2 ? "#7fff3a" : "#c06bff"; g.fillRect(px - 4, top + 1, 9, 1);
+      g.fillStyle = "#e9ffd0"; const bb = Math.floor(t * 5); g.fillRect(px - 3 + (bb % 5), top - (bb % 2), 1, 1); g.fillRect(px + 2 - (bb % 4), top - 1 + (bb % 3 === 0 ? 1 : 0), 1, 1);
     } else if (id === "universidad") {
       // birrete sobre el sombrero con borla, foco de ideas que parpadea, columnas, escalones y puerta
       const by = capBase - ch - 3;
@@ -1607,11 +1784,11 @@ export function crearEscena(canvas) {
     }
     // edificios más grandes: ramas con hongos chiquitos saliendo del tallo
     if (m.nivel >= 1) ramaHongo(cx, capBase, mitad, m.lado, col, 5);
-    if (m.nivel >= 2 && id !== "astropuerto") ramaHongo(cx, capBase, mitad, -m.lado, col, 3);
+    if (m.nivel >= 2 && id !== "astropuerto" && id !== "torre") ramaHongo(cx, capBase, mitad, -m.lado, col, 3);
     if (m.nivel >= 3) { // los más grandes: dos ramas más, más abajo y más largas
       const yy = Math.round(m.sh * 0.72);
       ramaHongo(cx, capBase, mitad, m.lado, col, 8, yy);
-      if (id !== "astropuerto") ramaHongo(cx, capBase, mitad, -m.lado, col, 7, yy);
+      if (id !== "astropuerto" && id !== "torre") ramaHongo(cx, capBase, mitad, -m.lado, col, 7, yy);
     }
     g.globalAlpha = 1;
   }
@@ -1721,7 +1898,7 @@ export function crearEscena(canvas) {
     const base = Math.round(groundY - v.hop);
     const pose = v.modo === "walk" ? (Math.floor(v.animT * 11) % 2) : 0;
     const spr = v.tipo === "musico" ? spritesMusico[v.modo === "canta" ? [0, 2, 3, 2][Math.floor(v.tCanta * 8) % 4] : pose]
-      : v.tipo === "jardinero" ? spritesJard[pose] : v.tipo === "atleta" ? spritesAtl[pose] : v.tipo === "cientifico" ? spritesCient[pose] : v.tipo === "obrero" ? spritesObrero[pose] : v.tipo === "maestro" ? spritesMaestro[v.modo === "clase" ? (Math.floor(v.animT * 5) % 2 ? 2 : 3) : pose] : v.tipo === "astronauta" ? spritesAstro[pose] : v.tipo === "trader" ? spritesTrader[v.modo === "llama" ? (Math.floor(v.tLlama * 6) % 2 ? 2 : 3) : pose] : spritesHongo[v.col][pose];
+      : v.tipo === "jardinero" ? spritesJard[pose] : v.tipo === "atleta" ? spritesAtl[pose] : v.tipo === "mago" ? spritesMago[pose] : v.tipo === "cientifico" ? spritesCient[pose] : v.tipo === "obrero" ? spritesObrero[pose] : v.tipo === "maestro" ? spritesMaestro[v.modo === "clase" ? (Math.floor(v.animT * 5) % 2 ? 2 : 3) : pose] : v.tipo === "astronauta" ? spritesAstro[pose] : v.tipo === "trader" ? spritesTrader[v.modo === "llama" ? (Math.floor(v.tLlama * 6) % 2 ? 2 : 3) : pose] : spritesHongo[v.col][pose];
     const alto = HH + Math.round(v.estira);
     const x = Math.round(v.x);
     g.globalAlpha = v.alfa;
@@ -1730,6 +1907,20 @@ export function crearEscena(canvas) {
     g.drawImage(v.acidoT > 0 ? verde(spr) : spr, x - 4, base - alto, HW, alto);
     g.restore();
     g.globalAlpha = 1;
+    if (v.tipo === "mago") {
+      // cono del sombrero de mago con una estrella, y bastón al lanzar hechizos
+      const hy = base - alto;
+      g.fillStyle = "#d12bff";
+      g.fillRect(x - 3, hy - 1, 7, 1); g.fillRect(x - 2, hy - 2, 5, 1); g.fillRect(x - 1, hy - 3, 3, 1); g.fillRect(x, hy - 4, 1, 1); g.fillRect(x + 1, hy - 5, 1, 1);
+      g.fillStyle = "#ffe14d"; g.fillRect(x - 1, hy - 2, 1, 1);
+      if (v.modo === "purga") {
+        g.fillStyle = "#8a5a2a"; g.fillRect(x + v.dir * 6, base - 14, 1, 14);
+        g.fillStyle = "#ffe14d"; g.fillRect(x + v.dir * 6 - 1, base - 16, 3, 2);
+      } else if (v.modo === "remueve") {
+        const sw = Math.round(Math.sin(v.tRem * 8) * 2);
+        g.fillStyle = "#8a5a2a"; g.fillRect(x + v.dir * 5, base - 6, 1, 4); g.fillRect(x + v.dir * (6 + sw), base - 3, 1, 3);
+      }
+    }
     if (v.modo === "experimenta") {
       // matraz con líquido de colores
       const fx = x + v.dir * 6, fy = base - 10, liq = LIQUIDOS[Math.floor(v.tExp / 0.8) % LIQUIDOS.length];
@@ -1881,6 +2072,7 @@ export function crearEscena(canvas) {
     }
     for (const v of visuales) dibujarHonguito(v);
     dibujarParticulas();
+    dibujarEventos();
     if (colocando) dibujarEdificio(colocando.id, xLibre(colocando.x, tam(colocando.id).w, obstaculos(altoEdif(colocando.id))), 0.55);
     g.restore();
 
@@ -1894,6 +2086,7 @@ export function crearEscena(canvas) {
   function toque(px, py) {
     const cx = (px * dpr) / S - offX();
     const cy = (py * dpr) / S;
+    for (const ev of cielo) if (Math.abs(cx - ev.x) < 9 && Math.abs(cy - evY(ev)) < 9) return { quien: "evento", ev };
     const m = medidas();
     // el hongo madre: el tronco o el sombrero (elipse), no el rectángulo que los envuelve
     const enTronco = Math.abs(cx - madre.x) < m.sw / 2 + 3 && cy > groundY - m.sh && cy < groundY + 2;
@@ -1955,10 +2148,12 @@ export function crearEscena(canvas) {
   const pan = (px) => { camX -= (px * dpr) / S; limitarCam(); };
   const recentrar = () => { camX = C0; limitarCam(); };
 
+  const tomar = (ev) => tomarEvento(ev);
+
   function setLimite(n) {
     limiteVisibles = clamp(Math.round(n) || 20, 3, 300);
     while (brotes.length > maxBrotes()) brotes.shift();
   }
 
-  return { zoom, pan, recentrar, setLimite, resize, update, draw, toque, pulsoMadre, rectMadre, rectEdificio, iniciarColocacion, moverColocacion, cancelarColocacion, confirmarColocacion };
+  return { tomarEvento: tomar, zoom, pan, recentrar, setLimite, resize, update, draw, toque, pulsoMadre, rectMadre, rectEdificio, iniciarColocacion, moverColocacion, cancelarColocacion, confirmarColocacion };
 }

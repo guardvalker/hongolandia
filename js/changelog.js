@@ -1,5 +1,16 @@
 export const CHANGELOG = [
   {
+    v: "0.22.0",
+    fecha: "2026-10-04",
+    cambios: [
+      "Nuevo edificio: Torre de magos hongil (tier 5; el Gym, el Trade center y el Astropuerto subieron un tier). Torre alta con sombrero de mago, ventanas encendidas y un caldero con fuego al costado. Nuevo honguito: Mago (sombrero puntiagudo con estrella): revuelve su caldero y de la poción salen esporas, y purifica nubes de contaminación lanzándoles rayos.",
+      "Contaminación rehecha: ahora es una cantidad que sube con los obreros y baja con los magos. Cada nube que purifican se convierte en esporas (2 s de tu producción). Con suficientes magos se limpia más rápido de lo que se contamina.",
+      "Mejoras de edificio rehechas: ahora son por niveles (se compran varias veces, cada nivel cuesta más), con efectos distintos según el edificio. Escuela: graduados que recogen eventos solos. Vivero: compost que abarata los honguitos. Fábrica: sobrecarga (interruptor), filtros y paraguas contra la lluvia ácida. Torre: purga más rápida, bola de cristal y mano del destino. Trade: terminal de alta frecuencia y apuesta de riesgo. Astropuerto: colonia lunar (+% por base lunar) y satélites (más producción sin conexión). Universidad: becas que abaratan la investigación. Siguen las de productividad, críticos, velocidad, sinergias y buffs, pero ya no son las mismas en todos.",
+      "Eventos del cielo: cada 1 a 3 minutos aparece algo flotando que hay que tocar antes de que se vaya: Espora dorada (esporas de golpe), Fiebre del micelio (todo ×7 por 20 s) y Cometa de ideas (puntos de investigación). Aviso con un cartelito arriba.",
+      "La luna ahora siempre está en el cielo, a una altura fija en la pantalla y del mismo tamaño con cualquier zoom, así que se ve completa al alejar al máximo.",
+    ],
+  },
+  {
     v: "0.21.0",
     fecha: "2026-10-04",
     cambios: [
