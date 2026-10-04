@@ -47,6 +47,7 @@ const HONGO = [
 ];
 const PATAS = [".ww...ww.", "..ww.ww.."];
 
+const ROJO = "#e8362f";
 const VIOLETA = "#a77bff";
 const BONUS_CONSERV = 1.15; // el conservatorio agranda al hongo madre
 const VERDE = "#2fa84f";
@@ -159,7 +160,18 @@ export function crearEscena(canvas, opciones = {}) {
     });
     return c;
   }
-  const spritesHongo = PALETA.map((col) => [0, 1].map((pose) => hacerSprite(col, PATAS[pose], false)));
+  const spritesHongo = [0, 1].map((pose) => hacerSprite(ROJO, PATAS[pose], false));
+  // lunares blancos del sombrero (filas 0-2 del HONGO): 2 o 3 celdas al azar, sin tocarse entre sí
+  function lunares() {
+    const celdas = [];
+    HONGO.slice(0, 3).forEach((fila, y) => { for (let i = 0; i < HW; i++) if (fila[i] === "c") celdas.push([i, y]); });
+    const out = [], n = 2 + (Math.random() < 0.5 ? 1 : 0);
+    for (let intento = 0; intento < 40 && out.length < n; intento++) {
+      const c = celdas[Math.floor(Math.random() * celdas.length)];
+      if (out.every((o) => Math.abs(o[0] - c[0]) > 1 || Math.abs(o[1] - c[1]) > 1)) out.push(c);
+    }
+    return out;
+  }
   const spritesMusico = [hacerSprite(VIOLETA, PATAS[0], false), hacerSprite(VIOLETA, PATAS[1], false), hacerSprite(VIOLETA, PATAS[0], 1), hacerSprite(VIOLETA, PATAS[0], 2)];
   const spritesJard = [0, 1].map((pose) => hacerSprite(VERDE, PATAS[pose], 0));
   const spritesAtl = [0, 1].map((pose) => hacerSprite(NARANJA, PATAS[pose], 0));
@@ -441,7 +453,7 @@ export function crearEscena(canvas, opciones = {}) {
     const origen = casa ? edif[casa].x : madre.x;
     const x = desdePuerta ? origen + (Math.random() - 0.5) * 12 : casa ? origen + (Math.random() - 0.5) * 50 : LIM0() + 14 + Math.random() * (2 * extent - 28);
     return {
-      i, tipo, cantaEn: 2 + Math.random() * 4, tCanta: 0, notaT: 0, x, dir: Math.random() < 0.5 ? -1 : 1, col: i % PALETA.length,
+      i, tipo, lunares: lunares(), cantaEn: 2 + Math.random() * 4, tCanta: 0, notaT: 0, x, dir: Math.random() < 0.5 ? -1 : 1, col: i % PALETA.length,
       modo: "idle", animT: Math.random() * 4, espera: desdePuerta ? 0.3 : 0.5 + Math.random() * 2,
       meta: x, entrega: 5 + Math.random() * 7, llevando: false, hop: 0, estira: 0,
       alfa: desdePuerta ? 0 : 1, tDar: 0,
@@ -487,7 +499,8 @@ export function crearEscena(canvas, opciones = {}) {
   function lanzarA(x, y, x1, y1, col, dur = 0.8) {
     part(x, y, 0, 0, { tipo: "viaje", col, x0: x, y0: y, x1, y1, dur, arco: 14 + Math.random() * 14, estela: 0, local: true });
   }
-  const emitirEspora = (v) => lanzarEspora(v.x, groundY - 14, PALETA[v.col]);
+  const colHongo = (v) => (v.tipo === "basico" ? ROJO : PALETA[v.col]);
+  const emitirEspora = (v) => lanzarEspora(v.x, groundY - 14, colHongo(v));
   function lanzarEspora(x, y, col) {
     const m = medidas();
     // destino al azar dentro del sombrero (media elipse), no en una línea fija
@@ -1903,13 +1916,17 @@ export function crearEscena(canvas, opciones = {}) {
     const base = Math.round(groundY - v.hop);
     const pose = v.modo === "walk" ? (Math.floor(v.animT * 11) % 2) : 0;
     const spr = v.tipo === "musico" ? spritesMusico[v.modo === "canta" ? [0, 2, 3, 2][Math.floor(v.tCanta * 8) % 4] : pose]
-      : v.tipo === "jardinero" ? spritesJard[pose] : v.tipo === "atleta" ? spritesAtl[pose] : v.tipo === "mago" ? spritesMago[pose] : v.tipo === "cientifico" ? spritesCient[pose] : v.tipo === "obrero" ? spritesObrero[pose] : v.tipo === "maestro" ? spritesMaestro[v.modo === "clase" ? (Math.floor(v.animT * 5) % 2 ? 2 : 3) : pose] : v.tipo === "astronauta" ? spritesAstro[pose] : v.tipo === "trader" ? spritesTrader[v.modo === "llama" ? (Math.floor(v.tLlama * 6) % 2 ? 2 : 3) : pose] : spritesHongo[v.col][pose];
+      : v.tipo === "jardinero" ? spritesJard[pose] : v.tipo === "atleta" ? spritesAtl[pose] : v.tipo === "mago" ? spritesMago[pose] : v.tipo === "cientifico" ? spritesCient[pose] : v.tipo === "obrero" ? spritesObrero[pose] : v.tipo === "maestro" ? spritesMaestro[v.modo === "clase" ? (Math.floor(v.animT * 5) % 2 ? 2 : 3) : pose] : v.tipo === "astronauta" ? spritesAstro[pose] : v.tipo === "trader" ? spritesTrader[v.modo === "llama" ? (Math.floor(v.tLlama * 6) % 2 ? 2 : 3) : pose] : spritesHongo[pose];
     const alto = HH + Math.round(v.estira);
     const x = Math.round(v.x);
     g.globalAlpha = v.alfa;
     g.save();
     if (v.dir < 0) { g.translate(x, 0); g.scale(-1, 1); g.translate(-x, 0); }
     g.drawImage(v.acidoT > 0 ? verde(spr) : spr, x - 4, base - alto, HW, alto);
+    // lunares blancos sobre el sombrero (acompañan el estiramiento del salto)
+    g.fillStyle = BLANCO;
+    const esc = alto / HH;
+    for (const [lx, ly] of v.lunares) g.fillRect(x - 4 + lx, base - alto + Math.round(ly * esc), 1, Math.max(1, Math.round(esc)));
     g.restore();
     g.globalAlpha = 1;
     if (v.tipo === "mago") {
@@ -1991,7 +2008,7 @@ export function crearEscena(canvas, opciones = {}) {
     }
     if (v.llevando) {
       const ox = x + (v.dir > 0 ? 1 : -1), oy = base - alto - 3 + Math.round(Math.sin(t * 6 + v.i));
-      disco(ox, oy, 2, PALETA[v.col]);
+      disco(ox, oy, 2, colHongo(v));
     }
   }
 

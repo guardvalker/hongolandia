@@ -1,5 +1,13 @@
 export const CHANGELOG = [
   {
+    v: "0.23.0",
+    fecha: "2026-10-04",
+    cambios: [
+      "Los honguitos básicos ahora son todos de sombrero rojo (antes eran de varios colores), y sus esporas también son rojas.",
+      "Todos los honguitos, básicos incluidos, tienen 2 o 3 lunares blancos en el sombrero, en posiciones al azar distintas para cada uno, como un hongo de verdad (y como el hongo madre).",
+    ],
+  },
+  {
     v: "0.22.7",
     fecha: "2026-10-04",
     cambios: [

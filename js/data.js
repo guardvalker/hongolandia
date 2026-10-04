@@ -128,7 +128,7 @@ export const PRESTIGIO = { base: D(1000), crecimiento: 1.55 };
 
 // Tipos de honguitos. `sprite` = archivo en assets/ (sin .png). `casa` = edificio donde se compran.
 const HONG_DEF = [
-  { id: "basico", tier: 0, nombre: "Honguito", sprite: "honguito", desc: "Carga esporas al hongo madre.", color: "#ff6fb5" },
+  { id: "basico", tier: 0, nombre: "Honguito", sprite: "honguito", desc: "Carga esporas al hongo madre.", color: "#e8362f" },
   { id: "maestro", tier: 1, nombre: "Maestro", sprite: "maestro", desc: "Pasea con sus alumnitos y les da clase; tras varias clases alguno se gradúa y salen esporas.", color: "#b5e61d", casa: "escuela" },
   { id: "musico", tier: 2, nombre: "Músico", sprite: "musico", desc: "Canta cada tanto y su música rinde esporas.", color: "#a77bff", casa: "conservatorio" },
   { id: "cientifico", tier: 3.5, tierCosto: 2.5, inv: 1, nombre: "Científico", sprite: "cientifico", desc: "Hace experimentos y genera investigación: cuantos más hay, más rápido se investiga.", color: "#2fd4c4", casa: "universidad" },
