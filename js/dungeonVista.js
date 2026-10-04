@@ -176,6 +176,15 @@ export function crearVistaDungeon({ rectMina, onCerrarAviso }) {
   caja.hidden = true;
   caja.innerHTML = '<div class="dv-cab"><b class="dv-titulo"></b><span class="dv-estado"></span></div><div class="dv-barra"></div><div class="dv-lienzo"><canvas width="' + W + '" height="' + H + '"></canvas><div class="dv-aviso" hidden></div><div class="dv-fin" hidden></div></div><div class="dv-pie"></div>';
   document.body.append(caja);
+  // se puede plegar tocando la ventana: queda solo la barra de progreso
+  let plegada = false;
+  try { plegada = localStorage.getItem('hongolandia-dv-plegada') === '1'; } catch (_) {}
+  caja.classList.toggle('plegada', plegada);
+  caja.addEventListener('click', () => {
+    plegada = !plegada;
+    caja.classList.toggle('plegada', plegada);
+    try { localStorage.setItem('hongolandia-dv-plegada', plegada ? '1' : '0'); } catch (_) {}
+  });
   const titulo = caja.querySelector(".dv-titulo"), estado = caja.querySelector(".dv-estado"), barra = caja.querySelector(".dv-barra"), pie = caja.querySelector(".dv-pie");
   const cv = caja.querySelector("canvas"), g = cv.getContext("2d"), elAviso = caja.querySelector(".dv-aviso"), elFin = caja.querySelector(".dv-fin");
   g.imageSmoothingEnabled = false;
@@ -321,7 +330,7 @@ export function crearVistaDungeon({ rectMina, onCerrarAviso }) {
         + (f.caidos.length ? '<em>' + f.caidos.length + (f.caidos.length === 1 ? ' herido' : ' heridos') + ' (descansan en la taberna)</em>' : '');
       elFin.hidden = false;
     }
-    dibujar(r, Math.min(dt, 0.1));
+    if (!plegada) dibujar(r, Math.min(dt, 0.1));
   }
   return { actualizar };
 }

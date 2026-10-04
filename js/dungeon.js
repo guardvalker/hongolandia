@@ -5,6 +5,7 @@
 
 import { D } from './decimal.js';
 import { produccionPorSeg } from './engine.js';
+import { arteA, arteM } from './artefactos.js';
 
 export const PARTY_MAX = 4;
 export const ETAPAS_DUNGEON = 5;
@@ -107,7 +108,7 @@ function crearUnidad(base, extra) {
   return { vivo: true, cd: rnd(0.2, 1), x: 0, golpe: 0, escudo: 0, veneno: null, esp: rnd(2, 5), ...base, ...extra };
 }
 function mercUnidad(state, id, slot, m) {
-  const info = state.dungeon.merc[id], st = mercStats(id, info.nivel), c = CLASE[id];
+  const info = state.dungeon.merc[id], st0 = mercStats(id, info.nivel), c = CLASE[id], bono = 1 + arteA(state, "dung_stats"), st = { hp: st0.hp * bono, atk: st0.atk * bono };
   return crearUnidad({ lado: "p", id, clase: id, color: c.color, nombre: c.nombre, hpMax: st.hp, hp: st.hp, atkBase: st.atk, defBase: c.def, intBase: c.int, rango: c.rango, slot }, {});
 }
 // estadísticas efectivas con los objetos de la exploración y el aura del bardo
@@ -132,7 +133,7 @@ export function iniciar(state) {
   const ids = sanos(state).slice(0, PARTY_MAX);
   if (!ids.length) return false;
   run = {
-    t: 0, etapa: 0, onda: 0, fase: "camina", faseT: 0, x: 0, n: ids.length, vel: 1 + 0.12 * nivelTab(state, "tab_vel"),
+    t: 0, etapa: 0, onda: 0, fase: "camina", faseT: 0, x: 0, n: ids.length, vel: 1 + 0.12 * nivelTab(state, "tab_vel") + arteA(state, "dung_vel"),
     party: ids.map((id, i) => mercUnidad(state, id, i)), enemigos: [], aliados: [], items: [], mult: { atk: 1, def: 0, hp: 1, cd: 1, recompensa: 1, crit: 0, esquiva: 0 },
     eventos: [], botinExtra: 0, etapasHechas: 0, jefe: false, itemNuevo: null, fin: null, finT: 0,
   };
@@ -273,11 +274,11 @@ function actuarEnemigo(r, u, dt) {
 function cerrar(state, r, victoria) {
   // recompensas: esporas por cada etapa superada (más con el party lleno y con los objetos) y cristal si cayó el jefe
   const p = produccionPorSeg(state);
-  const suerte = 0.07 * nivelTab(state, "tab_suerte");
+  const suerte = 0.07 * nivelTab(state, "tab_suerte") + arteA(state, "dung_cristal");
   const partyMult = 1 + 0.35 * (r.n - 1);
   let esporas = D(0);
   for (let k = 1; k <= r.etapasHechas; k++) esporas = esporas.add(p.mul(6 * k));
-  esporas = esporas.mul(partyMult * r.mult.recompensa * (1 + r.botinExtra));
+  esporas = esporas.mul(partyMult * r.mult.recompensa * (1 + r.botinExtra) * arteM(state, "dung_rec"));
   if (esporas.lt(1)) esporas = D(r.etapasHechas > 0 ? 1 : 0);
   state.esporas = state.esporas.add(esporas);
   state.total = state.total.add(esporas);
@@ -288,7 +289,7 @@ function cerrar(state, r, victoria) {
     if (cristal) state.dungeon.cristales++;
   }
   // heridos: los que cayeron quedan fuera varias exploraciones; los demás heridos avanzan un paso hacia curarse
-  const curacion = Math.max(1, 3 - nivelTab(state, "tab_cura"));
+  const curacion = Math.max(1, 3 - nivelTab(state, "tab_cura") - arteA(state, "dung_cura"));
   const caidos = [];
   const participaron = new Set(r.party.map((u) => u.id));
   for (const id in state.dungeon.merc) {
@@ -296,7 +297,7 @@ function cerrar(state, r, victoria) {
     const u = r.party.find((q) => q.id === id);
     if (u && u.ko) { m.herido = curacion; caidos.push(id); }
     else if (m.herido > 0) m.herido--;
-    if (participaron.has(id)) { m.nivel = Math.min(60, m.nivel + 1 + (r.jefe ? 1 : 0)); m.exp = (m.exp || 0) + 1; }
+    if (participaron.has(id)) { m.nivel = Math.min(60, m.nivel + 1 + (r.jefe ? 1 : 0) + arteA(state, "dung_nivel")); m.exp = (m.exp || 0) + 1; }
   }
   state.dungeon.expediciones++;
   if (victoria) state.dungeon.victorias = (state.dungeon.victorias || 0) + 1; else state.dungeon.derrotas = (state.dungeon.derrotas || 0) + 1;

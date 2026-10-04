@@ -1,5 +1,16 @@
 export const CHANGELOG = [
   {
+    v: "0.39.0",
+    fecha: "2026-10-04",
+    cambios: [
+      "La ventana de la exploración de la dungeon se puede plegar tocándola: queda solo el título y la barra de 5 etapas. Recuerda cómo la dejaste.",
+      "Eventos arcanos de los magos: desde que tenés 10 magos en la Torre, cada tanto pasa algo en el mapa (más seguido con más magos). Hay un aviso arriba con el evento en curso.",
+      "Tormenta de esporas: llueven esporas de colores y la producción se multiplica durante unos segundos. Lluvia de meteoritos: caen del cielo; los que impactan dejan un cráter y le sacan producción un rato al edificio que golpean (y a sus honguitos); los destruidos en el aire dejan esporas. Mercader hongil: viene caminando, tocalo y te ofrece 5 artefactos al azar de un total de 50; podés quedarte con uno solo y sus efectos duran hasta el próximo prestigio. Invasión de criaturas: ladrones de esporas corren hacia el hongo madre; tocalos para derribarlos. Los que lleguen roban parte del progreso del nivel actual de la barra de prestigio (nunca te bajan de nivel).",
+      "50 artefactos distintos, cada uno con su ícono de píxeles: suben la producción de cada tipo de honguito o de todos, abaratan honguitos, edificios y mejoras, bajan los umbrales de hitos, mejoran los eventos del cielo, la minería, la luna, la dungeon (velocidad, recompensa, cristales, curación, niveles, fuerza) y los eventos de los magos, alargan las invasiones, dan más botín, interceptan meteoritos y premian tener muchos edificios o honguitos básicos.",
+      "La primera invasión desbloquea la Barraca hongil: ahí se hacen soldados que defienden solos las invasiones (salen corriendo a pelear con los ladrones; no producen esporas) y tiene mejoras de entrenamiento, alerta y botín. Desde la Barraca se puede construir la Torre de defensa hongil (muy cara): cañón que derriba criaturas y, con sus mejoras, una cúpula que intercepta meteoritos y un refuerzo que reduce el daño de los que igual caen.",
+    ],
+  },
+  {
     v: "0.38.0",
     fecha: "2026-10-04",
     cambios: [

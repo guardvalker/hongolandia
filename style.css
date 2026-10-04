@@ -230,7 +230,7 @@ body.transp #hoja-cerrar { background: rgba(45, 45, 64, .6); }
 .dps-fila[hidden] { display: none; }
 
 /* ventana de la exploración de la dungeon: fija arriba a la derecha y siempre del mismo tamaño */
-#dungeon-vista { position: fixed; z-index: 4; right: 12px; top: 112px; width: 408px; max-width: calc(100vw - 24px); padding: 6px; background: var(--panel); box-shadow: 0 0 0 2px #b06bff; pointer-events: none; }
+#dungeon-vista { position: fixed; z-index: 4; right: 12px; top: 112px; width: 408px; max-width: calc(100vw - 24px); padding: 6px; background: var(--panel); box-shadow: 0 0 0 2px #b06bff; cursor: pointer; }
 #dungeon-vista[hidden] { display: none; }
 .dv-lienzo { position: relative; }
 #dungeon-vista canvas { display: block; width: 100%; aspect-ratio: 150 / 78; image-rendering: pixelated; background: #14141d; }
@@ -285,3 +285,18 @@ body.transp #hoja-cerrar { background: rgba(45, 45, 64, .6); }
 .obj { cursor: pointer; }
 
 .fila.plegable .fila-info span { white-space: pre-line; }
+
+#dungeon-vista.plegada .dv-lienzo, #dungeon-vista.plegada .dv-pie { display: none; }
+#dungeon-vista.plegada .dv-barra { margin-bottom: 0; }
+#dungeon-vista.plegada .dv-cab { padding-bottom: 3px; }
+.dv-cab::after { content: "▾"; color: var(--dim); margin-left: 6px; }
+#dungeon-vista.plegada .dv-cab::after { content: "▸"; }
+
+#evento-aviso { position: fixed; z-index: 5; left: 50%; top: calc(env(safe-area-inset-top) + 104px); transform: translateX(-50%); max-width: calc(100vw - 24px); padding: 6px 14px; text-align: center; background: var(--panel); font-size: 16px; color: #fff; box-shadow: 0 0 0 2px #c58aff; pointer-events: none; }
+#evento-aviso[hidden] { display: none; }
+#evento-aviso.ev-tormenta { box-shadow: 0 0 0 2px #7a3cc0; color: #d8b8ff; }
+#evento-aviso.ev-meteoros { box-shadow: 0 0 0 2px #ff8a1f; color: #ffcf9a; }
+#evento-aviso.ev-mercader { box-shadow: 0 0 0 2px #ffd23f; color: #ffe98a; }
+#evento-aviso.ev-invasion { box-shadow: 0 0 0 2px #ff5a5a; color: #ffb0b0; animation: parpadeo .8s steps(2) infinite; }
+@keyframes parpadeo { 50% { filter: brightness(1.5); } }
+.fila .arte-ico { width: 27px; height: 27px; image-rendering: pixelated; flex: none; }

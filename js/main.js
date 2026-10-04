@@ -4,6 +4,7 @@ import { fmt } from './format.js';
 import { crearEscena } from './scene.js';
 import { crearUI, ajustes } from './ui.js';
 import { tick as tickDungeon, consumirResultado } from './dungeon.js';
+import { tick as tickEventos, consumirResultadoEvento, golpearCriatura, forzarEvento } from './eventos.js';
 import { crearVistaDungeon } from './dungeonVista.js';
 
 import { EDIFICIOS } from './data.js';
@@ -144,6 +145,8 @@ canvas.addEventListener("click", (e) => {
   const hit = escena.toque(e.clientX - r.left, e.clientY - r.top);
   if (hit && hit.quien === "evento") { escena.tomarEvento(hit.ev); aplicarEvento(hit.ev.tipo); return; }
   if (ui.hojaAbierta()) return;
+  if (hit && hit.quien === "criatura") { golpearCriatura(state, hit.c); return; }
+  if (hit && hit.quien === "mercader") { ui.mostrarMercader(); return; }
   if (hit && hit.quien === "puerta") { ui.mostrarDungeon(false); return; }
   if (hit && hit.quien === "madre") {
     escena.pulsoMadre();
@@ -160,11 +163,19 @@ let ultimoEco = performance.now();
 function economia(ahora) {
   const dt = Math.min((ahora - ultimoEco) / 1000, maxAusencia(state));
   ultimoEco = ahora;
-  if (dt > 0) { tick(state, dt); tickDungeon(state, dt); }
+  if (dt > 0) { tick(state, dt); tickDungeon(state, dt); tickEventos(state, dt); }
   return dt;
 }
 // la exploración de la dungeon terminó: aviso con lo que se ganó y los mercenarios vuelven festejando
+function resultadoEvento() {
+  const r = consumirResultadoEvento();
+  if (!r) return;
+  if (r.tipo === "invasion") ui.toast(r.robadas ? `Los ladrones robaron parte de tu barra de prestigio (${r.robadas} de ${r.total})` + (r.derribadas ? ` · derribadas ${r.derribadas}` : "") : `¡Invasión repelida! ${r.derribadas} criaturas derribadas +${fmt(r.esporas)} esporas`);
+  else if (r.tipo === "meteoros") ui.toast(`Lluvia de meteoritos: ${r.interceptados} destruidos, ${r.impactos} impactos`);
+  guardar(state);
+}
 function resultadoDungeon() {
+  resultadoEvento();
   const r = consumirResultado();
   if (!r) return;
   ui.toast(r.victoria ? "¡Dungeon superada!" + (r.cristal ? " ¡Cristal radiante!" : "") + (r.esporas.gt(0) ? " +" + fmt(r.esporas) + " esporas" : "")
@@ -178,6 +189,9 @@ setInterval(() => {
   revisarHitos(state);
   resultadoDungeon();
 }, 1000);
+
+const forzado = new URLSearchParams(location.search).get("arcano");
+if (forzado) setTimeout(() => forzarEvento(state, forzado), 2500);
 
 let proximoHud = 0;
 function frame(ahora) {

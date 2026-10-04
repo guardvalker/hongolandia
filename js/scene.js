@@ -3,7 +3,7 @@
 // del arte) y se escala con un factor entero sin suavizado. No hay sprites ni fotogramas:
 // los honguitos son un bitmap diminuto que se mueve con rebotes y estiramientos por código.
 
-const TIPOS_VISUALES = ['basico', 'musico', 'jardinero', 'atleta', 'trader', 'astronauta', 'maestro', 'obrero', 'cientifico', 'mago', 'minero']; // el número dibujado por tipo lo da el ajuste "honguitos visibles" (el real puede ser enorme)
+const TIPOS_VISUALES = ['basico', 'musico', 'jardinero', 'atleta', 'trader', 'astronauta', 'maestro', 'obrero', 'cientifico', 'mago', 'minero', 'soldado']; // el número dibujado por tipo lo da el ajuste "honguitos visibles" (el real puede ser enorme)
 let limiteVisibles = 20; // honguitos dibujados por tipo (Ajustes)
 const maxParticulas = () => 150 + limiteVisibles * 8;
 const maxBrotes = () => Math.max(6, limiteVisibles * 2); // honguitos pasajeros que dejan los jardineros
@@ -71,6 +71,8 @@ const TAM_BASE = {
   universidad: { w: 44, ch: 21, sw: 20, sh: 16 },
   mina: { w: 42, ch: 18, sw: 18, sh: 15 },
   taberna: { w: 46, ch: 20, sw: 20, sh: 16 },
+  barraca: { w: 46, ch: 19, sw: 20, sh: 15 },
+  torre_defensa: { w: 30, ch: 12, sw: 13, sh: 40 },
   torre: { w: 34, ch: 15, sw: 12, sh: 26, extra: 20 }, // extra: alto del sombrero de mago sobre el sombrero
 };
 const NOTA = ["..##.", "..#.#", "..#..", "..#..", "###..", "###.."];
@@ -86,6 +88,7 @@ const MADRE = [
 import { EDIFICIOS, HONGUITOS, ACIDO, EVENTOS, EVENTO_CFG } from './data.js';
 import { improd, velocidad, eventos, buffTipoActivo, efectos, prestigio } from './engine.js';
 import { getRun } from './dungeon.js';
+import { getEvento, consumirFx, setAlcance, nivelDef } from './eventos.js';
 import { dibujarMerc } from './dungeonVista.js';
 
 const MADRE_GRANDE = MADRE.map((m) => ({ w: Math.round(m.w * BONUS_CONSERV), ch: Math.round(m.ch * BONUS_CONSERV), sw: Math.round(m.sw * BONUS_CONSERV), sh: Math.round(m.sh * BONUS_CONSERV) }));
@@ -276,6 +279,14 @@ export function crearEscena(canvas, opciones = {}) {
     const x = c.getContext("2d");
     x.fillStyle = "#6b3d1e"; x.fillRect(0, 2, 9, 1);
     x.fillStyle = "#fff6a8"; x.fillRect(4, 0, 1, 1); x.fillRect(3, 1, 3, 1);
+    return c;
+  });
+  // soldado: sombrero verde oliva con casco de acero
+  const spritesSoldado = [0, 1].map((pose) => {
+    const c = hacerSprite("#8f9a5a", PATAS[pose], false);
+    const x = c.getContext("2d");
+    x.fillStyle = "#5a6a2a"; x.fillRect(0, 2, 9, 1);
+    x.fillStyle = "#d8d8ec"; x.fillRect(3, 0, 3, 1); x.fillRect(4, 1, 1, 1);
     return c;
   });
   // cristal hongil: un hongo de cristal 5x6 (sombrero con brillo y tallito pálido)
@@ -1234,6 +1245,111 @@ export function crearEscena(canvas, opciones = {}) {
     }
   }
 
+  // ---- Soldados de la barraca: salen a cazar a los ladrones de esporas ----
+  function actualizarSoldado(v, dt) {
+    const B = edif.barraca;
+    if (!B) return;
+    v.alfa = Math.min(1, v.alfa + dt * 2.5);
+    v.animT += dt;
+    v.hop = 0; v.estira = 0;
+    const e = getEvento();
+    let blanco = null;
+    if (e && e.tipo === "invasion") {
+      let dmin = 1e9;
+      for (const c of e.criaturas) { if (!c.vivo || c.ret > 0) continue; const d = Math.abs(madre.x + c.dx - v.x); if (d < dmin) { dmin = d; blanco = c; } }
+    }
+    if (blanco) {
+      const tx = madre.x + blanco.dx, d = tx - v.x;
+      v.dir = Math.sign(d) || v.dir;
+      if (Math.abs(d) > 7) { v.modo = "corre"; v.x += Math.sign(d) * VEL * 1.8 * dt; v.hop = Math.abs(Math.sin(v.animT * 14)) * 1.6; }
+      else { v.modo = "ataca"; if (Math.random() < dt * 8) part(tx, groundY - 6, v.dir * 14, -8, { tipo: "mota", dur: 0.3, col: "#fff", r: 1 }); }
+      return;
+    }
+    if (v.modo === "corre" || v.modo === "ataca") { v.modo = "idle"; v.espera = 0.5; }
+    if (v.modo === "idle") {
+      v.estira = Math.sin(v.animT * 3 + v.i) * 0.5;
+      v.espera -= dt;
+      if (v.espera <= 0) { v.meta = B.x + (Math.random() - 0.5) * 80; v.dir = Math.sign(v.meta - v.x) || 1; v.modo = "walk"; }
+    } else {
+      v.hop = Math.abs(Math.sin(v.animT * 11)) * 1.3;
+      const d = v.meta - v.x, paso = VEL * 0.6 * dt;
+      if (Math.abs(d) <= paso) { v.x = v.meta; v.modo = "idle"; v.espera = 1 + Math.random() * 3; } else v.x += Math.sign(d) * paso;
+    }
+  }
+
+  // ---- Eventos arcanos (tormenta de esporas, meteoritos, mercader, invasión) ----
+  const crateres = [], disparos = [];
+  let tormentaA = 0, cañonAng = -0.6, cañonRetro = 0, defCupula = 0, defCanon = 0;
+  const alturaTorreDef = () => { const m = tam("torre_defensa"); return m.sh + m.ch; };
+  function procesarArcano(dt) {
+    setAlcance(extent);
+    for (const e of consumirFx()) {
+      const x = madre.x + (e.dx || 0);
+      if (e.tipo === "impacto") {
+        motas(x, groundY - 2, 22, 1.8, "#ff8a1f"); motas(x, groundY - 2, 10, 1.2, "#ffe14d"); aroPart(x, groundY - 3, 26, 0.7);
+        crateres.push({ x, t: 12 }); flash = Math.max(flash, 0.22);
+        for (const v of visuales) if (Math.abs(v.x - x) < 40 && v.modo === "idle") v.espera = 3;
+      } else if (e.tipo === "inter") {
+        const y = groundY - Hc * 0.4;
+        motas(x, y, 14, 1.3, "#7fe9ff"); aroPart(x, y, 16, 0.5);
+        if (e.torre && edif.torre_defensa) { disparos.push({ x0: edif.torre_defensa.x, y0: groundY - alturaTorreDef(), x1: x, y1: y, t: 0 }); cañonAng = Math.atan2(y - (groundY - alturaTorreDef()), x - edif.torre_defensa.x); cañonRetro = 0.2; }
+      } else if (e.tipo === "kill") {
+        motas(x, groundY - 5, 9, 1, "#c58aff"); aroPart(x, groundY - 5, 10, 0.4);
+        if (e.por === "torre" && edif.torre_defensa) { disparos.push({ x0: edif.torre_defensa.x, y0: groundY - alturaTorreDef(), x1: x, y1: groundY - 5, t: 0 }); cañonAng = Math.atan2(groundY - 5 - (groundY - alturaTorreDef()), x - edif.torre_defensa.x); cañonRetro = 0.2; }
+      } else if (e.tipo === "robo") { motas(x, groundY - 6, 14, 1.5, "#ffd23f"); aroPart(madre.x, groundY - 12, 34, 0.6); flash = Math.max(flash, 0.3); }
+      else if (e.tipo === "golpe") motas(x, groundY - 6, 4, 0.7, "#fff");
+    }
+    const ev = getEvento();
+    tormentaA += ((ev && ev.tipo === "tormenta" ? 0.16 : 0) - tormentaA) * Math.min(1, dt * 1.5);
+    if (ev && ev.tipo === "tormenta") {
+      for (let i = 0, k = dt * 60 + Math.random(); i < k; i++) part(camX - Wc / 2 + Math.random() * Wc, -offY() - 4, (Math.random() - 0.5) * 10, 10 + Math.random() * 24, { tipo: "mota", dur: 2.6 + Math.random(), col: PALETA[Math.floor(Math.random() * PALETA.length)], r: Math.random() < 0.3 ? 2 : 1 });
+    }
+    for (let i = crateres.length - 1; i >= 0; i--) { crateres[i].t -= dt; if (crateres[i].t <= 0) crateres.splice(i, 1); }
+    for (let i = disparos.length - 1; i >= 0; i--) { disparos[i].t += dt; if (disparos[i].t > 0.25) disparos.splice(i, 1); }
+    cañonRetro = Math.max(0, cañonRetro - dt);
+  }
+  function dibujarMercader(e) {
+    const x = Math.round(madre.x + e.dx), dir = Math.sign(e.meta - e.dx) || (e.dx < 0 ? 1 : -1), camina = e.estado !== "espera";
+    const bob = camina ? Math.round(Math.abs(Math.sin(t * 9)) * 1.5) : 0, y = groundY - bob;
+    // mochila grande, sombrero ancho morado con moneda, bigote
+    g.fillStyle = "#8a5a2a"; g.fillRect(x - dir * 7, y - 12, 6, 9); g.fillStyle = "#c28a4f"; g.fillRect(x - dir * 7, y - 12, 6, 2); g.fillStyle = "#ffd23f"; g.fillRect(x - dir * 6, y - 8, 4, 3);
+    g.fillStyle = "#6a2fa8"; g.fillRect(x - 6, y - 11, 13, 2); g.fillRect(x - 4, y - 14, 9, 3); g.fillRect(x - 2, y - 16, 5, 2);
+    g.fillStyle = "#ffd23f"; g.fillRect(x - 1, y - 12, 3, 2);
+    g.fillStyle = "#fff"; g.fillRect(x - 4, y - 9, 9, 6);
+    g.fillStyle = "#1d1d2a"; g.fillRect(x - 2, y - 8, 1, 1); g.fillRect(x + 2, y - 8, 1, 1);
+    g.fillStyle = "#5a3a1a"; g.fillRect(x - 3, y - 6, 7, 1);
+    g.fillStyle = "#fff"; g.fillRect(x - 3, y - 3 + (camina ? Math.floor(t * 9) % 2 : 0), 2, 3); g.fillRect(x + 2, y - 3 + (camina ? 1 - (Math.floor(t * 9) % 2) : 0), 2, 3);
+    if (e.estado === "espera") { // cartel de «tocame»
+      const sal = Math.round(Math.sin(t * 5) * 2);
+      g.fillStyle = "#ffd23f"; g.fillRect(x - 1, y - 27 + sal, 3, 6); g.fillRect(x - 1, y - 19 + sal, 3, 2);
+      g.globalAlpha = 0.18 + 0.1 * Math.sin(t * 4); disco(x, y - 8, 14, "#ffd23f"); g.globalAlpha = 1;
+    }
+  }
+  function dibujarCriatura(c) {
+    const x = Math.round(madre.x + c.dx), dir = c.dx < 0 ? 1 : -1, bob = Math.round(Math.abs(Math.sin(t * 13 + c.dx)) * 2), y = groundY - bob;
+    g.fillStyle = "#3a1f55"; g.fillRect(x - 4, y - 7, 9, 6); g.fillRect(x - 3, y - 8, 7, 1); g.fillRect(x - 3, y - 2 + (Math.floor(t * 14 + c.dx) % 2), 2, 2); g.fillRect(x + 2, y - 2 + ((Math.floor(t * 14 + c.dx) + 1) % 2), 2, 2);
+    g.fillStyle = "#ff3b3b"; g.fillRect(x - 2 + (dir > 0 ? 1 : 0), y - 6, 2, 2); g.fillRect(x + 1 + (dir > 0 ? 1 : 0), y - 6, 2, 2);
+    g.fillStyle = "#8a5a2a"; g.fillRect(x - dir * 6, y - 9, 4, 5); g.fillStyle = "#ffd23f"; g.fillRect(x - dir * 5, y - 7, 2, 2); // saco de esporas robadas
+    g.fillStyle = "#14141d"; g.fillRect(x - 4, y - 12, 9, 2); g.fillStyle = "#ff5a5a"; g.fillRect(x - 3, y - 12, 7, 1);
+    if (c.hp > 1) { g.fillStyle = "#fff"; g.fillRect(x - 3, y - 12, Math.min(7, c.hp), 1); }
+  }
+  function dibujarArcano() {
+    for (const c of crateres) { g.globalAlpha = Math.min(1, c.t / 3); g.fillStyle = "#14141d"; g.fillRect(Math.round(c.x) - 5, groundY, 11, 2); g.fillStyle = "#3a2a1a"; g.fillRect(Math.round(c.x) - 3, groundY - 1, 7, 1); g.globalAlpha = 1; }
+    const e = getEvento();
+    if (e && e.tipo === "meteoros") {
+      for (const m of e.meteoros) {
+        if (m.estado !== "cae") continue;
+        const p = clamp(m.t / m.caida, 0, 1), y0 = -offY() - 24, x1 = madre.x + m.dx, hx = x1 + (1 - p) * 110, hy = y0 + (groundY - y0) * p * p;
+        for (let k = 14; k >= 1; k--) { const q = clamp(p - k * 0.025, 0, 1); g.globalAlpha = 0.6 * (1 - k / 15); g.fillStyle = k < 6 ? "#ffe14d" : "#ff8a1f"; g.fillRect(Math.round(x1 + (1 - q) * 110) - 2, Math.round(y0 + (groundY - y0) * q * q) - 2, 5, 5); }
+        g.globalAlpha = 0.25; disco(Math.round(hx), Math.round(hy), 11, "#ff8a1f"); g.globalAlpha = 1;
+        g.fillStyle = "#ff8a1f"; g.fillRect(Math.round(hx) - 4, Math.round(hy) - 4, 9, 9); g.fillStyle = "#ffe14d"; g.fillRect(Math.round(hx) - 3, Math.round(hy) - 3, 6, 6); g.fillStyle = "#fff"; g.fillRect(Math.round(hx) - 1, Math.round(hy) - 1, 3, 3);
+      }
+    }
+    if (e && e.tipo === "mercader") dibujarMercader(e);
+    if (e && e.tipo === "invasion") for (const c of e.criaturas) if (c.vivo && c.ret <= 0) dibujarCriatura(c);
+    for (const d of disparos) { const k = d.t / 0.25; g.fillStyle = "#7fe9ff"; for (let i = 0; i < 6; i++) { const q = clamp(k * 1.4 - i * 0.07, 0, 1); g.fillRect(Math.round(d.x0 + (d.x1 - d.x0) * q), Math.round(d.y0 + (d.y1 - d.y0) * q), 2, 2); } }
+  }
+
   // ---- Taberna: mercenarios ----
   function sincronizarMercs(dt) {
     const tab = edif.taberna;
@@ -1772,6 +1888,8 @@ export function crearEscena(canvas, opciones = {}) {
     luzDt = dtG;
     mercInfo = state.dungeon?.merc || {};
     sincronizarMercs(dtG);
+    procesarArcano(dtG);
+    defCupula = nivelDef(state, "def_cupula"); defCanon = nivelDef(state, "def_canon");
     sincronizarMina(dtG);
     for (const v of visuales) {
       const dt = (v.acidoT > 0 ? dtG * 0.6 : dtG) * (velTipo[v.tipo] || 1); // mojados: más lentos; mejoras de velocidad: más rápidos
@@ -1790,6 +1908,7 @@ export function crearEscena(canvas, opciones = {}) {
       if (v.tipo === "cientifico") { actualizarCientifico(v, dt); continue; }
       if (v.tipo === "mago") { actualizarMago(v, dt); continue; }
       if (v.tipo === "minero") { actualizarMinero(v, dt); continue; }
+      if (v.tipo === "soldado") { actualizarSoldado(v, dt); continue; }
       v.alfa = Math.min(1, v.alfa + dt * 2.5);
       v.animT += dt;
       v.hop = 0;
@@ -2282,6 +2401,34 @@ export function crearEscena(canvas, opciones = {}) {
       g.fillStyle = "#2a2a3c"; g.fillRect(px - 4, top + 3, 9, 3); g.fillRect(px - 3, top + 6, 7, 0);
       g.fillStyle = Math.floor(t * 1.5) % 2 ? "#7fff3a" : "#c06bff"; g.fillRect(px - 4, top + 1, 9, 1);
       g.fillStyle = "#e9ffd0"; const bb = Math.floor(t * 5); g.fillRect(px - 3 + (bb % 5), top - (bb % 2), 1, 1); g.fillRect(px + 2 - (bb % 4), top - 1 + (bb % 3 === 0 ? 1 : 0), 1, 1);
+    } else if (id === "barraca") {
+      // estandarte en lo alto, escudos en el sombrero, portón con rastrillo y empalizada de estacas a los costados
+      g.fillStyle = "#6a4a2a"; g.fillRect(cx, capBase - ch - 11, 1, 11);
+      const on = Math.floor(t * 4) % 2;
+      g.fillStyle = "#e8362f"; g.fillRect(cx + 1, capBase - ch - 11, 7, 4); g.fillRect(cx + 1 + on, capBase - ch - 7, 5, 1);
+      g.fillStyle = "#ffd23f"; g.fillRect(cx + 3, capBase - ch - 10, 2, 2);
+      [[-12, 8], [0, 12], [12, 8]].forEach(([dx, dy]) => { g.fillStyle = "#d8d8ec"; g.fillRect(cx + dx - 2, capBase - dy - 3, 5, 5); g.fillStyle = col; g.fillRect(cx + dx - 1, capBase - dy - 2, 3, 3); g.fillStyle = "#fff"; g.fillRect(cx + dx, capBase - dy - 3, 1, 5); });
+      g.fillStyle = "#3a2410"; g.fillRect(cx - 4, groundY - 10, 9, 10);
+      g.fillStyle = "#8a8aa8"; for (let k = 0; k < 4; k++) g.fillRect(cx - 4 + k * 3, groundY - 10, 1, 8); for (const yy of [groundY - 8, groundY - 4]) g.fillRect(cx - 4, yy, 9, 1);
+      for (const lado of [-1, 1]) for (let k = 0; k < 4; k++) { const sx = cx + lado * (mitad + 4 + k * 3); g.fillStyle = "#8a5a2a"; g.fillRect(sx, groundY - 8, 2, 8); g.fillStyle = "#c28a4f"; g.fillRect(sx, groundY - 9, 2, 1); }
+    } else if (id === "torre_defensa") {
+      // torre de piedra con troneras, cañón de esporas que apunta a su blanco y, con la mejora, una cúpula contra meteoritos
+      for (let yy = capBase + 3; yy < groundY - 2; yy += 6) { g.fillStyle = "#8a8aa8"; g.fillRect(cx - mitad + 1, yy, mitad * 2 - 2, 1); }
+      for (const yy of [capBase + 8, capBase + 20]) { g.fillStyle = "#14141d"; g.fillRect(cx - 1, yy, 2, 5); }
+      g.fillStyle = "#3a2410"; g.fillRect(cx - 2, groundY - 6, 5, 6);
+      const by = capBase - ch - 2, rec = cañonRetro > 0 ? -2 : 0;
+      g.fillStyle = "#6a6a88"; g.fillRect(cx - 4, by - 1, 9, 4); g.fillStyle = "#4a4a66"; g.fillRect(cx - 3, by - 3, 7, 2);
+      g.fillStyle = "#2a2a3c";
+      for (let k = 0; k < 10; k++) g.fillRect(Math.round(cx + Math.cos(cañonAng) * (k + rec)) - 1, Math.round(by - 2 + Math.sin(cañonAng) * (k + rec)) - 1, 3, 3);
+      if (cañonRetro > 0.12) { g.fillStyle = "#ffe14d"; g.fillRect(Math.round(cx + Math.cos(cañonAng) * 11) - 1, Math.round(by - 2 + Math.sin(cañonAng) * 11) - 1, 4, 4); }
+      if (defCupula > 0) { // cúpula protectora
+        const rr = Math.round(m.w * 0.8 + defCupula * 2), cy2 = capBase - 4;
+        g.globalAlpha = 0.12 + 0.08 * (0.5 + 0.5 * Math.sin(t * 2));
+        g.fillStyle = "#7fe9ff";
+        for (let dy = 0; dy < rr; dy++) { const w = Math.floor(Math.sqrt(rr * rr - dy * dy)); g.fillRect(cx - w, cy2 - dy, 2, 1); g.fillRect(cx + w - 2, cy2 - dy, 2, 1); }
+        g.fillRect(cx - rr, cy2, rr * 2, 1);
+        g.globalAlpha = 1;
+      }
     } else if (id === "taberna") {
       // pendón en lo alto, cartel colgante con una jarra, ventanas cálidas, puerta doble y barriles
       g.fillStyle = "#8a5a2a"; g.fillRect(cx, capBase - ch - 9, 1, 9);
@@ -2584,7 +2731,7 @@ export function crearEscena(canvas, opciones = {}) {
     const base = Math.round(groundY + (v.yOff || 0) - v.hop);
     const pose = v.modo === "walk" ? (Math.floor(v.animT * 11) % 2) : 0;
     const spr = v.tipo === "musico" ? spritesMusico[v.modo === "canta" ? [0, 2, 3, 2][Math.floor(v.tCanta * 8) % 4] : pose]
-      : v.tipo === "jardinero" ? spritesJard[pose] : v.tipo === "atleta" ? spritesAtl[pose] : v.tipo === "mago" ? spritesMago[pose] : v.tipo === "minero" ? spritesMinero[pose] : v.tipo === "cientifico" ? spritesCient[pose] : v.tipo === "obrero" ? spritesObrero[pose] : v.tipo === "maestro" ? spritesMaestro[v.modo === "clase" ? (Math.floor(v.animT * 5) % 2 ? 2 : 3) : pose] : v.tipo === "astronauta" ? spritesAstro[pose] : v.tipo === "trader" ? spritesTrader[v.modo === "llama" ? (Math.floor(v.tLlama * 6) % 2 ? 2 : 3) : pose] : spritesHongo[pose];
+      : v.tipo === "jardinero" ? spritesJard[pose] : v.tipo === "atleta" ? spritesAtl[pose] : v.tipo === "mago" ? spritesMago[pose] : v.tipo === "minero" ? spritesMinero[pose] : v.tipo === "soldado" ? spritesSoldado[v.modo === "corre" ? (Math.floor(v.animT * 10) % 2) : pose] : v.tipo === "cientifico" ? spritesCient[pose] : v.tipo === "obrero" ? spritesObrero[pose] : v.tipo === "maestro" ? spritesMaestro[v.modo === "clase" ? (Math.floor(v.animT * 5) % 2 ? 2 : 3) : pose] : v.tipo === "astronauta" ? spritesAstro[pose] : v.tipo === "trader" ? spritesTrader[v.modo === "llama" ? (Math.floor(v.tLlama * 6) % 2 ? 2 : 3) : pose] : spritesHongo[pose];
     const alto = HH + Math.round(v.estira);
     const x = Math.round(v.x);
     g.globalAlpha = v.alfa;
@@ -2597,6 +2744,13 @@ export function crearEscena(canvas, opciones = {}) {
     for (const [lx, ly] of v.lunares) g.fillRect(x - 4 + lx, base - alto + Math.round(ly * esc), 1, Math.max(1, Math.round(esc)));
     g.restore();
     g.globalAlpha = 1;
+    if (v.tipo === "soldado") {
+      // lanza al hombro y escudo redondo; al atacar embiste con la lanza
+      const lx = x + v.dir * 5 + (v.modo === "ataca" ? v.dir * Math.round(Math.abs(Math.sin(v.animT * 14)) * 3) : 0);
+      g.fillStyle = "#8a5a2a"; g.fillRect(lx, base - 15, 1, 15);
+      g.fillStyle = "#d8d8ec"; g.fillRect(lx - 1, base - 18, 3, 3);
+      g.fillStyle = "#6a4a2a"; g.fillRect(x - v.dir * 5 - 1, base - 7, 3, 5); g.fillStyle = "#c8c8dc"; g.fillRect(x - v.dir * 5, base - 6, 1, 3);
+    }
     if (v.tipo === "minero") {
       if ((v.yOff || 0) > 4) { // luz de la lámpara bajo tierra
         g.globalAlpha = 0.1; disco(x, base - 5, 13, "#ffe9a0"); g.globalAlpha = 0.12; disco(x, base - 5, 7, "#fff6a8"); g.globalAlpha = 1;
@@ -2787,11 +2941,13 @@ export function crearEscena(canvas, opciones = {}) {
     }
     for (const v of visuales) dibujarHonguito(v);
     dibujarMercs();
+    dibujarArcano();
     dibujarParticulas();
     dibujarEventos();
     if (colocando) dibujarEdificio(colocando.id, xLibre(colocando.x, tam(colocando.id).w, obstaculos(altoEdif(colocando.id), false)), 0.55);
     g.restore();
 
+    if (tormentaA > 0.005) { g.globalAlpha = tormentaA; g.fillStyle = "#7a3cc0"; g.fillRect(0, 0, Wc, Hc); g.globalAlpha = 1; }
     if (flash > 0.01) { g.globalAlpha = flash * 0.3; g.fillStyle = BLANCO; g.fillRect(0, 0, Wc, Hc); g.globalAlpha = 1; }
     ctx.imageSmoothingEnabled = false;
     ctx.setTransform(1, 0, 0, 1, 0, 0);
@@ -2807,6 +2963,9 @@ export function crearEscena(canvas, opciones = {}) {
       const n = mina.nodos[mina.puerta.nodo];
       if (Math.abs(cx - (edif.mina.x + n.x)) < 9 && cy > groundY + n.y - 20 && cy < groundY + n.y + 2) return { quien: "puerta" };
     }
+    const eA = getEvento();
+    if (eA && eA.tipo === "invasion") for (const c of eA.criaturas) if (c.vivo && c.ret <= 0 && Math.abs(cx - (madre.x + c.dx)) < 10 && cy > groundY - 20 && cy < groundY + 4) return { quien: "criatura", c };
+    if (eA && eA.tipo === "mercader" && eA.estado === "espera" && Math.abs(cx - (madre.x + eA.dx)) < 11 && cy > groundY - 28 && cy < groundY + 4) return { quien: "mercader" };
     for (const id in edif) {
       if (colocando?.mover && colocando.id === id) continue;
       const m = tam(id);

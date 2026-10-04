@@ -1,8 +1,10 @@
 import { iconoObjeto } from './dungeonVista.js';
+import { getEvento, DEF_MEJ, nivelDef, costoDef, comprarDef, ofertasMercader, precioArtefacto, comprarArtefacto, fuerzaSoldados, fuerzaTorre, probInterceptar, MAGOS_MIN } from './eventos.js';
+import { ARTEFACTOS, ARTE_POR_ID, iconoArtefacto, cantArte } from './artefactos.js';
 import { OBJETOS, escalaJefes, CLASES, TABERNA_MEJ, costoMerc, contratar, comprarTab, nivelTab, costoTab, sanos, iniciar as iniciarExploracion, getRun, PARTY_MAX, mercStats, CRISTAL_MULT } from './dungeon.js';
 import { HONGUITOS, MEJORAS, EDIFICIOS, TECNOLOGIAS, MEJ_EDIF, TEC_POR_ID, HITOS, NIVELES_TEC } from './data.js';
 import { fmt, fmtRate } from './format.js';
-import { factorAcido, produccionPorSeg, produccionPorTipo, prestigio, costoHonguito, costoHonguitos, maxHonguitos, comprarHonguitos, comprarMejora, tecDisponible, pctTec, invPorSeg, proximoHito, elegirInvestigacion, comprarMejoraEdificio, activarHabilidad, buffActivo, nivelMej, costoMej, durBuff, cdHabilidad, alternarSobrecarga, trabajoEf } from './engine.js';
+import { factorAcido, produccionPorSeg, produccionPorTipo, prestigio, costoHonguito, costoHonguitos, maxHonguitos, comprarHonguitos, comprarMejora, tecDisponible, pctTec, invPorSeg, proximoHito, costoEdificio, elegirInvestigacion, comprarMejoraEdificio, activarHabilidad, buffActivo, nivelMej, costoMej, durBuff, cdHabilidad, alternarSobrecarga, trabajoEf } from './engine.js';
 import { exportar, importar, borrarGuardado } from './state.js';
 import { CHANGELOG } from './changelog.js';
 
@@ -184,7 +186,7 @@ export function crearUI(api) {
     for (const id in HONGUITOS) {
       if (HONGUITOS[id].casa !== casa) continue;
       const n = api.estado().honguitos[id] || 0;
-      const sig = proximoHito(n);
+      const sig = proximoHito(n, api.estado());
       const nt = nota(sig ? `Hito: al llegar a ${sig} ${plural(id)} producen ×2 (tenés ${n}).` : `Todos los hitos de ${plural(id)} alcanzados.`);
       if (!sig) nt.classList.add("hecha");
     }
@@ -306,6 +308,7 @@ export function crearUI(api) {
   // ---- Edificio: honguitos propios, mejoras, habilidades, investigación ----
   function abrirCasa(id, ancla) {
     if (id === "taberna") { abrirTaberna(ancla); return; }
+    if (id === "barraca" || id === "torre_defensa") { abrirDefensa(id, ancla); return; }
     const reabrir = () => abrirCasa(id, ancla);
     abrir("casa", EDIFICIOS[id].nombre, () => {
       const mv = $("hoja-mover");
@@ -408,13 +411,13 @@ export function crearUI(api) {
     api.estado().flags.abrioMadre = true;
     abrir("madre", "Hongo madre", () => {
       filasHonguitos(undefined);
-      const edificios = Object.values(EDIFICIOS).filter((e) => !api.estado().edificios[e.id] && api.estado().total.gte(e.desbloqueo) && (!e.requiereFlag || api.estado().flags[e.requiereFlag]));
+      const edificios = Object.values(EDIFICIOS).filter((e) => !api.estado().edificios[e.id] && api.estado().total.gte(e.desbloqueo) && (!e.requiereFlag || api.estado().flags[e.requiereFlag]) && !e.desdeCasa);
       if (edificios.length) {
         seccion("Edificios");
         for (const ed of edificios) {
           const req = ed.requiere ? TEC_POR_ID[ed.requiere] : null, falta = req && !api.estado().mejoras[req.id];
           const f = fila(ed.nombre, ed.desc + (falta ? ` Requiere investigar «${req.nombre}» en la Universidad.` : ""), () => {
-            if (api.estado().esporas.lt(ed.costo) || (req && !api.estado().mejoras[req.id])) return;
+            if (api.estado().esporas.lt(costoEdificio(api.estado(), ed)) || (req && !api.estado().mejoras[req.id])) return;
             cerrar();
             api.colocar(ed.id);
           }, ed.color);
@@ -435,6 +438,110 @@ export function crearUI(api) {
         }
       }
     }, ancla);
+  }
+
+  // ---- Barraca y Torre de defensa: soldados, mejoras y construcción de la torre ----
+  function abrirDefensa(id, ancla) {
+    const reabrir = () => abrirDefensa(id, ancla);
+    const ed = EDIFICIOS[id];
+    abrir("casa", ed.nombre, () => {
+      const mv = $("hoja-mover");
+      mv.hidden = false;
+      mv.onclick = () => { cerrar(); api.mover(id); };
+      const info = nota("");
+      filas.push({ refresh: (st) => {
+        const ev = getEvento();
+        info.textContent = `Defensa: los soldados derriban ${fuerzaSoldados(st).toFixed(2).replace(".", ",")} criaturas/s` + (st.edificios.torre_defensa ? ` y la torre ${fuerzaTorre(st).toFixed(1).replace(".", ",")}` : "") + `. Meteoritos interceptados: ${Math.round(probInterceptar(st) * 100)}%. Invasiones repelidas: ${st.arcano.repelidas}/${st.arcano.invasiones}.` + (ev && ev.tipo === "invasion" ? " ¡Invasión en curso!" : "");
+      } });
+      if (id === "barraca") {
+        filasHonguitos("barraca");
+        seccion("Torre de defensa");
+        const t = EDIFICIOS.torre_defensa;
+        if (api.estado().edificios.torre_defensa) nota("✓ La torre de defensa ya está construida: tocala para ver sus mejoras.").classList.add("hecha");
+        else {
+          const f = fila(t.nombre, t.desc, () => { const st = api.estado(); if (st.esporas.lt(costoEdificio(st, t))) return; cerrar(); api.colocar("torre_defensa"); }, t.color);
+          f.refresh = (st) => { const c = costoEdificio(st, t); f.btn.textContent = fmt(c); f.btn.disabled = st.esporas.lt(c); };
+          filas.push(f);
+        }
+      }
+      seccion("Mejoras");
+      for (const m of DEF_MEJ.filter((x) => x.edificio === id)) {
+        const n = nivelDef(api.estado(), m.id);
+        if (n >= m.max) { nota("✓ " + m.nombre + ` (nivel ${m.max}) — ` + m.desc(m.max)).classList.add("hecha"); continue; }
+        const f = fila(`${m.nombre} · nivel ${n}/${m.max}`, m.desc(n + 1), () => { if (comprarDef(api.estado(), m.id)) { api.guardar(); reabrir(); } }, ed.color);
+        const pips = document.createElement("div");
+        pips.className = "pips";
+        for (let k = 0; k < m.max; k++) { const q = document.createElement("i"); if (k < n) q.className = k === n - 1 && f.el.classList.contains("flash") ? "on nuevo" : "on"; pips.append(q); }
+        f.el.querySelector(".fila-info").append(pips);
+        f.refresh = (st) => { const c = costoDef(st, m); f.btn.textContent = fmt(c); f.btn.disabled = st.esporas.lt(c); };
+        filas.push(f);
+      }
+    }, ancla, ed.color);
+  }
+
+  // ---- Mercader hongil: elegís 1 de 5 artefactos ----
+  function mostrarMercader() {
+    abrir("mercader", "Mercader hongil", () => {
+      const st0 = api.estado();
+      nota("«Artefactos únicos, directos del fondo de la mina de los sueños.» Podés quedarte con uno solo de los cinco; los efectos duran hasta el próximo prestigio.").classList.add("hecha");
+      seccion("Ofertas");
+      const ids = ofertasMercader(st0);
+      for (const id of ids) {
+        const a = ARTE_POR_ID[id];
+        const f = fila(a.nombre, a.desc, () => {
+          const st = api.estado();
+          if (comprarArtefacto(st, id)) { api.guardar(); toast("Compraste: " + a.nombre); cerrar(); }
+        }, "#c58aff");
+        const img = document.createElement("img");
+        img.className = "arte-ico";
+        img.src = iconoArtefacto(id, 3);
+        img.alt = "";
+        f.el.prepend(img);
+        f.refresh = (st) => { const c = precioArtefacto(st, id); f.btn.textContent = fmt(c); f.btn.disabled = st.esporas.lt(c); };
+        filas.push(f);
+      }
+      seccion(`Tus artefactos (${cantArte(st0)}/50)`);
+      const tiene = Object.keys(st0.arte.tienen);
+      if (!tiene.length) nota("Todavía no compraste ninguno.");
+      else {
+        const grid = document.createElement("div");
+        grid.className = "objs";
+        const detalle = nota("Tocá un artefacto para ver qué hace.");
+        for (const id of tiene) {
+          const a = ARTE_POR_ID[id];
+          const c = document.createElement("div");
+          c.className = "obj";
+          c.title = a.nombre;
+          c.innerHTML = '<img src="' + iconoArtefacto(id, 3) + '" alt=""><small>' + a.nombre + "</small>";
+          c.addEventListener("click", () => { detalle.textContent = a.nombre + ": " + a.desc; });
+          grid.append(c);
+        }
+        hojaCuerpo.insertBefore(grid, detalle);
+      }
+      const b = document.createElement("button");
+      b.className = "btn";
+      b.textContent = "Cerrar";
+      b.addEventListener("click", cerrar);
+      const caja = document.createElement("div");
+      caja.className = "botones";
+      caja.append(b);
+      hojaCuerpo.append(caja);
+    }, null, "#c58aff");
+  }
+
+  // aviso del evento en curso (tormenta, meteoritos, mercader, invasión)
+  const elEvento = $("evento-aviso");
+  function avisoEvento(st) {
+    const ev = getEvento();
+    if (!ev) { elEvento.hidden = true; return; }
+    let txt = "";
+    if (ev.tipo === "tormenta") txt = `Tormenta de esporas: producción ×${ev.mult.toFixed(1).replace(".", ",")} · ${Math.max(0, Math.ceil(ev.dur - ev.t))} s`;
+    else if (ev.tipo === "meteoros") txt = "¡Lluvia de meteoritos!" + (st.edificios.torre_defensa ? " La torre intenta derribarlos." : "");
+    else if (ev.tipo === "mercader") txt = ev.estado === "espera" ? "Llegó el Mercader hongil: ¡tocalo!" : ev.estado === "llega" ? "Se acerca un Mercader hongil…" : "El mercader se va…";
+    else if (ev.tipo === "invasion") txt = `¡Invasión de ladrones de esporas! Tocalos · ${ev.criaturas.filter((c) => c.vivo).length} restantes · ${Math.max(0, Math.ceil(ev.dur - ev.t))} s`;
+    elEvento.textContent = txt;
+    elEvento.className = "ev-" + ev.tipo;
+    elEvento.hidden = false;
   }
 
   // ---- Dungeon: aviso al encontrarla (primera vez) o estadísticas al tocar su puerta en la mina ----
@@ -681,6 +788,7 @@ export function crearUI(api) {
   // una fila por tipo de honguito en el contador de esporas/s (se muestran solo los que tenés)
   const dpsFilas = {};
   for (const id in HONGUITOS) {
+    if (HONGUITOS[id].defensa) continue; // los soldados no producen esporas
     const el = document.createElement("div");
     el.className = "dps-fila";
     el.hidden = true;
@@ -699,6 +807,7 @@ export function crearUI(api) {
   }
 
   function actualizar(forzar) {
+    avisoEvento(api.estado());
     const s = api.estado();
     elEsporas.textContent = fmt(s.esporas);
 
@@ -771,8 +880,8 @@ export function crearUI(api) {
         f.btn.disabled = s.esporas.lt(c);
       } else if (f.tipo === "edificio") {
         const bloq = f.ed.requiere && !s.mejoras[f.ed.requiere];
-        f.btn.textContent = bloq ? "Bloqueado" : fmt(f.ed.costo);
-        f.btn.disabled = bloq || s.esporas.lt(f.ed.costo);
+        f.btn.textContent = bloq ? "Bloqueado" : fmt(costoEdificio(s, f.ed));
+        f.btn.disabled = bloq || s.esporas.lt(costoEdificio(s, f.ed));
       } else {
         f.btn.textContent = fmt(f.mj.costo);
         f.btn.disabled = s.esporas.lt(f.mj.costo);
@@ -784,6 +893,7 @@ export function crearUI(api) {
   return {
     toast,
     mostrarDungeon,
+    mostrarMercader,
     actualizar,
     abrirMadre,
     abrirCasa,

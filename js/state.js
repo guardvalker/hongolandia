@@ -47,6 +47,8 @@ export function nuevoEstado() {
     hitos: 0, // cuántos hitos de prestigio (cada 5 niveles) ya dieron su hongo
     flags: {},
     dungeon: { merc: {}, cristales: 0, jefes: 0, expediciones: 0, victorias: 0, derrotas: 0, mejorEtapa: 0, objetos: {}, objetosRaros: 0, auto: true, ultimo: null }, // taberna y exploración de la dungeon
+    arte: { tienen: {}, ofertas: null }, // artefactos del Mercader hongil y las 5 ofertas pendientes
+    arcano: { prox: 150, tormenta: { mult: 1, hasta: 0 }, eventos: 0, sinInvasion: 0, invasiones: 0, repelidas: 0, robadas: 0 }, // eventos de los magos
     luna: { t: 0, n: 0, bases: [] }, // expediciones lunares y las bases que ya tiene la luna
     invest: { actual: null, prog: {} }, // investigación en curso y puntos acumulados por tecnología
     contam: 0, // contaminación (en 'nubes', 0 a 10): la genera la fábrica y la purifican los magos
@@ -97,6 +99,8 @@ function deserializar(raw) {
     contam: raw.contam ?? 0,
     evento: { mult: 1, hasta: 0, ...raw.evento },
     dungeon: { ...base.dungeon, ...raw.dungeon, merc: { ...raw.dungeon?.merc }, objetos: { ...raw.dungeon?.objetos } },
+    arte: { ...base.arte, ...raw.arte, tienen: { ...raw.arte?.tienen } },
+    arcano: { ...base.arcano, ...raw.arcano, tormenta: { ...base.arcano.tormenta, ...raw.arcano?.tormenta } },
     luna: { ...base.luna, ...raw.luna, bases: Array.isArray(raw.luna?.bases) ? raw.luna.bases : [] },
   };
 }
