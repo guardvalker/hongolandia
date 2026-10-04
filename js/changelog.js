@@ -1,5 +1,12 @@
 export const CHANGELOG = [
   {
+    v: "0.33.0",
+    fecha: "2026-10-04",
+    cambios: [
+      "El hongo madre crece mucho más despacio: ya no depende de la cantidad de esporas, solo de los puntos de prestigio (suave, también con lo que va llenando la barra) y de cuántos edificios construiste (+6% por edificio, más el empujón del Conservatorio). Con prestigio 100 y todos los edificios ahora mide unas 3 a 4 veces menos que antes; con prestigio 0 sigue empezando chiquito.",
+    ],
+  },
+  {
     v: "0.32.1",
     fecha: "2026-10-04",
     cambios: [

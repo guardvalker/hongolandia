@@ -83,7 +83,7 @@ const MADRE = [
 ];
 
 import { EDIFICIOS, HONGUITOS, ACIDO, EVENTOS, EVENTO_CFG } from './data.js';
-import { improd, velocidad, eventos, buffTipoActivo, efectos } from './engine.js';
+import { improd, velocidad, eventos, buffTipoActivo, efectos, prestigio } from './engine.js';
 
 const MADRE_GRANDE = MADRE.map((m) => ({ w: Math.round(m.w * BONUS_CONSERV), ch: Math.round(m.ch * BONUS_CONSERV), sw: Math.round(m.sw * BONUS_CONSERV), sh: Math.round(m.sh * BONUS_CONSERV) }));
 
@@ -123,7 +123,7 @@ export function crearEscena(canvas, opciones = {}) {
     const nivel = f >= 1.55 ? 3 : f >= 1.3 ? 2 : f >= 1.12 ? 1 : 0;
     return (cacheTam[clave] = { w: Math.round(b.w * f), ch: Math.round(b.ch * f), sw: Math.round(b.sw * f), sh: Math.round(b.sh * f), nivel, lado });
   }
-  let tNiveles = 0;
+  let tNiveles = 0, tPrest = 0, pfMadre = 0;
   let tBolsa = 0, nBolsa = null, hayTraders = false; // reflejo de state.bolsa para dibujar el gráfico
   const cola = []; // acciones diferidas {t, fn}
   let contam = 0, nMagos = 0, evT = /evento/.test(location.search) ? 2 : 40 + Math.random() * 60;
@@ -471,20 +471,11 @@ export function crearEscena(canvas, opciones = {}) {
   }
 
   // ---------- entidades ----------
-  // El hongo madre crece sin techo: por esporas ganadas (escala logarítmica, ~22% por cada
-  // factor 10 pasada la etapa 3) y un poco más con cada edificio.
-  const ANCLAS_MADRE = [[0, 30], [Math.log10(301), 46], [Math.log10(6001), 66], [Math.log10(150001), 92]];
-  function medidasMadre(total, nEd, bonus) {
-    const L = Math.log10(Math.max(0, total) + 1);
-    let w;
-    if (L >= ANCLAS_MADRE[3][0]) w = 92 * Math.pow(1.22, (L - ANCLAS_MADRE[3][0]) * 1);
-    else {
-      let i = 0;
-      while (i < 2 && L > ANCLAS_MADRE[i + 1][0]) i++;
-      const [l0, w0] = ANCLAS_MADRE[i], [l1, w1] = ANCLAS_MADRE[i + 1];
-      w = w0 + (w1 - w0) * ((L - l0) / (l1 - l0));
-    }
-    w *= (bonus ? BONUS_CONSERV : 1) * (1 + 0.04 * nEd);
+  // El hongo madre crece sin techo, pero ya no por las esporas: solo por los puntos de prestigio
+  // (con la fracción de la barra, para que crezca suave) y por cada edificio construido.
+  function medidasMadre(pf, nEd, bonus) {
+    let w = 30 * Math.pow(1 + pf / 22, 0.9);
+    w *= (bonus ? BONUS_CONSERV : 1) * (1 + 0.06 * nEd);
     w = Math.round(w);
     return { w, ch: Math.round(w * 0.57), sw: Math.max(14, Math.round(w * 0.42)), sh: Math.round(w * 0.4) };
   }
@@ -1613,7 +1604,8 @@ export function crearEscena(canvas, opciones = {}) {
     }
     for (let i = cola.length - 1; i >= 0; i--) { cola[i].t -= dt; if (cola[i].t <= 0) { cola[i].fn(); cola.splice(i, 1); } }
     bonusMadre = Object.keys(state.edificios).some((id) => EDIFICIOS[id]?.crecimientoMadre);
-    medM = medidasMadre(state.total.toNumber(), Object.keys(state.edificios).length, bonusMadre);
+    if ((tPrest -= dt) <= 0) { tPrest = 0.25; const pr = prestigio(state.total); pfMadre = pr.puntos + pr.frac; }
+    medM = medidasMadre(pfMadre, Object.keys(state.edificios).length, bonusMadre);
     // al crecer el madre se agregan niveles para alejar más (sin tocar el zoom actual)
     if ((tNiveles -= dt) <= 0) {
       tNiveles = 1;
