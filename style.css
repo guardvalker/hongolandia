@@ -300,3 +300,5 @@ body.transp #hoja-cerrar { background: rgba(45, 45, 64, .6); }
 #evento-aviso.ev-invasion { box-shadow: 0 0 0 2px #ff5a5a; color: #ffb0b0; animation: parpadeo .8s steps(2) infinite; }
 @keyframes parpadeo { 50% { filter: brightness(1.5); } }
 .fila .arte-ico { width: 27px; height: 27px; image-rendering: pixelated; flex: none; }
+#hoja.anclada .botones { gap: 6px; margin: 8px 0 4px; }
+#hoja.anclada .botones .btn { padding: 6px 8px; font-size: 10px; flex: 1 1 auto; }

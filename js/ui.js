@@ -35,12 +35,12 @@ export function crearUI(api) {
   }
 
   // Todas las ventanas (hongo madre, edificios, dungeon) se abren centradas, del mismo tamaño y
-  // con el mismo layout compacto; solo Ajustes es la tarjeta ancha de abajo.
+  // con el mismo layout compacto (Ajustes incluido).
   function colocar() {
     hoja.style.cssText = "";
     hoja.style.setProperty("--ac", acentoActual);
     hoja.classList.remove("anclada");
-    if (!anclaFn && abierta !== "dungeon") return;
+    if (!anclaFn && abierta !== "dungeon" && abierta !== "ajustes") return;
     const vw = window.innerWidth, vh = window.innerHeight, margen = 10;
     const w = Math.min(300, vw - 2 * margen);
     hoja.classList.add("anclada");

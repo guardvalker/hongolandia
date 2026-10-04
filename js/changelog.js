@@ -1,5 +1,12 @@
 export const CHANGELOG = [
   {
+    v: "0.39.2",
+    fecha: "2026-10-04",
+    cambios: [
+      "Ajustes ahora se abre centrado en la pantalla, igual que las demás ventanas, con el mismo layout compacto (botones más chicos).",
+    ],
+  },
+  {
     v: "0.39.1",
     fecha: "2026-10-04",
     cambios: [
