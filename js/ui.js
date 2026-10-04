@@ -119,7 +119,14 @@ export function crearUI(api) {
 
   // ---- Edificio con casa propia (ej. conservatorio): comprar los honguitos de su tipo ----
   function abrirCasa(id, ancla) {
-    abrir("casa", EDIFICIOS[id].nombre, () => filasHonguitos(id), ancla);
+    abrir("casa", EDIFICIOS[id].nombre, () => {
+      const mv = document.createElement("button");
+      mv.className = "btn mover";
+      mv.textContent = "Mover / intercambiar";
+      mv.addEventListener("click", () => { cerrar(); api.mover(id); });
+      hojaCuerpo.append(mv);
+      filasHonguitos(id);
+    }, ancla);
   }
 
   // ---- Hongo madre: comprar honguitos, edificios y mejoras ----

@@ -10,6 +10,8 @@ const maxBrotes = () => Math.max(6, limiteVisibles * 2); // honguitos pasajeros 
 const ANCHO_REF = 300; // celdas del lado corto de la pantalla
 const VEL = 28; // celdas/seg al caminar
 const TAU = Math.PI * 2;
+const MUNDO = 6000; // ancho total del mundo en celdas; el hongo madre queda en el centro
+const C0 = MUNDO / 2;
 
 const BG = "#272736";
 const BG_SUELO = "#1d1d2a";
@@ -86,6 +88,13 @@ export function crearEscena(canvas) {
   const lo = document.createElement("canvas");
   const g = lo.getContext("2d");
   let dpr = 1, S = 1, Wc = 0, Hc = 0, groundY = 0;
+  // cámara: Wc/Hc = celdas visibles; S = px por celda (niveles enteros para que el pixel art quede nítido)
+  let S0 = 1, Wc0 = 300, Hc0 = 300, niveles = [1], zoomIdx = null, camX = C0, extent = 150;
+  const LIM0 = () => C0 - extent, LIM1 = () => C0 + extent; // hasta dónde llega lo que hay en el mundo
+  const offX = () => Math.round(Wc / 2 - camX);
+  function limitarCam() {
+    camX = Wc >= 2 * extent ? C0 : clamp(camX, C0 - extent + Wc / 2, C0 + extent - Wc / 2);
+  }
   let fondo = null;
   let t = 0, etapaPrev = null, inicial = true, flash = 0;
 
@@ -358,26 +367,52 @@ export function crearEscena(canvas) {
   function resize() {
     dpr = window.devicePixelRatio || 1;
     const cw = canvas.clientWidth, ch = canvas.clientHeight;
-    S = Math.max(1, Math.round((dpr * Math.min(cw, ch)) / ANCHO_REF));
+    S0 = Math.max(1, Math.round((dpr * Math.min(cw, ch)) / ANCHO_REF));
+    niveles = [...new Set([1, 2, 3, 4, 5, 6, 8, 10, 12, S0].filter((k) => k <= Math.max(S0 * 3, 8)))].sort((a, b) => a - b);
+    if (zoomIdx === null) zoomIdx = niveles.indexOf(S0);
+    zoomIdx = clamp(zoomIdx, 0, niveles.length - 1);
+    S = niveles[zoomIdx];
     canvas.width = Math.round(cw * dpr);
     canvas.height = Math.round(ch * dpr);
+    Wc0 = Math.ceil(canvas.width / S0);
+    Hc0 = Math.ceil(canvas.height / S0);
     Wc = Math.ceil(canvas.width / S);
     Hc = Math.ceil(canvas.height / S);
     lo.width = Wc; lo.height = Hc;
     groundY = Math.round(Hc * 0.74);
-    madre.x = Math.round(Wc / 2);
+    madre.x = C0;
+    extent = Math.max(extent, Wc0 / 2);
+    limitarCam();
     pintarFondo();
     for (const gi of gigantes) construirGigante(gi);
   }
 
   // ---------- entidades ----------
-  const medidas = () => (bonusMadre ? MADRE_GRANDE : MADRE)[etapaPrev ?? 0];
+  // El hongo madre crece sin techo: por esporas ganadas (escala logarítmica, ~22% por cada
+  // factor 10 pasada la etapa 3) y un poco más con cada edificio.
+  const ANCLAS_MADRE = [[0, 30], [Math.log10(301), 46], [Math.log10(6001), 66], [Math.log10(150001), 92]];
+  function medidasMadre(total, nEd, bonus) {
+    const L = Math.log10(Math.max(0, total) + 1);
+    let w;
+    if (L >= ANCLAS_MADRE[3][0]) w = 92 * Math.pow(1.22, (L - ANCLAS_MADRE[3][0]) * 1);
+    else {
+      let i = 0;
+      while (i < 2 && L > ANCLAS_MADRE[i + 1][0]) i++;
+      const [l0, w0] = ANCLAS_MADRE[i], [l1, w1] = ANCLAS_MADRE[i + 1];
+      w = w0 + (w1 - w0) * ((L - l0) / (l1 - l0));
+    }
+    w *= (bonus ? BONUS_CONSERV : 1) * (1 + 0.04 * nEd);
+    w = Math.round(w);
+    return { w, ch: Math.round(w * 0.57), sw: Math.max(14, Math.round(w * 0.42)), sh: Math.round(w * 0.4) };
+  }
+  let medM = medidasMadre(0, 0, false);
+  const medidas = () => medM;
   const alturaMadre = () => { const m = medidas(); return m.ch + m.sh; };
 
   function nuevoVisual(i, tipo, desdePuerta) {
     const casa = HONGUITOS[tipo].casa;
     const origen = casa ? edif[casa].x : madre.x;
-    const x = desdePuerta ? origen + (Math.random() - 0.5) * 12 : casa ? origen + (Math.random() - 0.5) * 50 : 14 + Math.random() * (Wc - 28);
+    const x = desdePuerta ? origen + (Math.random() - 0.5) * 12 : casa ? origen + (Math.random() - 0.5) * 50 : LIM0() + 14 + Math.random() * (2 * extent - 28);
     return {
       i, tipo, cantaEn: 2 + Math.random() * 4, tCanta: 0, notaT: 0, x, dir: Math.random() < 0.5 ? -1 : 1, col: i % PALETA.length,
       modo: "idle", animT: Math.random() * 4, espera: desdePuerta ? 0.3 : 0.5 + Math.random() * 2,
@@ -446,23 +481,23 @@ export function crearEscena(canvas) {
   // (hongo madre y edificios), corriéndolo al lado libre más cercano.
   function xLibre(x, ancho, obst) {
     const lim = ancho / 2 + 4;
-    x = clamp(x, lim, Wc - lim);
+    x = clamp(x, LIM0() + lim, LIM1() - lim);
     for (let pasada = 0; pasada < 4; pasada++) {
       let movido = false;
       for (const o of obst) {
         const hueco = o.w / 2 + ancho / 2 + 6;
         if (Math.abs(x - o.x) >= hueco) continue;
         const der = o.x + hueco, izq = o.x - hueco;
-        const okDer = der <= Wc - lim, okIzq = izq >= lim;
+        const okDer = der <= LIM1() - lim, okIzq = izq >= LIM0() + lim;
         x = okDer && (!okIzq || Math.abs(der - x) <= Math.abs(izq - x)) ? der : izq;
-        x = clamp(x, lim, Wc - lim);
+        x = clamp(x, LIM0() + lim, LIM1() - lim);
         movido = true;
       }
       if (!movido) break;
     }
     return x;
   }
-  const obstaculos = () => [{ x: madre.x, w: medidas().w }, ...Object.entries(edif).map(([id, e]) => ({ x: e.x, w: tam(id).w }))];
+  const obstaculos = () => [{ x: madre.x, w: medidas().w }, ...Object.entries(edif).filter(([id]) => !(colocando?.mover && colocando.id === id)).map(([id, e]) => ({ x: e.x, w: tam(id).w }))];
 
   // Jardinero: camina a un punto libre del piso, lo riega y ahí brota un honguito pasajero.
   function actualizarJardinero(v, dt) {
@@ -475,7 +510,7 @@ export function crearEscena(canvas) {
       v.espera -= dt;
       if (v.espera <= 0) {
         if (brotes.length >= maxBrotes()) { v.espera = 2; return; }
-        v.meta = xLibre(12 + Math.random() * (Wc - 24), 30, obstaculos());
+        v.meta = xLibre(LIM0() + 12 + Math.random() * (2 * extent - 24), 30, obstaculos());
         v.dir = Math.sign(v.meta - v.x) || 1;
         v.modo = "walk";
       }
@@ -514,7 +549,7 @@ export function crearEscena(canvas) {
       v.espera -= dt;
       if (v.espera <= 0) {
         const gx = edif.gimnasio.x, mw = tam("gimnasio").w / 2;
-        v.meta = clamp(gx + (Math.random() < 0.5 ? -1 : 1) * (mw + 6 + Math.random() * 28), 12, Wc - 12);
+        v.meta = clamp(gx + (Math.random() < 0.5 ? -1 : 1) * (mw + 6 + Math.random() * 28), LIM0() + 12, LIM1() - 12);
         v.dir = Math.sign(v.meta - v.x) || 1;
         v.modo = "walk";
       }
@@ -557,7 +592,7 @@ export function crearEscena(canvas) {
       v.espera -= dt;
       if (v.espera <= 0) {
         const gx = edif.trade.x, mw = tam("trade").w / 2;
-        v.meta = clamp(gx + (Math.random() < 0.5 ? -1 : 1) * (mw + 6 + Math.random() * 28), 12, Wc - 12);
+        v.meta = clamp(gx + (Math.random() < 0.5 ? -1 : 1) * (mw + 6 + Math.random() * 28), LIM0() + 12, LIM1() - 12);
         v.dir = Math.sign(v.meta - v.x) || 1;
         v.modo = "walk";
       }
@@ -587,8 +622,8 @@ export function crearEscena(canvas) {
 
   // ---- Luna y expediciones ----
   function geomLuna() {
-    const r = Math.max(18, Math.round(Math.min(Wc, Hc) * 0.1));
-    return { r, x: clamp(Math.round(Wc * 0.82), r + 8, Wc - r - 8), y: Math.round(groundY * 0.36) };
+    const r = Math.max(18, Math.round(Math.min(Wc0, Hc0) * 0.1));
+    return { r, x: Math.round(C0 + Wc0 * 0.32), y: Math.round(groundY * 0.36) };
   }
   // posición de la plataforma: bajo el sombrero, del lado contrario a la rama hongo
   function padCohete() {
@@ -682,8 +717,8 @@ export function crearEscena(canvas) {
       v.espera -= dt;
       if (v.espera <= 0) {
         const gx = edif.escuela.x;
-        v.meta = clamp(gx + (Math.random() - 0.5) * 220, 14, Wc - 14);
-        if (Math.abs(v.meta - v.x) < 30) v.meta = clamp(v.x + (v.x < Wc / 2 ? 1 : -1) * 60, 14, Wc - 14);
+        v.meta = clamp(gx + (Math.random() - 0.5) * 220, LIM0() + 14, LIM1() - 14);
+        if (Math.abs(v.meta - v.x) < 30) v.meta = clamp(v.x + (v.x < C0 ? 1 : -1) * 60, LIM0() + 14, LIM1() - 14);
         v.dir = Math.sign(v.meta - v.x) || 1;
         v.dirW = v.dir;
         v.modo = "walk";
@@ -743,7 +778,7 @@ export function crearEscena(canvas) {
       v.espera -= dt;
       if (v.espera <= 0) {
         const gx = edif.astropuerto.x, mw = tam("astropuerto").w / 2;
-        v.meta = clamp(gx + (Math.random() < 0.5 ? -1 : 1) * (mw + 4 + Math.random() * 30), 12, Wc - 12);
+        v.meta = clamp(gx + (Math.random() < 0.5 ? -1 : 1) * (mw + 4 + Math.random() * 30), LIM0() + 12, LIM1() - 12);
         const pad = padCohete().x; // no taparle el cohete a la gente
         if (Math.abs(v.meta - pad) < 10) v.meta = pad + (v.meta >= pad ? 1 : -1) * 10;
         v.dir = Math.sign(v.meta - v.x) || 1;
@@ -769,17 +804,23 @@ export function crearEscena(canvas) {
       return { dx, x: cx + dx + 1, y: capBase - 2 - Math.round(m.ch * Math.sqrt(1 - (dx / rx) ** 2)) - 6 };
     });
   };
-  const nubeX = (c) => (c.llueve ? c.xf : c.x0 + Math.sin(t * 0.15 + c.ph) * 10);
+  const nubeX = (c) => c.x;
 
   function actualizarClima(dt) {
     const obj = edif.fabrica && nObreros > 0 ? clamp(Math.round(1 + Math.log2(nObreros) * 0.9), 1, 10) : 0;
-    const fx = edif.fabrica ? edif.fabrica.x : Wc / 2;
     while (nubes.length < obj) {
       const r = rng(nubes.length * 977 + 13);
-      nubes.push({ x0: clamp(fx + (r() - 0.5) * 220, 24, Wc - 24), y: groundY * (0.3 + r() * 0.2), w: 26 + Math.round(r() * 14), ph: r() * TAU, p: 0, llueve: false, xf: 0 });
+      nubes.push({ x: LIM0() + r() * 2 * extent, vx: (r() < 0.5 ? -1 : 1) * (2 + r() * 4), y: groundY * (0.28 + r() * 0.24), w: 26 + Math.round(r() * 14), ph: r() * TAU, p: 0, llueve: false });
     }
     while (nubes.length > obj) nubes.pop();
-    for (const c of nubes) c.p = Math.min(1, c.p + dt * 0.4);
+    for (const c of nubes) {
+      c.p = Math.min(1, c.p + dt * 0.4);
+      if (!c.llueve) { // flotan por todo el mundo y dan la vuelta al llegar al borde
+        c.x += c.vx * dt;
+        if (c.x > LIM1() + 60) c.x = LIM0() - 60;
+        else if (c.x < LIM0() - 60) c.x = LIM1() + 60;
+      }
+    }
     if (!nubes.length) { lluvia.activa = false; return; }
     if (!lluvia.activa) {
       lluvia.prox -= dt;
@@ -787,7 +828,7 @@ export function crearEscena(canvas) {
         // empieza a llover desde algunas nubes: se quedan quietas sobre la zona que mojan
         const k = clamp(Math.ceil(nubes.length / 3), 1, 3);
         const elegidas = [...nubes].sort(() => Math.random() - 0.5).slice(0, k);
-        lluvia.zonas = elegidas.map((c) => { c.llueve = true; c.xf = nubeX({ ...c, llueve: false }); return c; });
+        lluvia.zonas = elegidas.map((c) => { c.llueve = true; return c; });
         lluvia.activa = true; lluvia.t = 0;
       }
     } else {
@@ -795,11 +836,11 @@ export function crearEscena(canvas) {
       for (const c of lluvia.zonas) {
         const n = dt * 40 * (c.w / 30), cnt = Math.floor(n) + (Math.random() < n % 1 ? 1 : 0);
         for (let i = 0; i < cnt; i++) {
-          const x = c.xf + (Math.random() - 0.5) * c.w, y0 = c.y + 7, vy = 75 + Math.random() * 30;
+          const x = c.x + (Math.random() - 0.5) * c.w, y0 = c.y + 7, vy = 75 + Math.random() * 30;
           part(x, y0, 0, vy, { tipo: "lluvia", dur: Math.max(0.1, (groundY - y0) / vy) });
         }
         // todo honguito que toque la lluvia queda mojado (improductivo) y se le reinicia el tiempo
-        for (const v of visuales) if (!v.oculto && Math.abs(v.x - c.xf) <= c.w / 2 + 2) v.acidoT = ACIDO.dur;
+        for (const v of visuales) if (!v.oculto && Math.abs(v.x - c.x) <= c.w / 2 + 2) v.acidoT = ACIDO.dur;
       }
       if (lluvia.t > 8) {
         for (const c of lluvia.zonas) c.llueve = false;
@@ -870,7 +911,7 @@ export function crearEscena(canvas) {
         v.modo = "canta"; v.tCanta = 0; v.notaT = 0;
         emitirEspora(v);
       } else if (v.espera <= 0) {
-        v.meta = clamp(edif.conservatorio.x + (Math.random() - 0.5) * 80, 12, Wc - 12);
+        v.meta = clamp(edif.conservatorio.x + (Math.random() - 0.5) * 80, LIM0() + 12, LIM1() - 12);
         v.dir = Math.sign(v.meta - v.x) || 1;
         v.modo = "walk";
       }
@@ -944,13 +985,15 @@ export function crearEscena(canvas) {
     }
     for (let i = cola.length - 1; i >= 0; i--) { cola[i].t -= dt; if (cola[i].t <= 0) { cola[i].fn(); cola.splice(i, 1); } }
     bonusMadre = Object.keys(state.edificios).some((id) => EDIFICIOS[id]?.crecimientoMadre);
+    medM = medidasMadre(state.total.toNumber(), Object.keys(state.edificios).length, bonusMadre);
     coloresMadre = ["#ff4d4d", ...Object.keys(state.edificios).filter((id) => EDIFICIOS[id]).map((id) => EDIFICIOS[id].color)];
     const obst = [{ x: madre.x, w: medidas().w }];
     for (const id of Object.keys(EDIFICIOS)) {
       const ec = state.edificios[id];
       if (!ec) { delete edif[id]; continue; }
       const nuevo = !edif[id];
-      const x = xLibre(ec.x * Wc, tam(id).w, obst);
+      if (ec.dx === undefined) ec.dx = ((ec.x ?? 0.5) - 0.5) * Wc0; // partidas viejas: fracción de pantalla -> celdas desde el madre
+      const x = xLibre(C0 + ec.dx, tam(id).w, obst);
       edif[id] = { x };
       obst.push({ x, w: tam(id).w });
       if (nuevo && !inicial) {
@@ -966,6 +1009,9 @@ export function crearEscena(canvas) {
       }
     }
     for (const id in brillos) brillos[id] = Math.max(0, brillos[id] - dt * 2);
+    // hasta dónde llega el mundo: el que haya en pantalla o lo que ocupan madre y edificios
+    extent = Math.max(Wc0 / 2, (medidas().w + Object.keys(edif).reduce((a, id) => a + tam(id).w + 24, 0) + 120) / 2);
+    limitarCam();
 
     sincronizarGigantes(state, inicial);
     for (const gi of gigantes) if (gi.p < 1) gi.p = Math.min(1, gi.p + dt / 5);
@@ -1003,7 +1049,7 @@ export function crearEscena(canvas) {
           } else if (Math.random() < 0.2) {
             v.modo = "salto"; v.animT = 0;
           } else {
-            const meta = clamp(v.x + (Math.random() < 0.5 ? -1 : 1) * (20 + Math.random() * 70), 12, Wc - 12);
+            const meta = clamp(v.x + (Math.random() < 0.5 ? -1 : 1) * (20 + Math.random() * 70), LIM0() + 12, LIM1() - 12);
             v.meta = meta;
             v.dir = Math.sign(meta - v.x) || 1;
             v.modo = "walk";
@@ -1069,7 +1115,7 @@ export function crearEscena(canvas) {
       f.y -= f.vy * dt;
       if (f.y < -6) { f.y = groundY - 2; f.x = Math.random() * Wc; }
     }
-    if (Math.random() < dt * 1.5) motas(Math.random() * Wc, groundY - 2, 1, 0.4);
+    if (Math.random() < dt * 1.5) motas(camX - Wc / 2 + Math.random() * Wc, groundY - 2, 1, 0.4);
 
     for (let i = particulas.length - 1; i >= 0; i--) {
       const p = particulas[i];
@@ -1230,7 +1276,7 @@ export function crearEscena(canvas) {
   function dibujarMadre() {
     const m = medidas();
     const cx = Math.round(madre.x);
-    const { capBase, ch, rx } = hongoBase(cx, m, Math.round(madre.pulso * 3), madre.brillo);
+    const { capBase, ch, rx } = hongoBase(cx, m, Math.round(madre.pulso * Math.max(3, medidas().ch * 0.06)), madre.brillo);
     // un punto rojo al principio; cada edificio suma su color. Posición y tamaño al azar (fijos por semilla)
     const pos = manchasDe("madre", 31, coloresMadre.length);
     coloresMadre.forEach((col, k) => {
@@ -1683,7 +1729,6 @@ export function crearEscena(canvas) {
     g.globalAlpha = 1;
     g.clearRect(0, 0, Wc, Hc);
     g.drawImage(fondo, 0, 0);
-    dibujarLuna();
     for (const gi of gigantes) {
       const hT = gi.cv.height, h = Math.max(1, Math.round(hT * suave(gi.p)));
       g.drawImage(gi.cv, 0, hT - h, gi.cv.width, h, Math.round(gi.x * Wc - gi.cv.width / 2), groundY - h, gi.cv.width, h);
@@ -1698,9 +1743,12 @@ export function crearEscena(canvas) {
     for (const f of flotantes) { g.fillStyle = f.col; g.fillRect(Math.round(f.x + Math.sin(t * f.sp + f.ph) * f.ax), Math.round(f.y), f.r, f.r); }
     g.globalAlpha = 1;
 
+    g.save();
+    g.translate(offX(), 0);
+    dibujarLuna();
     dibujarNubes();
     dibujarMadre();
-    for (const id in edif) dibujarEdificio(id, edif[id].x);
+    for (const id in edif) if (!(colocando?.mover && colocando.id === id)) dibujarEdificio(id, edif[id].x);
     dibujarCoheteEnVuelo();
     for (const b of brotes) {
       const falta = b.vida - b.t;
@@ -1712,6 +1760,7 @@ export function crearEscena(canvas) {
     for (const v of visuales) dibujarHonguito(v);
     dibujarParticulas();
     if (colocando) dibujarEdificio(colocando.id, xLibre(colocando.x, tam(colocando.id).w, obstaculos()), 0.55);
+    g.restore();
 
     if (flash > 0.01) { g.globalAlpha = flash * 0.3; g.fillStyle = BLANCO; g.fillRect(0, 0, Wc, Hc); g.globalAlpha = 1; }
     ctx.imageSmoothingEnabled = false;
@@ -1721,11 +1770,12 @@ export function crearEscena(canvas) {
 
   // ---------- toques ----------
   function toque(px, py) {
-    const cx = (px * dpr) / S;
+    const cx = (px * dpr) / S - offX();
     const cy = (py * dpr) / S;
     const m = medidas();
     if (Math.abs(cx - madre.x) < m.w / 2 && cy > groundY - alturaMadre() && cy < groundY + 2) return { quien: "madre" };
     for (const id in edif) {
+      if (colocando?.mover && colocando.id === id) continue;
       const m = tam(id);
       if (Math.abs(cx - edif[id].x) < m.w / 2 && cy > groundY - m.ch - m.sh - 8 && cy < groundY + 2) return { quien: id };
     }
@@ -1742,24 +1792,24 @@ export function crearEscena(canvas) {
   // rectángulo del hongo madre en px CSS (para anclar su ventana de mejoras al costado)
   function rectMadre() {
     const m = medidas(), k = S / dpr;
-    return { x0: (madre.x - m.w / 2) * k, x1: (madre.x + m.w / 2) * k, y0: (groundY - alturaMadre()) * k, y1: groundY * k };
+    return { x0: (madre.x - m.w / 2 + offX()) * k, x1: (madre.x + m.w / 2 + offX()) * k, y0: (groundY - alturaMadre()) * k, y1: groundY * k };
   }
 
   function rectEdificio(id) {
     const k = S / dpr, m = tam(id), x = edif[id].x;
-    return { x0: (x - m.w / 2) * k, x1: (x + m.w / 2) * k, y0: (groundY - m.ch - m.sh) * k, y1: groundY * k };
+    return { x0: (x - m.w / 2 + offX()) * k, x1: (x + m.w / 2 + offX()) * k, y0: (groundY - m.ch - m.sh) * k, y1: groundY * k };
   }
 
   // ---- colocación: el jugador elige dónde poner un edificio comprado ----
   const aCeldas = (px) => (px * dpr) / S;
-  const iniciarColocacion = (id) => { colocando = { id, x: Wc * 0.8 }; };
-  const moverColocacion = (px) => { if (colocando) colocando.x = aCeldas(px); };
+  const iniciarColocacion = (id, mover = false) => { colocando = { id, mover, x: camX + Wc * 0.3 }; };
+  const moverColocacion = (px) => { if (colocando) colocando.x = aCeldas(px) - offX(); };
   const cancelarColocacion = () => { colocando = null; };
   function confirmarColocacion(px) {
     if (!colocando) return null;
-    const x = xLibre(aCeldas(px), tam(colocando.id).w, obstaculos());
+    const x = xLibre(aCeldas(px) - offX(), tam(colocando.id).w, obstaculos());
     colocando = null;
-    return x / Wc;
+    return x - C0; // celdas desde el hongo madre
   }
 
   function pulsoMadre() {
@@ -1769,10 +1819,20 @@ export function crearEscena(canvas) {
     aroPart(madre.x, groundY - alturaMadre() * 0.6, 34, 0.5);
   }
 
+  // ---- cámara: zoom por niveles enteros y arrastre ----
+  function zoom(dir) {
+    const nuevo = clamp(zoomIdx + dir, 0, niveles.length - 1);
+    if (nuevo === zoomIdx) return;
+    zoomIdx = nuevo;
+    resize();
+  }
+  const pan = (px) => { camX -= (px * dpr) / S; limitarCam(); };
+  const recentrar = () => { camX = C0; limitarCam(); };
+
   function setLimite(n) {
     limiteVisibles = clamp(Math.round(n) || 20, 3, 300);
     while (brotes.length > maxBrotes()) brotes.shift();
   }
 
-  return { setLimite, resize, update, draw, toque, pulsoMadre, rectMadre, rectEdificio, iniciarColocacion, moverColocacion, cancelarColocacion, confirmarColocacion };
+  return { zoom, pan, recentrar, setLimite, resize, update, draw, toque, pulsoMadre, rectMadre, rectEdificio, iniciarColocacion, moverColocacion, cancelarColocacion, confirmarColocacion };
 }

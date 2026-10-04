@@ -63,6 +63,11 @@ html, body {
   background: var(--panel); box-shadow: 0 0 0 2px var(--borde);
 }
 
+#zoom { position: fixed; right: 12px; bottom: calc(env(safe-area-inset-bottom) + 12px); display: flex; flex-direction: column; gap: 6px; z-index: 5; }
+#zoom button { width: 40px; height: 40px; border: 0; font: inherit; font-size: 22px; color: var(--txt); background: var(--panel); box-shadow: 0 0 0 2px var(--borde); cursor: pointer; }
+#zoom button:active { transform: translateY(2px); }
+.btn.mover { margin: 0 0 8px; font-size: 12px; }
+
 #hint {
   position: fixed; left: 50%; bottom: calc(env(safe-area-inset-bottom) + 30px);
   transform: translate(-50%, 12px); opacity: 0; pointer-events: none; transition: .3s; white-space: nowrap;

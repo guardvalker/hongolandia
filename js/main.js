@@ -6,7 +6,8 @@ import { crearUI, ajustes } from './ui.js';
 import { EDIFICIOS } from './data.js';
 
 let state = cargar();
-let colocando = null; // id del edificio que se está ubicando
+let colocando = null; // id del edificio que se está ubicando (comprado)
+let moviendo = null; // id del edificio que se está moviendo (ya construido)
 
 const canvas = document.getElementById("juego");
 const escena = crearEscena(canvas);
@@ -27,6 +28,11 @@ const ui = crearUI({
     escena.iniciarColocacion(id);
     ui.mostrarColocar(`Tocá el piso para ubicar el ${EDIFICIOS[id].nombre}`);
   },
+  mover(id) {
+    moviendo = id;
+    escena.iniciarColocacion(id, true);
+    ui.mostrarColocar(`Tocá el piso para mover el ${EDIFICIOS[id].nombre}, o tocá otro edificio para intercambiarlos`);
+  },
   reiniciar() {
     state = nuevoEstado();
     ui.actualizar(true);
@@ -41,20 +47,77 @@ ajustarTamano();
 
 function terminarColocacion() {
   colocando = null;
+  moviendo = null;
   escena.cancelarColocacion();
   ui.mostrarColocar(null);
 }
 document.getElementById("colocar-cancelar").addEventListener("click", terminarColocacion);
-window.addEventListener("keydown", (e) => { if (e.key === "Escape" && colocando) terminarColocacion(); });
-canvas.addEventListener("pointermove", (e) => {
-  if (colocando) escena.moverColocacion(e.clientX - canvas.getBoundingClientRect().left);
+window.addEventListener("keydown", (e) => {
+  if (e.key === "Escape" && (colocando || moviendo)) terminarColocacion();
+  else if (e.key === "+" || e.key === "=") escena.zoom(1);
+  else if (e.key === "-") escena.zoom(-1);
 });
 
+// ---- cámara: arrastrar para desplazar, pellizcar o rueda para zoom ----
+const punteros = new Map();
+let arrastro = false, inicioX = 0, distPinch = 0;
+const distancia = () => { const [a, b] = [...punteros.values()]; return Math.hypot(a.x - b.x, a.y - b.y); };
+canvas.addEventListener("pointerdown", (e) => {
+  punteros.set(e.pointerId, { x: e.clientX, y: e.clientY });
+  if (punteros.size === 1) { arrastro = false; inicioX = e.clientX; }
+  if (punteros.size === 2) { distPinch = distancia(); arrastro = true; }
+});
+canvas.addEventListener("pointermove", (e) => {
+  if (colocando || moviendo) escena.moverColocacion(e.clientX - canvas.getBoundingClientRect().left);
+  const p = punteros.get(e.pointerId);
+  if (!p) return;
+  const dx = e.clientX - p.x;
+  p.x = e.clientX; p.y = e.clientY;
+  if (punteros.size === 2) {
+    const d = distancia();
+    if (d / distPinch > 1.35) { escena.zoom(1); distPinch = d; }
+    else if (d / distPinch < 0.74) { escena.zoom(-1); distPinch = d; }
+  } else if (punteros.size === 1 && !colocando && !moviendo) {
+    if (Math.abs(e.clientX - inicioX) > 8) arrastro = true;
+    if (arrastro) escena.pan(dx);
+  }
+});
+const soltar = (e) => { punteros.delete(e.pointerId); };
+canvas.addEventListener("pointerup", soltar);
+canvas.addEventListener("pointercancel", soltar);
+let ultimaRueda = 0;
+canvas.addEventListener("wheel", (e) => {
+  e.preventDefault();
+  const ahora = performance.now();
+  if (ahora - ultimaRueda < 140) return;
+  ultimaRueda = ahora;
+  escena.zoom(e.deltaY < 0 ? 1 : -1);
+}, { passive: false });
+document.getElementById("zoom-mas").addEventListener("click", () => escena.zoom(1));
+document.getElementById("zoom-menos").addEventListener("click", () => escena.zoom(-1));
+document.getElementById("zoom-centro").addEventListener("click", () => escena.recentrar());
+
 canvas.addEventListener("click", (e) => {
+  if (arrastro) { arrastro = false; return; } // fue un arrastre, no un toque
   const r = canvas.getBoundingClientRect();
   if (colocando) {
-    const x = escena.confirmarColocacion(e.clientX - r.left);
-    if (x !== null && colocarEdificio(state, colocando, x)) guardar(state);
+    const dx = escena.confirmarColocacion(e.clientX - r.left);
+    if (dx !== null && colocarEdificio(state, colocando, dx)) guardar(state);
+    terminarColocacion();
+    return;
+  }
+  if (moviendo) {
+    const hit = escena.toque(e.clientX - r.left, e.clientY - r.top);
+    if (hit && hit.quien === "madre") return; // el hongo madre no se mueve ni se intercambia
+    const a = state.edificios[moviendo];
+    if (hit && EDIFICIOS[hit.quien] && hit.quien !== moviendo && state.edificios[hit.quien]) {
+      const b = state.edificios[hit.quien]; // intercambio de lugar
+      [a.dx, b.dx] = [b.dx, a.dx];
+    } else {
+      const dx = escena.confirmarColocacion(e.clientX - r.left);
+      if (dx !== null) a.dx = dx;
+    }
+    guardar(state);
     terminarColocacion();
     return;
   }

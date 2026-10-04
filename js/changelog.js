@@ -1,5 +1,16 @@
 export const CHANGELOG = [
   {
+    v: "0.19.0",
+    fecha: "2026-10-04",
+    cambios: [
+      "Las nubes de contaminación ahora flotan por todo el mundo (no solo sobre la fábrica) y dan la vuelta al llegar al borde; cuando llueven se quedan quietas sobre la zona que mojan.",
+      "Mover edificios: en la ventana de cada edificio hay un botón \"Mover / intercambiar\". Tocás el piso para moverlo a otro lugar o tocás otro edificio para intercambiarlos. El hongo madre no se mueve.",
+      "El hongo madre crece sin techo: su tamaño sigue las esporas ganadas (~22% más por cada ×10 pasada la etapa 3) y un 4% más por edificio, en vez de frenarse en la etapa 3.",
+      "Zoom y cámara: botones +, − y ◎ (centrar) abajo a la derecha, rueda del mouse, pellizco en el celular y teclas +/−. Arrastrando se desplaza la vista. El mundo se agranda solo para que entren el hongo madre y los edificios.",
+      "Los edificios ahora guardan su posición en celdas respecto del hongo madre (las partidas viejas se convierten solas).",
+    ],
+  },
+  {
     v: "0.18.0",
     fecha: "2026-10-04",
     cambios: [

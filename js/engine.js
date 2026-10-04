@@ -156,12 +156,12 @@ export function comprarHonguitos(state, id, k = 1) {
 
 export const comprarHonguito = (state, id) => comprarHonguitos(state, id, 1);
 
-// Se paga al ubicarlo en el piso (x = fracción del ancho de pantalla).
-export function colocarEdificio(state, id, x) {
+// Se paga al ubicarlo en el piso (dx = celdas a la derecha del hongo madre).
+export function colocarEdificio(state, id, dx) {
   const e = EDIFICIOS[id];
   if (!e || state.edificios[id] || state.esporas.lt(e.costo)) return false;
   state.esporas = state.esporas.sub(e.costo);
-  state.edificios[id] = { x };
+  state.edificios[id] = { dx }; // celdas respecto del hongo madre (puede ser negativo)
   agregarHongoFondo(state);
   return true;
 }
