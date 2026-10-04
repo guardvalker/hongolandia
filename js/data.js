@@ -65,7 +65,7 @@ const EDIF_DEF = [
     id: "conservatorio",
     tier: 2,
     nombre: "Conservatorio hongil",
-    desc: "Un hongo con aires musicales. Hace crecer un 15% al hongo madre y habilita a los músicos.",
+    desc: "Un hongo con aires musicales. Habilita a los músicos.",
     color: "#a77bff", // mancha que suma al sombrero del hongo madre
     crecimientoMadre: 1.15,
   },

@@ -1,5 +1,12 @@
 export const CHANGELOG = [
   {
+    v: "0.32.1",
+    fecha: "2026-10-04",
+    cambios: [
+      "Se sacó de la descripción del Conservatorio el texto del % que hace crecer al hongo madre: el efecto sigue ahí, pero ahora solo se nota visualmente.",
+    ],
+  },
+  {
     v: "0.32.0",
     fecha: "2026-10-04",
     cambios: [
