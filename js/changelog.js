@@ -1,5 +1,14 @@
 export const CHANGELOG = [
   {
+    v: "0.17.0",
+    fecha: "2026-10-03",
+    cambios: [
+      "Nuevo edificio: Escuela hongil, el primero en desbloquearse (sombrero lima con campana y banderín, pizarrón con garabatos y puerta de madera).",
+      "Nuevo honguito: Maestro (lima, con anteojos). Pasea seguido por 3 alumnitos en fila; al parar se da vuelta, saca un libro y da clase. Tras 3 a 5 clases un alumno se gradúa con diploma y salen esporas.",
+      "Los valores ahora salen de una fórmula por tier (producción ×10 y costo ×20 por escalón) en js/data.js, para poder meter edificios entre medio solo cambiando el tier. MODO_PRUEBA sigue activo (todo cuesta 1). La escuela es el tier 1, así que cada honguito de los edificios anteriores rinde 10 veces más que antes.",
+    ],
+  },
+  {
     v: "0.16.0",
     fecha: "2026-10-03",
     cambios: [

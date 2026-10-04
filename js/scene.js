@@ -3,7 +3,7 @@
 // del arte) y se escala con un factor entero sin suavizado. No hay sprites ni fotogramas:
 // los honguitos son un bitmap diminuto que se mueve con rebotes y estiramientos por código.
 
-const TIPOS_VISUALES = ['basico', 'musico', 'jardinero', 'atleta', 'trader', 'astronauta']; // el número dibujado por tipo lo da el ajuste "honguitos visibles" (el real puede ser enorme)
+const TIPOS_VISUALES = ['basico', 'musico', 'jardinero', 'atleta', 'trader', 'astronauta', 'maestro']; // el número dibujado por tipo lo da el ajuste "honguitos visibles" (el real puede ser enorme)
 let limiteVisibles = 20; // honguitos dibujados por tipo (Ajustes)
 const maxParticulas = () => 150 + limiteVisibles * 8;
 const maxBrotes = () => Math.max(6, limiteVisibles * 2); // honguitos pasajeros que dejan los jardineros
@@ -51,6 +51,7 @@ const VERDE = "#2fa84f";
 const NARANJA = "#ff8a1f";
 const DORADO = "#f5c518";
 const CELESTE = "#4fb4ff";
+const LIMA = "#b5e61d";
 const CICLO_BOLSA = 18; // segundos entre cobros (igual que BOLSA.ciclo en data.js)
 const GIGANTE = "#222232"; // hongos gigantes del fondo: apenas más oscuros que el cielo
 const GIGANTE_MANCHA = "#252535";
@@ -61,6 +62,7 @@ const TAM_BASE = {
   gimnasio: { w: 42, ch: 20, sw: 18, sh: 14 },
   trade: { w: 42, ch: 20, sw: 18, sh: 15 },
   astropuerto: { w: 44, ch: 21, sw: 18, sh: 15 },
+  escuela: { w: 40, ch: 19, sw: 17, sh: 14 },
 };
 const NOTA = ["..##.", "..#.#", "..#..", "..#..", "###..", "###.."];
 
@@ -155,6 +157,25 @@ export function crearEscena(canvas) {
     const x = c.getContext("2d");
     x.fillStyle = "#9fd8ff";
     x.fillRect(1, 4, 7, 1);
+    return c;
+  });
+  // maestro: sombrero lima y anteojos de marco marrón; con boca para dar la clase
+  const spritesMaestro = [[0, false], [1, false], [0, 1], [0, 2]].map(([pose, boca]) => {
+    const c = hacerSprite(LIMA, PATAS[pose], boca);
+    const x = c.getContext("2d");
+    x.fillStyle = "#7a4a1a";
+    for (const cx of [2, 6]) { x.fillRect(cx - 1, 4, 3, 1); x.fillRect(cx - 1, 5, 1, 1); x.fillRect(cx + 1, 5, 1, 1); x.fillRect(cx - 1, 6, 3, 1); }
+    x.fillRect(4, 5, 1, 1);
+    x.fillStyle = BG; x.fillRect(2, 5, 1, 1); x.fillRect(6, 5, 1, 1);
+    return c;
+  });
+  // alumnito: honguito más chico (7x6)
+  const KID = [".ccccc.", "ccccccc", ".wwwww.", ".wewew.", ".wwwww.", ".w...w."];
+  const spritesKid = PALETA.map((col) => {
+    const c = document.createElement("canvas");
+    c.width = 7; c.height = 6;
+    const x = c.getContext("2d");
+    KID.forEach((fila, y) => { for (let i = 0; i < 7; i++) { const ch = fila[i]; if (ch === ".") continue; x.fillStyle = ch === "c" ? col : ch === "e" ? BG : BLANCO; x.fillRect(i, y, 1, 1); } });
     return c;
   });
   // cohete-hongo: sombrero de hongo como nariz, ventanilla y aletas (7x10, apunta hacia arriba)
@@ -600,6 +621,68 @@ export function crearEscena(canvas) {
     }
   }
 
+  // Maestro: pasea seguido por sus alumnitos; al parar se da vuelta, saca un libro y da clase.
+  // Tras varias clases un alumno se gradúa con diploma y salen esporas.
+  const NKIDS = 3;
+  function actualizarMaestro(v, dt) {
+    v.alfa = Math.min(1, v.alfa + dt * 2.5);
+    v.animT += dt;
+    v.hop = 0;
+    v.estira = 0;
+    if (!v.hijos) {
+      v.hijos = Array.from({ length: NKIDS }, (_, j) => ({ x: v.x - 9 * (j + 1), dir: 1, hop: 0, col: (v.i * 3 + j * 2) % PALETA.length }));
+      v.clases = 0; v.clasesObj = 3 + Math.floor(Math.random() * 3); v.paseo = 0;
+    }
+    let mueve = false;
+    if (v.modo === "idle") {
+      v.estira = Math.sin(v.animT * 3 + v.i) * 0.5;
+      v.espera -= dt;
+      if (v.espera <= 0) {
+        const gx = edif.escuela.x;
+        v.meta = clamp(gx + (Math.random() - 0.5) * 220, 14, Wc - 14);
+        if (Math.abs(v.meta - v.x) < 30) v.meta = clamp(v.x + (v.x < Wc / 2 ? 1 : -1) * 60, 14, Wc - 14);
+        v.dir = Math.sign(v.meta - v.x) || 1;
+        v.dirW = v.dir;
+        v.modo = "walk";
+      }
+    } else if (v.modo === "walk") {
+      mueve = true;
+      v.hop = Math.abs(Math.sin(v.animT * 11)) * 1.5;
+      const d = v.meta - v.x, paso = VEL * 0.6 * dt;
+      if (Math.abs(d) <= paso) { v.x = v.meta; v.modo = "clase"; v.tClase = 0; v.dir = -v.dir; mueve = false; }
+      else v.x += Math.sign(d) * paso;
+    } else if (v.modo === "clase") {
+      v.tClase += dt;
+      v.hop = 0;
+      if (Math.random() < dt * 5) part(v.x + v.dir * 7, groundY - 12, (Math.random() - 0.5) * 6, -12, { tipo: "mota", dur: 0.8, col: BLANCO, r: 1 });
+      if (v.tClase > 3.5) {
+        v.clases++;
+        if (v.clases >= v.clasesObj) {
+          v.modo = "diploma"; v.tDip = 0; v.graduado = Math.floor(Math.random() * v.hijos.length);
+          const k = v.hijos[v.graduado];
+          for (let i = 0; i < 3; i++) cola.push({ t: i * 0.12, fn: () => lanzarEspora(k.x, groundY - 8, LIMA) });
+          motas(k.x, groundY - 8, 14, 1.3);
+          aroPart(k.x, groundY - 5, 12, 0.6);
+        } else { v.modo = "idle"; v.espera = 0.4; v.dir = -v.dir; }
+      }
+    } else if (v.modo === "diploma") {
+      v.tDip += dt;
+      const k = v.hijos[v.graduado];
+      k.hop = Math.abs(Math.sin(v.tDip * 7)) * 5;
+      if (v.tDip > 2.2) { v.clases = 0; v.clasesObj = 3 + Math.floor(Math.random() * 3); k.hop = 0; v.modo = "idle"; v.espera = 0.6; v.dir = -v.dir; }
+    }
+    // alumnitos: siguen al maestro en fila; al dar clase se quedan quietos mirándolo
+    v.hijos.forEach((k, j) => {
+      const objetivo = v.x - (v.dirW || v.dir) * (10 + j * 8);
+      const d = objetivo - k.x, paso = VEL * 1.1 * dt;
+      if (Math.abs(d) > 1.5) { k.x += clamp(d, -paso, paso); k.dir = Math.sign(d); k.hop = Math.abs(Math.sin(t * 12 + j)) * 1.2; }
+      else {
+        k.dir = Math.sign(v.x - k.x) || k.dir; // quieto: mira al maestro
+        if (v.modo !== "diploma" || j !== v.graduado) k.hop = v.modo === "clase" ? Math.abs(Math.sin(t * 3 + j * 2)) * 0.6 : 0;
+      }
+    });
+  }
+
   // Astronauta: camina junto al astropuerto; cuando hay expedición se sube al cohete.
   function actualizarAstronauta(v, dt) {
     if (v.oculto) { v.alfa = 0; return; }
@@ -752,6 +835,7 @@ export function crearEscena(canvas) {
       if (v.tipo === "atleta") { actualizarAtleta(v, dt); continue; }
       if (v.tipo === "trader") { actualizarTrader(v, dt); continue; }
       if (v.tipo === "astronauta") { actualizarAstronauta(v, dt); continue; }
+      if (v.tipo === "maestro") { actualizarMaestro(v, dt); continue; }
       v.alfa = Math.min(1, v.alfa + dt * 2.5);
       v.animT += dt;
       v.hop = 0;
@@ -994,7 +1078,7 @@ export function crearEscena(canvas) {
     g.globalAlpha = alfa;
     const col = EDIFICIOS[id].color;
     const { capBase, ch, rx, mitad } = hongoBase(cx, m, 0, brillos[id] || 0, col, col);
-    manchasDe(id + ":" + semilla, (id === "conservatorio" ? 5 : id === "vivero" ? 11 : id === "gimnasio" ? 23 : id === "trade" ? 37 : 53) + semilla, 7 + m.nivel * 2).forEach((q) => {
+    manchasDe(id + ":" + semilla, (id === "conservatorio" ? 5 : id === "vivero" ? 11 : id === "gimnasio" ? 23 : id === "trade" ? 37 : id === "astropuerto" ? 53 : 71) + semilla, 7 + m.nivel * 2).forEach((q) => {
       const c2 = q.v < 0.5 ? mezcla(col, "#ffffff", 0.35) : mezcla(col, "#000000", 0.45);
       manchaCap(cx, capBase, rx, ch, cx + Math.round(q.u * rx), capBase - 2 - Math.round(q.h * ch), Math.max(1, Math.round(ch * q.f * 0.7)), c2, false);
     });
@@ -1102,6 +1186,28 @@ export function crearEscena(canvas) {
         const tiembla = cohete.fase === "despegue" ? Math.round(Math.sin(t * 60) * (0.5 + cohete.llama)) : 0;
         g.drawImage(spriteCohete, px - 3 + tiembla, groundY - 11);
       }
+    } else if (id === "escuela") {
+      // campana arriba con techito, banderín, pizarrón con garabatos y puerta de madera
+      g.fillStyle = BLANCO;
+      g.fillRect(cx - 3, capBase - ch - 3, 7, 1);
+      g.fillRect(cx - 2, capBase - ch - 4, 5, 1);
+      g.fillStyle = DORADO;
+      g.fillRect(cx - 2, capBase - ch - 2, 5, 1); g.fillRect(cx - 1, capBase - ch - 3, 3, 1);
+      g.fillRect(cx, capBase - ch - 1, 1, 1);
+      const sw = Math.floor(t * 1.2) % 2 ? 1 : 0;
+      g.fillStyle = col;
+      g.fillRect(cx + 6, capBase - ch - 3, 1, 6);
+      g.fillRect(cx + 7, capBase - ch - 3 + sw, 3, 2);
+      // tallo
+      const bxx = cx - mitad + 2, byy = capBase + 4;
+      g.fillStyle = "#14302a"; g.fillRect(bxx, byy, 7, 6);
+      g.fillStyle = "#c49a5a"; g.fillRect(bxx - 1, byy - 1, 9, 1); g.fillRect(bxx - 1, byy + 6, 9, 1); g.fillRect(bxx - 1, byy, 1, 6); g.fillRect(bxx + 7, byy, 1, 6);
+      g.fillStyle = BLANCO;
+      g.fillRect(bxx + 1, byy + 1, 2, 1); g.fillRect(bxx + 4, byy + 1, 1, 1); g.fillRect(bxx + 1, byy + 3, 4, 1); g.fillRect(bxx + 2, byy + 4, 1, 1);
+      g.fillStyle = "#8a5a2a";
+      g.fillRect(cx + 1, groundY - 8, 5, 7);
+      g.fillRect(cx + 2, groundY - 9, 3, 1);
+      g.fillStyle = DORADO; g.fillRect(cx + 5, groundY - 4, 1, 1);
     } else if (id === "vivero") {
       // brotes verdes en el sombrero, gota de agua arriba y hojas colgando del borde
       [[-9, 3], [-3, 5], [4, 3], [10, 5]].forEach(([dx, h]) => {
@@ -1209,10 +1315,27 @@ export function crearEscena(canvas) {
 
   function dibujarHonguito(v) {
     if (v.oculto) return;
+    if (v.tipo === "maestro" && v.hijos) {
+      // alumnitos detrás del maestro
+      for (const [j, k] of v.hijos.entries()) {
+        const kx = Math.round(k.x), kb = Math.round(groundY - k.hop);
+        g.globalAlpha = v.alfa;
+        g.save();
+        if (k.dir < 0) { g.translate(kx, 0); g.scale(-1, 1); g.translate(-kx, 0); }
+        g.drawImage(spritesKid[k.col], kx - 3, kb - 6);
+        g.restore();
+        g.globalAlpha = 1;
+        if (v.modo === "diploma" && j === v.graduado) {
+          // diploma enrollado con moño rojo sobre la cabeza
+          g.fillStyle = BLANCO; g.fillRect(kx - 3, kb - 11, 7, 3);
+          g.fillStyle = "#e23b3b"; g.fillRect(kx, kb - 11, 1, 3);
+        }
+      }
+    }
     const base = Math.round(groundY - v.hop);
     const pose = v.modo === "walk" ? (Math.floor(v.animT * 11) % 2) : 0;
     const spr = v.tipo === "musico" ? spritesMusico[v.modo === "canta" ? [0, 2, 3, 2][Math.floor(v.tCanta * 8) % 4] : pose]
-      : v.tipo === "jardinero" ? spritesJard[pose] : v.tipo === "atleta" ? spritesAtl[pose] : v.tipo === "astronauta" ? spritesAstro[pose] : v.tipo === "trader" ? spritesTrader[v.modo === "llama" ? (Math.floor(v.tLlama * 6) % 2 ? 2 : 3) : pose] : spritesHongo[v.col][pose];
+      : v.tipo === "jardinero" ? spritesJard[pose] : v.tipo === "atleta" ? spritesAtl[pose] : v.tipo === "maestro" ? spritesMaestro[v.modo === "clase" ? (Math.floor(v.animT * 5) % 2 ? 2 : 3) : pose] : v.tipo === "astronauta" ? spritesAstro[pose] : v.tipo === "trader" ? spritesTrader[v.modo === "llama" ? (Math.floor(v.tLlama * 6) % 2 ? 2 : 3) : pose] : spritesHongo[v.col][pose];
     const alto = HH + Math.round(v.estira);
     const x = Math.round(v.x);
     g.globalAlpha = v.alfa;
@@ -1221,6 +1344,13 @@ export function crearEscena(canvas) {
     g.drawImage(spr, x - 4, base - alto, HW, alto);
     g.restore();
     g.globalAlpha = 1;
+    if (v.modo === "clase") {
+      // libro abierto frente al maestro: tapa lima, páginas blancas y lomo; las páginas se agitan
+      const bx = x + v.dir * 6, by = base - 6, pg = Math.floor(v.animT * 4) % 2;
+      g.fillStyle = LIMA; g.fillRect(bx - 3, by + 1, 7, 3);
+      g.fillStyle = BLANCO; g.fillRect(bx - 3, by, 3, 3); g.fillRect(bx + 1, by + (pg ? -1 : 0), 3, 3);
+      g.fillStyle = "#14141d"; g.fillRect(bx - 1, by, 1, 3);
+    }
     if (v.tipo === "astronauta") {
       // antena del casco con luz
       g.fillStyle = BLANCO;
