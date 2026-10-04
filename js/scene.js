@@ -82,9 +82,10 @@ export function crearEscena(canvas) {
     c.width = HW; c.height = HH;
     const x = c.getContext("2d");
     const filas = [...HONGO, patas];
-    // boca solo al cantar (fuera de eso no tiene): 1 = entreabierta, 2 = abierta (bloque de 3x2)
+    // boca solo al cantar (fuera de eso no tiene), siempre en una sola fila para no tocar las patas:
+    // 1 = entreabierta, 2 = abierta
     if (boca === 1) filas[6] = ".wwwmwww.";
-    if (boca === 2) { filas[6] = ".wwmmmww."; filas[7] = ".wwmmmww."; }
+    if (boca === 2) filas[6] = ".wwmmmww.";
     filas.forEach((fila, y) => {
       for (let i = 0; i < HW; i++) {
         const ch = fila[i];
