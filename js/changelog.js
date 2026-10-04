@@ -1,5 +1,13 @@
 export const CHANGELOG = [
   {
+    v: "0.12.1",
+    fecha: "2026-10-03",
+    cambios: [
+      "Los edificios hongiles ahora varían de tamaño al azar: nunca son más chicos que antes, hasta ~30% más grandes. Cuál es el más grande o el más chico depende de la semilla de la partida (se guarda como state.semilla y está pensada para cambiar con cada prestigio).",
+      "Los edificios más grandes son más complejos: tienen más manchas y ramas con hongos chiquitos saliendo del tallo (una rama los medianos, dos los más grandes).",
+    ],
+  },
+  {
     v: "0.12.0",
     fecha: "2026-10-03",
     cambios: [

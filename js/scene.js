@@ -51,7 +51,7 @@ const NARANJA = "#ff8a1f";
 const GIGANTE = "#222232"; // hongos gigantes del fondo: apenas más oscuros que el cielo
 const GIGANTE_MANCHA = "#252535";
 // medidas de los edificios (mismo formato que MADRE)
-const TAM = {
+const TAM_BASE = {
   conservatorio: { w: 36, ch: 19, sw: 15, sh: 13 },
   vivero: { w: 38, ch: 20, sw: 16, sh: 14 },
   gimnasio: { w: 42, ch: 20, sw: 18, sh: 14 },
@@ -78,6 +78,22 @@ export function crearEscena(canvas) {
   let fondo = null;
   let t = 0, etapaPrev = null, inicial = true, flash = 0;
 
+  // Tamaño de cada edificio: nunca menor al base, hasta ~30% más grande según la semilla de la
+  // partida (state.semilla; cambia con cada prestigio). nivel 1/2 = más complejo (ramas hongo).
+  let semilla = 0;
+  const cacheTam = {};
+  function tam(id) {
+    const clave = id + ":" + semilla;
+    if (cacheTam[clave]) return cacheTam[clave];
+    const b = TAM_BASE[id];
+    let h = 7;
+    for (const c of id) h = (h * 31 + c.charCodeAt(0)) >>> 0;
+    const r = rng(h + semilla * 2654435761);
+    const f = 1 + r() * 0.3;
+    const lado = r() < 0.5 ? -1 : 1;
+    const nivel = f >= 1.22 ? 2 : f >= 1.1 ? 1 : 0;
+    return (cacheTam[clave] = { w: Math.round(b.w * f), ch: Math.round(b.ch * f), sw: Math.round(b.sw * f), sh: Math.round(b.sh * f), nivel, lado });
+  }
   const madre = { x: 0, pulso: 0, brillo: 0 };
   const edif = {}; // id -> { x } en celdas, para los edificios construidos
   const brillos = {}; // id -> destello del edificio (0..1)
@@ -328,7 +344,7 @@ export function crearEscena(canvas) {
     }
     return x;
   }
-  const obstaculos = () => [{ x: madre.x, w: medidas().w }, ...Object.entries(edif).map(([id, e]) => ({ x: e.x, w: TAM[id].w }))];
+  const obstaculos = () => [{ x: madre.x, w: medidas().w }, ...Object.entries(edif).map(([id, e]) => ({ x: e.x, w: tam(id).w }))];
 
   // Jardinero: camina a un punto libre del piso, lo riega y ahí brota un honguito pasajero.
   function actualizarJardinero(v, dt) {
@@ -379,7 +395,7 @@ export function crearEscena(canvas) {
       v.estira = Math.sin(v.animT * 3 + v.i) * 0.5;
       v.espera -= dt;
       if (v.espera <= 0) {
-        const gx = edif.gimnasio.x, mw = TAM.gimnasio.w / 2;
+        const gx = edif.gimnasio.x, mw = tam("gimnasio").w / 2;
         v.meta = clamp(gx + (Math.random() < 0.5 ? -1 : 1) * (mw + 6 + Math.random() * 28), 12, Wc - 12);
         v.dir = Math.sign(v.meta - v.x) || 1;
         v.modo = "walk";
@@ -469,6 +485,7 @@ export function crearEscena(canvas) {
     flash = Math.max(0, flash - dt * 2);
 
     // edificios (el jugador los ubica; la posición se guarda como fracción del ancho)
+    semilla = state.semilla || 0;
     bonusMadre = Object.keys(state.edificios).some((id) => EDIFICIOS[id]?.crecimientoMadre);
     coloresMadre = ["#ff4d4d", ...Object.keys(state.edificios).filter((id) => EDIFICIOS[id]).map((id) => EDIFICIOS[id].color)];
     const obst = [{ x: madre.x, w: medidas().w }];
@@ -476,11 +493,11 @@ export function crearEscena(canvas) {
       const ec = state.edificios[id];
       if (!ec) { delete edif[id]; continue; }
       const nuevo = !edif[id];
-      const x = xLibre(ec.x * Wc, TAM[id].w, obst);
+      const x = xLibre(ec.x * Wc, tam(id).w, obst);
       edif[id] = { x };
-      obst.push({ x, w: TAM[id].w });
+      obst.push({ x, w: tam(id).w });
       if (nuevo && !inicial) {
-        const cy = groundY - TAM[id].ch - TAM[id].sh * 0.5;
+        const cy = groundY - tam(id).ch - tam(id).sh * 0.5;
         flash = 0.6;
         motas(x, cy, 40, 1.4);
         aroPart(x, cy, 50, 0.7);
@@ -736,12 +753,12 @@ export function crearEscena(canvas) {
 
   // Edificios: hongo con decoración propia en el sombrero y en el tallo.
   function dibujarEdificio(id, x, alfa = 1) {
-    const m = TAM[id];
+    const m = tam(id);
     const cx = Math.round(x);
     g.globalAlpha = alfa;
     const col = EDIFICIOS[id].color;
     const { capBase, ch, rx, mitad } = hongoBase(cx, m, 0, brillos[id] || 0, col, col);
-    manchasDe(id, id === "conservatorio" ? 5 : id === "vivero" ? 11 : 23, 7).forEach((q) => {
+    manchasDe(id + ":" + semilla, (id === "conservatorio" ? 5 : id === "vivero" ? 11 : 23) + semilla, 7 + m.nivel * 2).forEach((q) => {
       const c2 = q.v < 0.5 ? mezcla(col, "#ffffff", 0.35) : mezcla(col, "#000000", 0.45);
       manchaCap(cx, capBase, rx, ch, cx + Math.round(q.u * rx), capBase - 2 - Math.round(q.h * ch), Math.max(1, Math.round(ch * q.f * 0.7)), c2, false);
     });
@@ -825,7 +842,27 @@ export function crearEscena(canvas) {
       g.fillStyle = "#3fe08a";
       g.fillRect(cx + mitad + 5, groundY - 7, 1, 4); g.fillRect(cx + mitad + 4, groundY - 6, 1, 1); g.fillRect(cx + mitad + 6, groundY - 7, 1, 1);
     }
+    // edificios más grandes: ramas con hongos chiquitos saliendo del tallo
+    if (m.nivel >= 1) ramaHongo(cx, capBase, mitad, m.lado, col, 5);
+    if (m.nivel >= 2) ramaHongo(cx, capBase, mitad, -m.lado, col, 3);
     g.globalAlpha = 1;
+  }
+
+  // brazo que sale del costado del tallo con un mini hongo encima
+  function ramaHongo(cx, capBase, mitad, s, col, largo) {
+    const y = capBase + 8, x1 = cx + s * (mitad + largo);
+    g.fillStyle = BLANCO;
+    g.fillRect(Math.min(cx + s * mitad, x1), y, largo + 1, 1);
+    g.fillRect(x1, y - 3, 1, 3);
+    const tapa = mezcla(SOMBRERO, col, 0.7);
+    const filas = [[3, y - 7], [5, y - 6], [7, y - 5], [7, y - 4]];
+    filas.forEach(([w, yy], i) => {
+      g.fillStyle = BLANCO;
+      g.fillRect(x1 - (w >> 1), yy, w, 1);
+      if (i > 0) { g.fillStyle = i === filas.length - 1 ? SOMBRERO_D : tapa; g.fillRect(x1 - (w >> 1) + 1, yy, w - 2, 1); }
+    });
+    g.fillStyle = col;
+    g.fillRect(x1 - 1, y - 5, 1, 1);
   }
 
   function dibujarHonguito(v) {
@@ -935,7 +972,7 @@ export function crearEscena(canvas) {
     }
     for (const v of visuales) dibujarHonguito(v);
     dibujarParticulas();
-    if (colocando) dibujarEdificio(colocando.id, xLibre(colocando.x, TAM[colocando.id].w, obstaculos()), 0.55);
+    if (colocando) dibujarEdificio(colocando.id, xLibre(colocando.x, tam(colocando.id).w, obstaculos()), 0.55);
 
     if (flash > 0.01) { g.globalAlpha = flash * 0.3; g.fillStyle = BLANCO; g.fillRect(0, 0, Wc, Hc); g.globalAlpha = 1; }
     ctx.imageSmoothingEnabled = false;
@@ -950,7 +987,7 @@ export function crearEscena(canvas) {
     const m = medidas();
     if (Math.abs(cx - madre.x) < m.w / 2 && cy > groundY - alturaMadre() && cy < groundY + 2) return { quien: "madre" };
     for (const id in edif) {
-      const m = TAM[id];
+      const m = tam(id);
       if (Math.abs(cx - edif[id].x) < m.w / 2 && cy > groundY - m.ch - m.sh - 8 && cy < groundY + 2) return { quien: id };
     }
     for (let i = visuales.length - 1; i >= 0; i--) {
@@ -970,7 +1007,7 @@ export function crearEscena(canvas) {
   }
 
   function rectEdificio(id) {
-    const k = S / dpr, m = TAM[id], x = edif[id].x;
+    const k = S / dpr, m = tam(id), x = edif[id].x;
     return { x0: (x - m.w / 2) * k, x1: (x + m.w / 2) * k, y0: (groundY - m.ch - m.sh) * k, y1: groundY * k };
   }
 
@@ -981,7 +1018,7 @@ export function crearEscena(canvas) {
   const cancelarColocacion = () => { colocando = null; };
   function confirmarColocacion(px) {
     if (!colocando) return null;
-    const x = xLibre(aCeldas(px), TAM[colocando.id].w, obstaculos());
+    const x = xLibre(aCeldas(px), tam(colocando.id).w, obstaculos());
     colocando = null;
     return x / Wc;
   }

@@ -26,6 +26,7 @@ export function nuevoEstado() {
     fondo: [], // hongos gigantes decorativos del fondo
     hitos: 0, // cuántos hitos de prestigio (cada 5 niveles) ya dieron su hongo
     flags: {},
+    semilla: Math.floor(Math.random() * 1e6), // define el tamaño relativo de los edificios; cambia con cada prestigio
     creado: Date.now(),
   };
 }
