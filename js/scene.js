@@ -86,7 +86,7 @@ const MADRE = [
 ];
 
 import { EDIFICIOS, HONGUITOS, ACIDO, EVENTOS, EVENTO_CFG } from './data.js';
-import { improd, velocidad, eventos, buffTipoActivo, efectos, prestigio } from './engine.js';
+import { meteoros as danoMeteoro, improd, velocidad, eventos, buffTipoActivo, efectos, prestigio } from './engine.js';
 import { getRun } from './dungeon.js';
 import { getEvento, consumirFx, setAlcance, nivelDef } from './eventos.js';
 import { dibujarMerc } from './dungeonVista.js';
@@ -1279,6 +1279,7 @@ export function crearEscena(canvas, opciones = {}) {
 
   // ---- Eventos arcanos (tormenta de esporas, meteoritos, mercader, invasión) ----
   const crateres = [], disparos = [];
+  let humoT = 0;
   let tormentaA = 0, cañonAng = -0.6, cañonRetro = 0, defCupula = 0, defCanon = 0;
   const alturaTorreDef = () => { const m = tam("torre_defensa"); return m.sh + m.ch; };
   function procesarArcano(dt) {
@@ -1286,8 +1287,8 @@ export function crearEscena(canvas, opciones = {}) {
     for (const e of consumirFx()) {
       const x = madre.x + (e.dx || 0);
       if (e.tipo === "impacto") {
-        motas(x, groundY - 2, 22, 1.8, "#ff8a1f"); motas(x, groundY - 2, 10, 1.2, "#ffe14d"); aroPart(x, groundY - 3, 26, 0.7);
-        crateres.push({ x, t: 12 }); flash = Math.max(flash, 0.22);
+        motas(x, groundY - 2, 60, 2.6, "#ff8a1f"); motas(x, groundY - 2, 30, 1.8, "#ffe14d"); motas(x, groundY - 2, 16, 1.2, "#3a2a1a"); aroPart(x, groundY - 3, 60, 0.9); aroPart(x, groundY - 3, 34, 0.6);
+        crateres.push({ x, t: 20 }); flash = Math.max(flash, 0.4);
         for (const v of visuales) if (Math.abs(v.x - x) < 40 && v.modo === "idle") v.espera = 3;
       } else if (e.tipo === "inter") {
         const y = groundY - Hc * 0.4;
@@ -1303,6 +1304,19 @@ export function crearEscena(canvas, opciones = {}) {
     tormentaA += ((ev && ev.tipo === "tormenta" ? 0.16 : 0) - tormentaA) * Math.min(1, dt * 1.5);
     if (ev && ev.tipo === "tormenta") {
       for (let i = 0, k = dt * 60 + Math.random(); i < k; i++) part(camX - Wc / 2 + Math.random() * Wc, -offY() - 4, (Math.random() - 0.5) * 10, 10 + Math.random() * 24, { tipo: "mota", dur: 2.6 + Math.random(), col: PALETA[Math.floor(Math.random() * PALETA.length)], r: Math.random() < 0.3 ? 2 : 1 });
+    }
+    // edificios dañados: humo y brasas mientras dura la baja de producción
+    humoT -= dt;
+    if (humoT <= 0) {
+      humoT = 0.12;
+      const ahora = Date.now();
+      for (const id in edif) {
+        const dañado = Object.keys(HONGUITOS).some((h) => HONGUITOS[h].casa === id && danoMeteoro[h] && danoMeteoro[h].hasta > ahora);
+        if (!dañado) continue;
+        const m = tam(id), x = edif[id].x + (Math.random() - 0.5) * m.w * 0.6, y = groundY - m.sh - m.ch;
+        part(x, y, (Math.random() - 0.5) * 6, -10 - Math.random() * 10, { tipo: "mota", dur: 1.6, col: Math.random() < 0.7 ? "#55555f" : "#ff8a1f", r: 2 });
+      }
+      if (danoMeteoro.basico && danoMeteoro.basico.hasta > ahora) part(madre.x + (Math.random() - 0.5) * 20, groundY - 4, (Math.random() - 0.5) * 6, -8 - Math.random() * 8, { tipo: "mota", dur: 1.4, col: "#55555f", r: 2 });
     }
     for (let i = crateres.length - 1; i >= 0; i--) { crateres[i].t -= dt; if (crateres[i].t <= 0) crateres.splice(i, 1); }
     for (let i = disparos.length - 1; i >= 0; i--) { disparos[i].t += dt; if (disparos[i].t > 0.25) disparos.splice(i, 1); }
@@ -1334,15 +1348,15 @@ export function crearEscena(canvas, opciones = {}) {
     if (c.hp > 1) { g.fillStyle = "#fff"; g.fillRect(x - 3, y - 12, Math.min(7, c.hp), 1); }
   }
   function dibujarArcano() {
-    for (const c of crateres) { g.globalAlpha = Math.min(1, c.t / 3); g.fillStyle = "#14141d"; g.fillRect(Math.round(c.x) - 5, groundY, 11, 2); g.fillStyle = "#3a2a1a"; g.fillRect(Math.round(c.x) - 3, groundY - 1, 7, 1); g.globalAlpha = 1; }
+    for (const c of crateres) { g.globalAlpha = Math.min(1, c.t / 3); g.fillStyle = "#14141d"; g.fillRect(Math.round(c.x) - 11, groundY, 23, 4); g.fillRect(Math.round(c.x) - 8, groundY + 4, 17, 2); g.fillStyle = "#3a2a1a"; g.fillRect(Math.round(c.x) - 7, groundY - 1, 15, 2); g.globalAlpha = 1; }
     const e = getEvento();
     if (e && e.tipo === "meteoros") {
       for (const m of e.meteoros) {
         if (m.estado !== "cae") continue;
-        const p = clamp(m.t / m.caida, 0, 1), y0 = -offY() - 24, x1 = madre.x + m.dx, hx = x1 + (1 - p) * 110, hy = y0 + (groundY - y0) * p * p;
-        for (let k = 14; k >= 1; k--) { const q = clamp(p - k * 0.025, 0, 1); g.globalAlpha = 0.6 * (1 - k / 15); g.fillStyle = k < 6 ? "#ffe14d" : "#ff8a1f"; g.fillRect(Math.round(x1 + (1 - q) * 110) - 2, Math.round(y0 + (groundY - y0) * q * q) - 2, 5, 5); }
-        g.globalAlpha = 0.25; disco(Math.round(hx), Math.round(hy), 11, "#ff8a1f"); g.globalAlpha = 1;
-        g.fillStyle = "#ff8a1f"; g.fillRect(Math.round(hx) - 4, Math.round(hy) - 4, 9, 9); g.fillStyle = "#ffe14d"; g.fillRect(Math.round(hx) - 3, Math.round(hy) - 3, 6, 6); g.fillStyle = "#fff"; g.fillRect(Math.round(hx) - 1, Math.round(hy) - 1, 3, 3);
+        const p = clamp(m.t / m.caida, 0, 1), y0 = -offY() - 40, x1 = madre.x + m.dx, hx = x1 + (1 - p) * 160, hy = y0 + (groundY - y0) * p * p;
+        for (let k = 22; k >= 1; k--) { const q = clamp(p - k * 0.02, 0, 1); g.globalAlpha = 0.65 * (1 - k / 23); g.fillStyle = k < 8 ? "#ffe14d" : "#ff8a1f"; const sz = Math.round(13 - k * 0.3); g.fillRect(Math.round(x1 + (1 - q) * 160) - (sz >> 1), Math.round(y0 + (groundY - y0) * q * q) - (sz >> 1), sz, sz); }
+        g.globalAlpha = 0.25; disco(Math.round(hx), Math.round(hy), 17, "#ff8a1f"); g.globalAlpha = 1;
+        g.fillStyle = "#ff8a1f"; g.fillRect(Math.round(hx) - 9, Math.round(hy) - 9, 19, 19); g.fillStyle = "#ffe14d"; g.fillRect(Math.round(hx) - 6, Math.round(hy) - 6, 13, 13); g.fillStyle = "#fff"; g.fillRect(Math.round(hx) - 3, Math.round(hy) - 3, 7, 7);
       }
     }
     if (e && e.tipo === "mercader") dibujarMercader(e);

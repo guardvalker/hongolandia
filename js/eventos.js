@@ -94,8 +94,8 @@ function iniciar(state, tipo) {
     A.tormenta = { mult, hasta: Date.now() + dur * 1000 };
     ev = { tipo, t: 0, dur, mult };
   } else if (tipo === "meteoros") {
-    const n = Math.min(22, 6 + Math.floor(nMagos(state) / 10));
-    ev = { tipo, t: 0, dur: 18, meteoros: [], pendientes: n, proximo: 1, total: n, interceptados: 0, impactos: 0, dano: [] };
+    const n = Math.min(45, 16 + Math.floor(nMagos(state) / 5));
+    ev = { tipo, t: 0, dur: 35, meteoros: [], pendientes: n, proximo: 1, total: n, interceptados: 0, impactos: 0, dano: [] };
   } else if (tipo === "mercader") {
     ofertasMercader(state);
     ev = { tipo, t: 0, dur: 100, dx: (Math.random() < 0.5 ? -1 : 1) * alcance * 0.9, estado: "llega" };
@@ -159,7 +159,7 @@ function terminar(state) {
     if (ev.robadas === 0) state.arcano.repelidas++;
     resultado = { tipo: "invasion", derribadas: ev.derribadas, robadas: ev.robadas, esporas: ev.esporas, total: ev.criaturas.length };
   } else if (ev.tipo === "meteoros") {
-    resultado = { tipo: "meteoros", interceptados: ev.interceptados, impactos: ev.impactos, total: ev.total };
+    resultado = { tipo: "meteoros", interceptados: ev.interceptados, impactos: ev.impactos, total: ev.total, dano: ev.dano };
   } else if (ev.tipo === "tormenta") resultado = { tipo: "tormenta" };
   ev = null;
   state.arcano.prox = intervalo(state);
@@ -194,9 +194,9 @@ function paso(state, dt) {
   if (ev.tipo === "meteoros") {
     ev.proximo -= dt;
     if (ev.pendientes > 0 && ev.proximo <= 0) {
-      ev.pendientes--; ev.proximo = rnd(0.35, 0.9);
+      ev.pendientes--; ev.proximo = rnd(0.4, 1.5);
       const inter = Math.random() < probInterceptar(state);
-      ev.meteoros.push({ dx: rnd(-alcance, alcance), t: 0, caida: rnd(1.3, 1.9), inter, estado: "cae" });
+      ev.meteoros.push({ dx: rnd(-alcance, alcance), t: 0, caida: rnd(2, 2.8), inter, estado: "cae" });
     }
     for (const m of ev.meteoros) {
       if (m.estado === "hecho") continue;
@@ -215,11 +215,13 @@ function paso(state, dt) {
           for (const id in HONGUITOS) {
             if (HONGUITOS[id].casa !== edif) continue;
             const prev = meteoros[id] && meteoros[id].hasta > Date.now() ? meteoros[id].f : 0;
-            meteoros[id] = { f: Math.min(0.9, prev + 0.3 * (1 - prot)), hasta: Date.now() + 45000 };
+            meteoros[id] = { f: Math.min(0.9, prev + 0.5 * (1 - prot)), hasta: Date.now() + 60000 };
           }
-        } else if (Math.abs(m.dx) < 14) {
+          if (!ev.dano.includes(edif)) ev.dano.push(edif);
+        } else if (Math.abs(m.dx) < 30) {
+          if (!ev.dano.includes("basico")) ev.dano.push("basico");
           const prev = meteoros.basico && meteoros.basico.hasta > Date.now() ? meteoros.basico.f : 0;
-          meteoros.basico = { f: Math.min(0.9, prev + 0.2 * (1 - prot)), hasta: Date.now() + 30000 };
+          meteoros.basico = { f: Math.min(0.9, prev + 0.35 * (1 - prot)), hasta: Date.now() + 45000 };
         }
       }
     }

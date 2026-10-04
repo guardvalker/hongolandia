@@ -1,5 +1,13 @@
 export const CHANGELOG = [
   {
+    v: "0.39.3",
+    fecha: "2026-10-04",
+    cambios: [
+      "La lluvia de meteoritos es mucho más larga (16 meteoritos o más, hasta 45 con muchos magos; dura unos 25–35 s) y los meteoritos son más del doble de grandes, con estela larga, explosión y cráteres más grandes que duran más.",
+      "El daño ahora se nota: los edificios golpeados (y el hongo madre) echan humo y brasas mientras dura la baja de producción (más fuerte y más larga: 60 s), y el aviso final dice qué edificios quedaron dañados.",
+    ],
+  },
+  {
     v: "0.39.2",
     fecha: "2026-10-04",
     cambios: [

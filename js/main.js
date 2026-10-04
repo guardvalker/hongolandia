@@ -173,7 +173,7 @@ function resultadoEvento() {
   const r = consumirResultadoEvento();
   if (!r) return;
   if (r.tipo === "invasion") ui.toast(r.robadas ? `Los ladrones robaron parte de tu barra de prestigio (${r.robadas} de ${r.total})` + (r.derribadas ? ` · derribadas ${r.derribadas}` : "") : `¡Invasión repelida! ${r.derribadas} criaturas derribadas +${fmt(r.esporas)} esporas`);
-  else if (r.tipo === "meteoros") ui.toast(`Lluvia de meteoritos: ${r.interceptados} destruidos, ${r.impactos} impactos`);
+  else if (r.tipo === "meteoros") ui.toast(`Lluvia de meteoritos: ${r.interceptados} destruidos, ${r.impactos} impactos` + (r.dano.length ? ` · dañados: ${r.dano.map((id) => id === "basico" ? "los honguitos del hongo madre" : EDIFICIOS[id].nombre).join(", ")} (producción reducida un rato)` : ""));
   guardar(state);
 }
 function resultadoDungeon() {
