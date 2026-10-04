@@ -1,5 +1,15 @@
 export const CHANGELOG = [
   {
+    v: "0.30.0",
+    fecha: "2026-10-04",
+    cambios: [
+      "Nueva tipografía del texto (VT323): se lee mucho mejor, sobre todo los números y letras que antes se confundían (5, 2, S, etc.). Los números grandes siguen con la de siempre.",
+      "Colores por edificio en las ventanas: el título, las secciones, el borde de cada fila, los botones de comprar y las notas toman el color del edificio al que pertenecen (el del honguito para sus propias filas). Los edificios en el hongo madre muestran su color.",
+      "Estado de cada fila: las que podés pagar tienen el borde brillante, las que todavía no se ven apagadas, las mejoras por niveles tienen cuadraditos que se pintan al comprar cada nivel, y lo ya completado se ve en el color del edificio con ✓.",
+      "Animaciones simples (a saltos, como el resto del arte): las filas entran de a una al abrir una ventana, destello al comprar, el botón da un destello cuando pasás a poder pagarlo, el número de honguitos rebota al subir, el cuadradito del nivel nuevo aparece con un pop y los botones se hunden al apretarlos. Se desactivan si el sistema pide menos movimiento.",
+    ],
+  },
+  {
     v: "0.29.1",
     fecha: "2026-10-04",
     cambios: [

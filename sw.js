@@ -1,9 +1,9 @@
-const CACHE = "hongolandia-v52";
+const CACHE = "hongolandia-v53";
 const ASSETS = [
   "./", "./index.html", "./style.css", "./manifest.json", "./vendor/break_eternity.min.js",
   "./js/main.js", "./js/decimal.js", "./js/format.js", "./js/data.js", "./js/state.js",
   "./js/engine.js", "./js/scene.js", "./js/ui.js", "./js/changelog.js",
-  "./vendor/fonts/pixelify-sans.woff2", "./vendor/fonts/press-start-2p.woff2",
+  "./vendor/fonts/pixelify-sans.woff2", "./vendor/fonts/press-start-2p.woff2", "./vendor/fonts/vt323.woff2",
 ];
 
 self.addEventListener("install", (event) => {

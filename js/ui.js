@@ -59,7 +59,11 @@ export function crearUI(api) {
     }
   }
 
-  function abrir(cual, titulo, render, ancla = null) {
+  let entrar = false, flashIdx = -1;
+  function abrir(cual, titulo, render, ancla = null, acento = "#b5e61d") {
+    // los elementos de la lista aparecen con una animación, salvo al rearmarla tras una compra
+    entrar = !(hoja.classList.contains("abierta") && hojaTitulo.textContent === titulo);
+    hoja.style.setProperty("--ac", acento);
     abierta = cual;
     anclaFn = ancla;
     $("hoja-mover").hidden = true;
@@ -72,9 +76,13 @@ export function crearUI(api) {
     actualizar(true);
   }
 
-  function fila(titulo, desc, onBuy) {
+  function fila(titulo, desc, onBuy, acento) {
     const el = document.createElement("div");
     el.className = "fila";
+    if (acento) el.style.setProperty("--a", acento);
+    const idx = hojaCuerpo.children.length;
+    if (entrar) { el.classList.add("entra"); el.style.setProperty("--i", Math.min(idx, 12)); }
+    else if (idx === flashIdx) { el.classList.add("flash"); flashIdx = -1; }
     const info = document.createElement("div");
     info.className = "fila-info";
     const t = document.createElement("b");
@@ -84,7 +92,12 @@ export function crearUI(api) {
     info.append(t, d);
     const btn = document.createElement("button");
     btn.className = "comprar";
-    btn.addEventListener("click", onBuy);
+    btn.addEventListener("click", (e) => {
+      // animación de compra en la fila (si la lista se rearma, la hereda la fila que quedó en su lugar)
+      flashIdx = idx;
+      el.classList.remove("flash"); void el.offsetWidth; el.classList.add("flash");
+      onBuy(e);
+    });
     el.append(info, btn);
     hojaCuerpo.append(el);
     return { el, titulo: t, btn };
@@ -122,7 +135,7 @@ export function crearUI(api) {
       const f = fila(tipo.nombre, tipo.desc, () => {
         if (comprarHonguitos(api.estado(), id, ajustes.cantidad || 1)) api.guardar();
         actualizar(true);
-      });
+      }, tipo.color);
       filas.push({ tipo: "honguito", id, ...f });
     }
   }
@@ -170,7 +183,8 @@ export function crearUI(api) {
       if (HONGUITOS[id].casa !== casa) continue;
       const n = api.estado().honguitos[id] || 0;
       const sig = proximoHito(n);
-      nota(sig ? `Hito: al llegar a ${sig} ${plural(id)} producen ×2 (tenés ${n}).` : `Todos los hitos de ${plural(id)} alcanzados.`);
+      const nt = nota(sig ? `Hito: al llegar a ${sig} ${plural(id)} producen ×2 (tenés ${n}).` : `Todos los hitos de ${plural(id)} alcanzados.`);
+      if (!sig) nt.classList.add("hecha");
     }
   }
 
@@ -189,7 +203,13 @@ export function crearUI(api) {
         const titulo = m.max > 1 ? `${m.nombre} · nivel ${n}/${m.max}` : m.nombre;
         const f = fila(titulo, descMej(m, n) + ` Requiere ${m.req} ${plural(m.tipo)}.`, () => {
           if (comprarMejoraEdificio(api.estado(), m.id)) { api.guardar(); reabrir(); }
-        });
+        }, EDIFICIOS[id].color);
+        if (m.max > 1) { // un cuadradito por nivel: los comprados se pintan del color del edificio
+          const pips = document.createElement("div");
+          pips.className = "pips";
+          for (let k = 0; k < Math.min(m.max, 12); k++) { const q = document.createElement("i"); if (k < n) q.className = k === n - 1 && f.el.classList.contains("flash") ? "on nuevo" : "on"; pips.append(q); }
+          f.el.querySelector(".fila-info").append(pips);
+        }
         f.refresh = (st) => {
           const faltan = (st.honguitos[m.tipo] || 0) < m.req;
           const c = costoMej(st, m);
@@ -202,7 +222,7 @@ export function crearUI(api) {
     // interruptor de la sobrecarga de la fábrica
     if (mias.some((m) => m.ef === "sobrecarga" && nivelMej(s, m.id) > 0)) {
       seccion("Interruptores");
-      const f = fila("Sobrecarga de máquinas", "Obreros ×2,5 de producción y ×2,5 de contaminación.", () => { alternarSobrecarga(api.estado()); api.guardar(); actualizar(true); });
+      const f = fila("Sobrecarga de máquinas", "Obreros ×2,5 de producción y ×2,5 de contaminación.", () => { alternarSobrecarga(api.estado()); api.guardar(); actualizar(true); }, EDIFICIOS[id].color);
       f.refresh = (st) => { f.btn.textContent = st.flags.sobrecarga ? "Encendida" : "Apagada"; f.btn.classList.toggle("activa", !!st.flags.sobrecarga); };
       filas.push(f);
     }
@@ -213,7 +233,7 @@ export function crearUI(api) {
         const f = fila(m.nombre + (m.max > 1 ? ` · nivel ${n}` : ""), descMej(m, n - 1), () => {
           const msg = activarHabilidad(api.estado(), m.id);
           if (msg) { api.guardar(); api.toast?.(msg); actualizar(true); }
-        });
+        }, EDIFICIOS[id].color);
         f.refresh = (st) => {
           const ahora = Date.now(), h = st.habil[m.id];
           if (h && ahora < h.hasta) { f.btn.textContent = Math.ceil((h.hasta - ahora) / 1000) + " s"; f.btn.disabled = true; f.btn.classList.add("activa"); }
@@ -226,7 +246,7 @@ export function crearUI(api) {
     const hechas = completas.filter((m) => !ACTIVAS.includes(m.ef) && m.ef !== "sobrecarga");
     if (hechas.length) {
       seccion("Mejoras completas");
-      for (const m of hechas) nota("✓ " + m.nombre + (m.max > 1 ? ` (nivel ${m.max})` : "") + " — " + descMej(m, m.max));
+      for (const m of hechas) nota("✓ " + m.nombre + (m.max > 1 ? ` (nivel ${m.max})` : "") + " — " + descMej(m, m.max)).classList.add("hecha");
     }
   }
 
@@ -262,7 +282,7 @@ export function crearUI(api) {
     if (!disponibles.length) nota("No hay nada para investigar por ahora: construí más edificios para abrir tecnologías de su tema.");
     for (const t of disponibles) {
       const tema = t.target === "todos" ? "General" : EDIFICIOS[t.edificio].nombre;
-      const f = fila(`${t.nombre} · nivel ${t.nivel}`, `${tema}: ${descTec(s, t)} (${fmt(trabajoEf(s, t))} pts)`, () => { if (elegirInvestigacion(api.estado(), t.id)) { api.guardar(); actualizar(true); } });
+      const f = fila(`${t.nombre} · nivel ${t.nivel}`, `${tema}: ${descTec(s, t)} (${fmt(trabajoEf(s, t))} pts)`, () => { if (elegirInvestigacion(api.estado(), t.id)) { api.guardar(); actualizar(true); } }, EDIFICIOS[t.edificio]?.color);
       f.refresh = (st) => {
         const en = st.invest.actual === t.id, p = st.invest.prog[t.id] || 0;
         f.btn.textContent = en ? "En curso" : p > 0 ? Math.round((p / trabajoEf(st, t)) * 100) + "%" : "Investigar";
@@ -276,7 +296,7 @@ export function crearUI(api) {
       const hechas = TECNOLOGIAS.filter((t) => t.target === target && s.mejoras[t.id]);
       if (hechas.length) resumen.push(`${target === "todos" ? "General" : HONGUITOS[target].nombre}: nivel ${hechas.length}/${NIVELES_TEC} (+${num(hechas.reduce((a, t) => a + pctTec(s, t), 0))}%)`);
     }
-    if (resumen.length) { seccion("Investigado"); for (const r of resumen) nota("✓ " + r); }
+    if (resumen.length) { seccion("Investigado"); for (const r of resumen) nota("✓ " + r).classList.add("hecha"); }
   }
 
   // ---- Edificio: honguitos propios, mejoras, habilidades, investigación ----
@@ -293,9 +313,9 @@ export function crearUI(api) {
       const tecs = TECNOLOGIAS.filter((t) => t.edificio === id && t.target !== "todos" && api.estado().mejoras[t.id]);
       if (tecs.length && id !== "universidad") {
         seccion("Tecnologías");
-        nota(`Investigación de la Universidad: nivel ${tecs.length}/${NIVELES_TEC} (+${num(tecs.reduce((a, t) => a + pctTec(api.estado(), t), 0))}% de producción).`);
+        nota(`Investigación de la Universidad: nivel ${tecs.length}/${NIVELES_TEC} (+${num(tecs.reduce((a, t) => a + pctTec(api.estado(), t), 0))}% de producción).`).classList.add("hecha");
       }
-    }, ancla);
+    }, ancla, EDIFICIOS[id].color);
   }
 
   // ---- Hongo madre: comprar honguitos, edificios y mejoras ----
@@ -311,7 +331,7 @@ export function crearUI(api) {
             if (api.estado().esporas.lt(ed.costo)) return;
             cerrar();
             api.colocar(ed.id);
-          });
+          }, ed.color);
           filas.push({ tipo: "edificio", ed, ...f });
         }
       }
@@ -552,13 +572,24 @@ export function crearUI(api) {
 
     if (abierta && anclaFn) colocar(); // sigue al edificio si cambia de tamaño
     if (abierta !== "madre" && abierta !== "casa" && !forzar) return;
+    const marcar = (f) => { // fila en verde/brillante si podés comprarla; apagada si no; destello al pasar a "podés"
+      if (!f.el || !f.btn || f.btn.classList.contains("activa")) return;
+      const puede = !f.btn.disabled;
+      f.el.classList.toggle("puede", puede);
+      f.el.classList.toggle("caro", !puede);
+      if (puede && f.puedeAntes === false) { f.btn.classList.remove("listo"); void f.btn.offsetWidth; f.btn.classList.add("listo"); }
+      f.puedeAntes = puede;
+    };
     for (const f of filas) {
-      if (f.refresh) { f.refresh(s); continue; }
+      if (f.refresh) { f.refresh(s); marcar(f); continue; }
       if (f.tipo === "honguito") {
         const cant = ajustes.cantidad || 1;
         const k = cant === "max" ? Math.max(1, maxHonguitos(s, f.id)) : cant;
         const c = costoHonguitos(s, f.id, k);
+        const antes = f.titulo.textContent;
         f.titulo.textContent = `${HONGUITOS[f.id].nombre} ×${fmt(s.honguitos[f.id] || 0)}`;
+        if (antes && antes !== f.titulo.textContent && f.titulo.dataset.vis) { f.titulo.classList.remove("bump"); void f.titulo.offsetWidth; f.titulo.classList.add("bump"); }
+        f.titulo.dataset.vis = "1";
         f.btn.textContent = cant === "max" ? `×${fmt(k)} · ${fmt(c)}` : fmt(c);
         f.btn.disabled = s.esporas.lt(c);
       } else if (f.tipo === "edificio") {
@@ -568,6 +599,7 @@ export function crearUI(api) {
         f.btn.textContent = fmt(f.mj.costo);
         f.btn.disabled = s.esporas.lt(f.mj.costo);
       }
+      marcar(f);
     }
   }
 
