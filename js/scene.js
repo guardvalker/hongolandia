@@ -655,7 +655,7 @@ export function crearEscena(canvas, opciones = {}) {
   function geomLuna() {
     // siempre en el cielo: a un 28% de la altura de la pantalla y del mismo tamaño en pantalla con
     // cualquier zoom; horizontalmente queda fija en el mundo
-    const r = Math.max(18, Math.round(Math.min(Wc0, Hc0) * 0.1 * (S0 / S)));
+    const r = Math.max(18, Math.round(Math.min(Wc0, Hc0) * 0.12 * (S0 / S)));
     // nunca detrás del sombrero del madre, por grande que se ponga
     return { r, x: Math.round(Math.max(C0 + Wc0 * 0.4, C0 + medidas().w / 2 + r + 10)), y: Math.round(Hc * 0.28) };
   }
