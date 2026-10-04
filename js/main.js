@@ -38,6 +38,8 @@ escena.setLimite(ajustes.visibles);
 const ui = crearUI({
   limiteVisibles: (n) => escena.setLimite(n),
   estado: () => state,
+  dispararCielo: (tipo) => escena.spawnEvento(tipo),
+  dispararArcano: (tipo) => forzarEvento(state, tipo),
   guardar: () => guardar(state),
   reemplazar(nuevo) {
     state = nuevo;

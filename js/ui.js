@@ -2,7 +2,7 @@ import { iconoObjeto } from './dungeonVista.js';
 import { getEvento, DEF_MEJ, nivelDef, costoDef, comprarDef, ofertasMercader, precioArtefacto, comprarArtefacto, fuerzaSoldados, fuerzaTorre, probInterceptar, MAGOS_MIN } from './eventos.js';
 import { ARTEFACTOS, ARTE_POR_ID, iconoArtefacto, cantArte } from './artefactos.js';
 import { OBJETOS, escalaJefes, CLASES, TABERNA_MEJ, costoMerc, contratar, comprarTab, nivelTab, costoTab, sanos, iniciar as iniciarExploracion, getRun, PARTY_MAX, mercStats, CRISTAL_MULT } from './dungeon.js';
-import { HONGUITOS, MEJORAS, EDIFICIOS, TECNOLOGIAS, MEJ_EDIF, TEC_POR_ID, HITOS, NIVELES_TEC } from './data.js';
+import { EVENTOS, HONGUITOS, MEJORAS, EDIFICIOS, TECNOLOGIAS, MEJ_EDIF, TEC_POR_ID, HITOS, NIVELES_TEC } from './data.js';
 import { fmt, fmtRate } from './format.js';
 import { factorAcido, produccionPorSeg, produccionPorTipo, prestigio, costoHonguito, costoHonguitos, maxHonguitos, comprarHonguitos, comprarMejora, tecDisponible, pctTec, invPorSeg, proximoHito, costoEdificio, elegirInvestigacion, comprarMejoraEdificio, activarHabilidad, buffActivo, nivelMej, costoMej, durBuff, cdHabilidad, alternarSobrecarga, trabajoEf } from './engine.js';
 import { exportar, importar, borrarGuardado } from './state.js';
@@ -688,6 +688,27 @@ export function crearUI(api) {
       });
       filaV.append(infoV, rng);
       hojaCuerpo.append(filaV);
+
+      seccion("Admin (pruebas)");
+      const notaAdm = document.createElement("p");
+      notaAdm.className = "nota";
+      notaAdm.textContent = "Dispara eventos al instante, sin esperar. Los eventos arcanos no se pueden superponer.";
+      const botAdm = document.createElement("div");
+      botAdm.className = "botones";
+      const adm = (texto, fn) => {
+        const b = document.createElement("button");
+        b.className = "btn";
+        b.textContent = texto;
+        b.addEventListener("click", () => { notaAdm.textContent = fn(); });
+        botAdm.append(b);
+      };
+      for (const [id, e] of Object.entries(EVENTOS)) {
+        adm(e.nombre, () => { api.dispararCielo(id); return `Apareció en el cielo: ${e.nombre}.`; });
+      }
+      for (const [id, nombre] of [["tormenta", "Tormenta de esporas"], ["meteoros", "Lluvia de meteoritos"], ["mercader", "Mercader hongil"], ["invasion", "Invasión"]]) {
+        adm(nombre, () => api.dispararArcano(id) ? `Evento iniciado: ${nombre}.` : "Ya hay un evento arcano en curso.");
+      }
+      hojaCuerpo.append(botAdm, notaAdm);
 
       seccion("Partida");
       const ta = document.createElement("textarea");

@@ -1,4 +1,4 @@
-const CACHE = "hongolandia-v66";
+const CACHE = "hongolandia-v67";
 const ASSETS = [
   "./", "./index.html", "./style.css", "./manifest.json", "./vendor/break_eternity.min.js",
   "./js/main.js", "./js/decimal.js", "./js/format.js", "./js/data.js", "./js/state.js",

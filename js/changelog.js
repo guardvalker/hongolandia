@@ -1,5 +1,12 @@
 export const CHANGELOG = [
   {
+    v: "0.39.1",
+    fecha: "2026-10-04",
+    cambios: [
+      "Ajustes tiene una sección nueva «Admin (pruebas)» con botones para disparar eventos al instante: los tres del cielo (espora dorada, fiebre del micelio, cometa de ideas) y los cuatro arcanos (tormenta, meteoritos, mercader, invasión). Los arcanos no se superponen: si hay uno en curso, avisa.",
+    ],
+  },
+  {
     v: "0.39.0",
     fecha: "2026-10-04",
     cambios: [

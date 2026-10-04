@@ -255,4 +255,4 @@ function paso(state, dt) {
 }
 
 // para probar: ?arcano=tormenta|meteoros|mercader|invasion fuerza un evento
-export function forzarEvento(state, tipo) { if (!ev) iniciar(state, tipo); }
+export function forzarEvento(state, tipo) { if (ev) return false; iniciar(state, tipo); return true; }

@@ -3041,5 +3041,5 @@ export function crearEscena(canvas, opciones = {}) {
     while (brotes.length > maxBrotes()) brotes.shift();
   }
 
-  return { tomarEvento: tomar, mostrarPuerta, festejarMercs, zoom, pan, recentrar, setLimite, resize, update, draw, toque, pulsoMadre, rectMadre, rectEdificio, iniciarColocacion, moverColocacion, cancelarColocacion, confirmarColocacion };
+  return { spawnEvento, tomarEvento: tomar, mostrarPuerta, festejarMercs, zoom, pan, recentrar, setLimite, resize, update, draw, toque, pulsoMadre, rectMadre, rectEdificio, iniciarColocacion, moverColocacion, cancelarColocacion, confirmarColocacion };
 }
