@@ -656,7 +656,7 @@ export function crearEscena(canvas, opciones = {}) {
     // siempre en el cielo: a un 28% de la altura de la pantalla y del mismo tamaño en pantalla con
     // cualquier zoom; horizontalmente queda fija en el mundo
     const r = Math.max(18, Math.round(Math.min(Wc0, Hc0) * 0.1 * (S0 / S)));
-    return { r, x: Math.round(C0 + Wc0 * 0.32), y: Math.round(Hc * 0.28) };
+    return { r, x: Math.round(C0 + Wc0 * 0.4), y: Math.round(Hc * 0.28) };
   }
   // posición de la plataforma: bajo el sombrero, del lado contrario a la rama hongo
   function padCohete() {

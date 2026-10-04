@@ -1,5 +1,12 @@
 export const CHANGELOG = [
   {
+    v: "0.22.2",
+    fecha: "2026-10-04",
+    cambios: [
+      "La luna se movió más a la derecha para que el hongo madre no la tape.",
+    ],
+  },
+  {
     v: "0.22.1",
     fecha: "2026-10-04",
     cambios: [
