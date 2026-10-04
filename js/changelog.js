@@ -1,5 +1,13 @@
 export const CHANGELOG = [
   {
+    v: "0.40.0",
+    fecha: "2026-10-04",
+    cambios: [
+      "En el contador de esporas/s, cada tipo de honguito con la producción reducida (por meteoritos, lluvia ácida o cualquier otra cosa) se marca en rojo, con una flechita ▼.",
+      "Nuevo ícono de cofre arriba a la izquierda: abre el Cofre del mercader con los 50 artefactos. Los que no compraste se ven oscuros (como siluetas, sin nombre); los comprados se ven a color y al tocarlos muestran su descripción. El contador de esporas/s bajó para dejarle lugar.",
+    ],
+  },
+  {
     v: "0.39.3",
     fecha: "2026-10-04",
     cambios: [

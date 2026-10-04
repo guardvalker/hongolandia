@@ -4,7 +4,7 @@ import { ARTEFACTOS, ARTE_POR_ID, iconoArtefacto, cantArte } from './artefactos.
 import { OBJETOS, escalaJefes, CLASES, TABERNA_MEJ, costoMerc, contratar, comprarTab, nivelTab, costoTab, sanos, iniciar as iniciarExploracion, getRun, PARTY_MAX, mercStats, CRISTAL_MULT } from './dungeon.js';
 import { EVENTOS, HONGUITOS, MEJORAS, EDIFICIOS, TECNOLOGIAS, MEJ_EDIF, TEC_POR_ID, HITOS, NIVELES_TEC } from './data.js';
 import { fmt, fmtRate } from './format.js';
-import { factorAcido, produccionPorSeg, produccionPorTipo, prestigio, costoHonguito, costoHonguitos, maxHonguitos, comprarHonguitos, comprarMejora, tecDisponible, pctTec, invPorSeg, proximoHito, costoEdificio, elegirInvestigacion, comprarMejoraEdificio, activarHabilidad, buffActivo, nivelMej, costoMej, durBuff, cdHabilidad, alternarSobrecarga, trabajoEf } from './engine.js';
+import { factorAcido, factorMeteoro, produccionPorSeg, produccionPorTipo, prestigio, costoHonguito, costoHonguitos, maxHonguitos, comprarHonguitos, comprarMejora, tecDisponible, pctTec, invPorSeg, proximoHito, costoEdificio, elegirInvestigacion, comprarMejoraEdificio, activarHabilidad, buffActivo, nivelMej, costoMej, durBuff, cdHabilidad, alternarSobrecarga, trabajoEf } from './engine.js';
 import { exportar, importar, borrarGuardado } from './state.js';
 import { CHANGELOG } from './changelog.js';
 
@@ -40,7 +40,7 @@ export function crearUI(api) {
     hoja.style.cssText = "";
     hoja.style.setProperty("--ac", acentoActual);
     hoja.classList.remove("anclada");
-    if (!anclaFn && abierta !== "dungeon" && abierta !== "ajustes") return;
+    if (!anclaFn && abierta !== "dungeon" && abierta !== "ajustes" && abierta !== "cofre") return;
     const vw = window.innerWidth, vh = window.innerHeight, margen = 10;
     const w = Math.min(300, vw - 2 * margen);
     hoja.classList.add("anclada");
@@ -479,6 +479,28 @@ export function crearUI(api) {
     }, ancla, ed.color);
   }
 
+  // ---- Cofre: colección de los 50 artefactos del Mercader (a oscuras hasta comprarlos) ----
+  function abrirCofre() {
+    abrir("cofre", "Cofre del mercader", () => {
+      const st = api.estado();
+      seccion(`Artefactos (${cantArte(st)}/${ARTEFACTOS.length})`);
+      const detalle = document.createElement("p");
+      detalle.className = "nota";
+      detalle.textContent = "Tocá un artefacto que ya tengas para ver qué hace. Los oscuros todavía no los compraste.";
+      const grid = document.createElement("div");
+      grid.className = "objs";
+      for (const a of ARTEFACTOS) {
+        const tengo = !!st.arte.tienen[a.id];
+        const c = document.createElement("div");
+        c.className = "obj" + (tengo ? "" : " bloq");
+        c.innerHTML = '<img src="' + iconoArtefacto(a.id, 3) + '" alt=""><small>' + (tengo ? a.nombre : "???") + "</small>";
+        c.addEventListener("click", () => { detalle.textContent = tengo ? a.nombre + ": " + a.desc : "Todavía no lo conseguiste en el Mercader."; });
+        grid.append(c);
+      }
+      hojaCuerpo.append(grid, detalle);
+    }, null, "#c58aff");
+  }
+
   // ---- Mercader hongil: elegís 1 de 5 artefactos ----
   function mostrarMercader() {
     abrir("mercader", "Mercader hongil", () => {
@@ -786,6 +808,7 @@ export function crearUI(api) {
   $("hoja-cerrar").addEventListener("click", cerrar);
   $("fondo-hoja").addEventListener("click", cerrar);
   $("btn-ajustes").addEventListener("click", abrirAjustes);
+  $("btn-cofre").addEventListener("click", abrirCofre);
 
   // ---- Refresco de textos (se llama ~4 veces por segundo) ----
   const elEsporas = $("esporas");
@@ -856,7 +879,7 @@ export function crearUI(api) {
       } else {
         const v = produccionPorTipo(s, id);
         dpsFilas[id].val.textContent = fmtRate(v);
-        dpsFilas[id].val.style.color = factorAcido(id) < 1 ? "#9dff4a" : ""; // mojados por lluvia ácida
+        dpsFilas[id].el.classList.toggle("debuff", factorAcido(id) < 1 || factorMeteoro(id) < 1); // lluvia ácida, meteoritos o cualquier otra baja de producción
         esp.push({ id, v });
       }
     }

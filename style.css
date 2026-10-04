@@ -45,7 +45,7 @@ html, body {
 
 #hud {
   position: fixed; top: 0; left: 0; right: 0; pointer-events: none;
-  padding: calc(env(safe-area-inset-top) + 12px) 64px 0 12px;
+  padding: calc(env(safe-area-inset-top) + 12px) 64px 0 64px;
   display: flex; justify-content: flex-start; align-items: flex-start;
 }
 #barra-bloque { display: flex; flex-direction: column; align-items: stretch; flex: 1; min-width: 0; }
@@ -225,7 +225,7 @@ body.transp #hoja-cerrar { background: rgba(45, 45, 64, .6); }
 @media (min-width: 760px) {
   #hud { justify-content: center; padding: calc(env(safe-area-inset-top) + 12px) 12px 0; }
   #barra-bloque { flex: none; width: clamp(420px, 56vw, 820px); }
-  #dps { top: calc(env(safe-area-inset-top) + 12px); }
+  #dps { top: calc(env(safe-area-inset-top) + 60px); }
 }
 .dps-fila[hidden] { display: none; }
 
@@ -302,3 +302,9 @@ body.transp #hoja-cerrar { background: rgba(45, 45, 64, .6); }
 .fila .arte-ico { width: 27px; height: 27px; image-rendering: pixelated; flex: none; }
 #hoja.anclada .botones { gap: 6px; margin: 8px 0 4px; }
 #hoja.anclada .botones .btn { padding: 6px 8px; font-size: 10px; flex: 1 1 auto; }
+
+#btn-cofre { pointer-events: auto; position: absolute; left: 12px; top: calc(env(safe-area-inset-top) + 12px); width: 40px; height: 40px; border: 0; padding: 0; display: grid; place-items: center; background: var(--panel); box-shadow: 0 0 0 2px var(--borde); cursor: pointer; }
+.obj.bloq img { filter: brightness(0); opacity: .55; }
+.obj.bloq small { color: #5a5a78; }
+.dps-fila.debuff, .dps-fila.debuff b { color: #ff4d4d; }
+.dps-fila.debuff span:not(.dps-tipo)::after { content: " ▼"; font-size: 9px; }
