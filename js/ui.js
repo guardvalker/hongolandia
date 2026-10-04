@@ -1,6 +1,6 @@
 import { HONGUITOS, MEJORAS, EDIFICIOS } from './data.js';
 import { fmt, fmtRate } from './format.js';
-import { produccionPorSeg, costoHonguito, comprarHonguito, comprarMejora } from './engine.js';
+import { produccionPorSeg, produccionPorTipo, prestigio, costoHonguito, comprarHonguito, comprarMejora } from './engine.js';
 import { exportar, importar, borrarGuardado } from './state.js';
 import { CHANGELOG } from './changelog.js';
 
@@ -235,13 +235,52 @@ export function crearUI(api) {
 
   // ---- Refresco de textos (se llama ~4 veces por segundo) ----
   const elEsporas = $("esporas");
-  const elProd = $("prod");
   const elHint = $("hint");
+  const elBloque = $("barra-bloque");
+  const elFill = $("barra-fill");
+  const elNivel = $("presti-nivel");
+  const elNum = $("presti-num");
+  const elDpsTotal = $("dps-total");
+  let puntosPrev = null;
+
+  // una fila por tipo de honguito en el contador de esporas/s (se muestran solo los que tenés)
+  const dpsFilas = {};
+  for (const id in HONGUITOS) {
+    const el = document.createElement("div");
+    el.className = "dps-fila";
+    el.hidden = true;
+    const sw = document.createElement("span");
+    sw.className = "dps-tipo";
+    sw.style.background = HONGUITOS[id].color;
+    const nombre = document.createElement("span");
+    nombre.textContent = HONGUITOS[id].nombre;
+    const val = document.createElement("b");
+    el.append(sw, nombre, val);
+    $("dps-filas").append(el);
+    dpsFilas[id] = { el, val };
+  }
 
   function actualizar(forzar) {
     const s = api.estado();
     elEsporas.textContent = fmt(s.esporas);
-    elProd.textContent = "+" + fmtRate(produccionPorSeg(s));
+
+    const pr = prestigio(s.total);
+    elNivel.textContent = "Prestigio " + pr.puntos;
+    elNum.textContent = fmt(pr.cur) + " / " + fmt(pr.need);
+    elFill.style.width = pr.frac * 100 + "%";
+    if (puntosPrev !== null && pr.puntos > puntosPrev) {
+      elBloque.classList.remove("subio");
+      void elBloque.offsetWidth;
+      elBloque.classList.add("subio");
+    }
+    puntosPrev = pr.puntos;
+
+    for (const id in dpsFilas) {
+      const tiene = (s.honguitos[id] || 0) > 0;
+      dpsFilas[id].el.hidden = !tiene;
+      if (tiene) dpsFilas[id].val.textContent = fmtRate(produccionPorTipo(s, id));
+    }
+    elDpsTotal.textContent = fmtRate(produccionPorSeg(s));
 
     const puedeComprar = s.esporas.gte(costoHonguito(s, "basico"));
     elHint.classList.toggle("visible", puedeComprar && !s.flags.abrioMadre && abierta !== "madre");

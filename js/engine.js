@@ -1,5 +1,5 @@
 import { D } from './decimal.js';
-import { HONGUITOS, MEJORAS, EDIFICIOS } from './data.js';
+import { HONGUITOS, MEJORAS, EDIFICIOS, PRESTIGIO } from './data.js';
 
 // Lógica pura del juego: nada de DOM ni canvas acá.
 
@@ -9,6 +9,23 @@ export function multiplicador(state, tipoId) {
     if (state.mejoras[mj.id] && (mj.aplica === "todos" || mj.aplica === tipoId)) m = m.mul(mj.mult);
   }
   return m;
+}
+
+// Esporas/s que genera un tipo de honguito (con sus mejoras).
+export function produccionPorTipo(state, id) {
+  const n = state.honguitos[id] || 0;
+  return n > 0 ? HONGUITOS[id].prod.mul(n).mul(multiplicador(state, id)) : D(0);
+}
+
+// Nivel de prestigio según el total de esporas ganadas, y progreso hacia el siguiente.
+export function prestigio(total) {
+  const g = PRESTIGIO.crecimiento, c0 = PRESTIGIO.base;
+  const acum = (k) => c0.mul(D(g).pow(k).sub(1)).div(g - 1); // esporas totales para tener k puntos
+  let n = Math.max(0, Math.floor(total.mul(g - 1).div(c0).add(1).log10().toNumber() / Math.log10(g)));
+  while (total.gte(acum(n + 1))) n++;
+  while (n > 0 && total.lt(acum(n))) n--;
+  const base = acum(n), need = acum(n + 1).sub(base), cur = total.sub(base);
+  return { puntos: n, cur, need, frac: Math.min(1, Math.max(0, cur.div(need).toNumber())) };
 }
 
 export function produccionPorSeg(state) {

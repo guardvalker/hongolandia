@@ -1,5 +1,14 @@
 export const CHANGELOG = [
   {
+    v: "0.9.0",
+    fecha: "2026-10-03",
+    cambios: [
+      "Nueva barra de prestigio arriba: se llena con las esporas ganadas y cada vez que se completa das 1 punto de prestigio. Cada punto cuesta más que el anterior (×1,55).",
+      "El contador de la izquierda ahora muestra las esporas por segundo que genera cada tipo de honguito, más el total.",
+      "Producción por tipo escalonada: el Músico produce 10 veces un honguito común y el Jardinero 10 veces un Músico (costos del Músico, Jardinero y Vivero reajustados).",
+    ],
+  },
+  {
     v: "0.8.0",
     fecha: "2026-10-03",
     cambios: [

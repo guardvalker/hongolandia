@@ -25,10 +25,14 @@ export const EDIFICIOS = {
     id: "vivero",
     nombre: "Vivero hongil",
     desc: "Un hongo con invernadero. Habilita a los jardineros, que riegan el piso y hacen brotar honguitos pasajeros.",
-    costo: D(8000),
-    desbloqueo: D(2500),
+    costo: D(40000),
+    desbloqueo: D(10000),
   },
 };
+
+// Barra de prestigio (arriba): se llena con el total de esporas ganadas. Cada punto cuesta
+// `crecimiento` veces más que el anterior: el punto k necesita base * crecimiento^(k-1) esporas.
+export const PRESTIGIO = { base: D(1000), crecimiento: 1.55 };
 
 // Tipos de honguitos. `sprite` = archivo en assets/ (sin .png).
 export const HONGUITOS = {
@@ -40,15 +44,17 @@ export const HONGUITOS = {
     costoBase: D(8),
     crecimiento: 1.25,
     prod: D(0.1), // esporas/seg por unidad
+    color: "#ff6fb5", // color en el contador de esporas/s
   },
   musico: {
     id: "musico",
     nombre: "Músico",
     sprite: "musico",
     desc: "Canta cada tanto y su música rinde esporas.",
-    costoBase: D(500),
-    crecimiento: 1.35,
-    prod: D(0.4),
+    costoBase: D(1000),
+    crecimiento: 1.4,
+    prod: D(1), // 10 veces un honguito común
+    color: "#a77bff",
     casa: "conservatorio", // se compra desde ese edificio, no desde el hongo madre
   },
   jardinero: {
@@ -56,9 +62,10 @@ export const HONGUITOS = {
     nombre: "Jardinero",
     sprite: "jardinero",
     desc: "Riega el piso y brotan honguitos que se desvanecen y se vuelven esporas.",
-    costoBase: D(3000),
-    crecimiento: 1.4,
-    prod: D(2),
+    costoBase: D(30000),
+    crecimiento: 1.45,
+    prod: D(10), // 10 veces un músico
+    color: "#2fa84f",
     casa: "vivero",
   },
 };

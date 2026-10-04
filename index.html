@@ -18,12 +18,18 @@
   <canvas id="juego"></canvas>
 
   <div id="hud">
-    <div class="hud-esporas px">
+    <div id="barra-bloque">
       <span class="hud-label">Esporas</span>
       <span id="esporas">0</span>
-      <span id="prod">+0/s</span>
+      <div id="barra-info"><span id="presti-nivel">Prestigio 0</span><span id="presti-num"></span></div>
+      <div id="barra"><div id="barra-fill"></div></div>
     </div>
     <button id="btn-ajustes" aria-label="Ajustes">⚙</button>
+  </div>
+  <div id="dps" class="px">
+    <div class="dps-titulo">Esporas/s</div>
+    <div id="dps-filas"></div>
+    <div class="dps-fila dps-total"><span>Total</span><b id="dps-total">0/s</b></div>
   </div>
   <div id="hint">Tocá el hongo del medio</div>
   <div id="colocar"><span id="colocar-texto"></span><button id="colocar-cancelar" class="btn">Cancelar</button></div>
@@ -37,7 +43,7 @@
     <div id="hoja-cuerpo"></div>
   </section>
 
-  <script>window.APP_VERSION = "0.8.0";</script>
+  <script>window.APP_VERSION = "0.9.0";</script>
   <script src="vendor/break_eternity.min.js"></script>
   <script type="module" src="js/main.js"></script>
 </body>
