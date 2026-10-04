@@ -20,6 +20,7 @@ export const EDIFICIOS = {
     costo: D(1),
     desbloqueo: D(0), // total de esporas a partir del cual aparece en el hongo madre
     crecimientoMadre: 1.15,
+    color: "#a77bff", // mancha que suma al sombrero del hongo madre
   },
   vivero: {
     id: "vivero",
@@ -27,6 +28,7 @@ export const EDIFICIOS = {
     desc: "Un hongo con invernadero. Habilita a los jardineros, que riegan el piso y hacen brotar honguitos pasajeros.",
     costo: D(1),
     desbloqueo: D(0),
+    color: "#2fa84f",
   },
 };
 

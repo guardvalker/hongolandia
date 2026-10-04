@@ -1,5 +1,14 @@
 export const CHANGELOG = [
   {
+    v: "0.11.0",
+    fecha: "2026-10-03",
+    cambios: [
+      "Hongo madre rediseñado: tallo que se ensancha en la base, sombrero con láminas, reflejo, faldón y sombra en el piso.",
+      "Las manchas del sombrero ahora son los colores de tus edificios: empieza con un solo punto rojo, el Conservatorio suma violeta, el Vivero verde oscuro, etc.",
+      "Conservatorio y Vivero rediseñados: Conservatorio con puerta en arco que brilla, ventanitas y teclas de piano en la base; Vivero como invernadero de vidrio con rejilla, hojas colgando y maceta con brote.",
+    ],
+  },
+  {
     v: "0.10.1",
     fecha: "2026-10-03",
     cambios: [
