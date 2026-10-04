@@ -1,5 +1,16 @@
 export const CHANGELOG = [
   {
+    v: "0.18.0",
+    fecha: "2026-10-04",
+    cambios: [
+      "Nuevo edificio: Fábrica hongil (tier 4, entre el Vivero y el Gym). Sombrero de acero con chimeneas que sueltan humo verde, engranaje girando, ventana con siluetas que se mueven, puerta de operarios y cinta transportadora.",
+      "Nuevo honguito: Obrero (casco de acero y chaleco naranja). Entra a la fábrica, sale con una cajita, la deja en la cinta y de ahí sale un hongo chiquito (como los del jardinero) que se vuelve espora. Cuantos más obreros, más movimiento en la fábrica, más humo, engranaje y cinta más rápidos.",
+      "Contaminación: cuantos más obreros, más nubes verdes se acumulan sobre la fábrica (1 a 10).",
+      "Lluvia ácida: cada tanto (más seguido con más nubes) las nubes llueven sobre una zona. Todo honguito que toque la lluvia queda mojado: se tiñe de verde, camina más lento y produce un 40% menos por 20 s. Mojarse de nuevo no suma más %, solo reinicia los 20 s. El contador de esporas/s se pone verde mientras haya mojados.",
+      "El Gym, el Trade center y el Astropuerto subieron un tier (los valores se recalculan solos por la fórmula).",
+    ],
+  },
+  {
     v: "0.17.0",
     fecha: "2026-10-03",
     cambios: [

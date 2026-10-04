@@ -1,6 +1,6 @@
 import { HONGUITOS, MEJORAS, EDIFICIOS } from './data.js';
 import { fmt, fmtRate } from './format.js';
-import { produccionPorSeg, produccionPorTipo, prestigio, costoHonguito, costoHonguitos, maxHonguitos, comprarHonguitos, comprarMejora } from './engine.js';
+import { factorAcido, produccionPorSeg, produccionPorTipo, prestigio, costoHonguito, costoHonguitos, maxHonguitos, comprarHonguitos, comprarMejora } from './engine.js';
 import { exportar, importar, borrarGuardado } from './state.js';
 import { CHANGELOG } from './changelog.js';
 
@@ -332,7 +332,10 @@ export function crearUI(api) {
     for (const id in dpsFilas) {
       const tiene = (s.honguitos[id] || 0) > 0;
       dpsFilas[id].el.hidden = !tiene;
-      if (tiene) dpsFilas[id].val.textContent = fmtRate(produccionPorTipo(s, id));
+      if (tiene) {
+        dpsFilas[id].val.textContent = fmtRate(produccionPorTipo(s, id));
+        dpsFilas[id].val.style.color = factorAcido(id) < 1 ? "#9dff4a" : ""; // mojados por lluvia ácida
+      }
     }
     elDpsTotal.textContent = fmtRate(produccionPorSeg(s));
 

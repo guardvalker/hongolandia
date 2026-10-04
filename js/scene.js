@@ -3,7 +3,7 @@
 // del arte) y se escala con un factor entero sin suavizado. No hay sprites ni fotogramas:
 // los honguitos son un bitmap diminuto que se mueve con rebotes y estiramientos por código.
 
-const TIPOS_VISUALES = ['basico', 'musico', 'jardinero', 'atleta', 'trader', 'astronauta', 'maestro']; // el número dibujado por tipo lo da el ajuste "honguitos visibles" (el real puede ser enorme)
+const TIPOS_VISUALES = ['basico', 'musico', 'jardinero', 'atleta', 'trader', 'astronauta', 'maestro', 'obrero']; // el número dibujado por tipo lo da el ajuste "honguitos visibles" (el real puede ser enorme)
 let limiteVisibles = 20; // honguitos dibujados por tipo (Ajustes)
 const maxParticulas = () => 150 + limiteVisibles * 8;
 const maxBrotes = () => Math.max(6, limiteVisibles * 2); // honguitos pasajeros que dejan los jardineros
@@ -52,6 +52,7 @@ const NARANJA = "#ff8a1f";
 const DORADO = "#f5c518";
 const CELESTE = "#4fb4ff";
 const LIMA = "#b5e61d";
+const VERDE_ACIDO = "#9dff4a";
 const CICLO_BOLSA = 18; // segundos entre cobros (igual que BOLSA.ciclo en data.js)
 const GIGANTE = "#222232"; // hongos gigantes del fondo: apenas más oscuros que el cielo
 const GIGANTE_MANCHA = "#252535";
@@ -63,6 +64,7 @@ const TAM_BASE = {
   trade: { w: 42, ch: 20, sw: 18, sh: 15 },
   astropuerto: { w: 44, ch: 21, sw: 18, sh: 15 },
   escuela: { w: 40, ch: 19, sw: 17, sh: 14 },
+  fabrica: { w: 46, ch: 21, sw: 20, sh: 15 },
 };
 const NOTA = ["..##.", "..#.#", "..#..", "..#..", "###..", "###.."];
 
@@ -74,7 +76,8 @@ const MADRE = [
   { w: 92, ch: 54, sw: 38, sh: 36 },
 ];
 
-import { EDIFICIOS, HONGUITOS } from './data.js';
+import { EDIFICIOS, HONGUITOS, ACIDO } from './data.js';
+import { improd } from './engine.js';
 
 const MADRE_GRANDE = MADRE.map((m) => ({ w: Math.round(m.w * BONUS_CONSERV), ch: Math.round(m.ch * BONUS_CONSERV), sw: Math.round(m.sw * BONUS_CONSERV), sh: Math.round(m.sh * BONUS_CONSERV) }));
 
@@ -104,6 +107,9 @@ export function crearEscena(canvas) {
   }
   let tBolsa = 0, nBolsa = null, hayTraders = false; // reflejo de state.bolsa para dibujar el gráfico
   const cola = []; // acciones diferidas {t, fn}
+  let nObreros = 0, humoAcum = 0;
+  const nubes = []; // nubes de contaminación sobre la fábrica: { x0, y, w, ph, p, llueve }
+  const lluvia = { activa: false, t: 0, prox: 25, zonas: [] };
   // luna de fondo y expediciones: el cohete hace un viaje por cada expedición que cuenta el motor
   let lunaBases = [], lunaVisibles = 0, nLuna = null, lunaFlash = 0;
   const cohete = { fase: "espera", t: 0, x: 0, y: 0, ang: 0, sc: 1, trip: [], llama: 0 };
@@ -169,6 +175,43 @@ export function crearEscena(canvas) {
     x.fillStyle = BG; x.fillRect(2, 5, 1, 1); x.fillRect(6, 5, 1, 1);
     return c;
   });
+  // obrero: casco de acero y chaleco naranja reflectivo
+  const spritesObrero = [0, 1].map((pose) => {
+    const c = hacerSprite("#9db4c8", PATAS[pose], false);
+    const x = c.getContext("2d");
+    x.fillStyle = "#ff8a1f"; x.fillRect(1, 6, 7, 2);
+    x.fillStyle = "#ffe14d"; x.fillRect(4, 6, 1, 2);
+    x.fillStyle = "#ffe14d"; x.fillRect(2, 0, 5, 1); // franja del casco
+    return c;
+  });
+  // versión "mojada por lluvia ácida" de un sprite: teñida de verde (se arma una vez por sprite)
+  const cacheVerde = new Map();
+  function verde(spr) {
+    let c = cacheVerde.get(spr);
+    if (!c) {
+      c = document.createElement("canvas");
+      c.width = spr.width; c.height = spr.height;
+      const x = c.getContext("2d");
+      x.drawImage(spr, 0, 0);
+      x.globalCompositeOperation = "source-atop";
+      x.fillStyle = "rgba(120,255,60,0.5)";
+      x.fillRect(0, 0, c.width, c.height);
+      cacheVerde.set(spr, c);
+    }
+    return c;
+  }
+  // engranaje 9x9 que gira en la fábrica
+  const spriteEngranaje = (() => {
+    const c = document.createElement("canvas");
+    c.width = 9; c.height = 9;
+    const x = c.getContext("2d");
+    x.fillStyle = BLANCO;
+    for (let i = 0; i < 9; i++) for (let j = 0; j < 9; j++) {
+      const d = Math.hypot(i - 4, j - 4);
+      if ((d <= 3.4 && d >= 2.0) || (d <= 4.6 && d > 3.4 && ((i === 4 || j === 4) || (Math.abs(i - j) === 0 || i + j === 8)))) x.fillRect(i, j, 1, 1);
+    }
+    return c;
+  })();
   // alumnito: honguito más chico (7x6)
   const KID = [".ccccc.", "ccccccc", ".wwwww.", ".wewew.", ".wwwww.", ".w...w."];
   const spritesKid = PALETA.map((col) => {
@@ -714,6 +757,106 @@ export function crearEscena(canvas) {
     }
   }
 
+  // ---- Fábrica: contaminación y lluvia ácida ----
+  const geomFabrica = () => {
+    const m = tam("fabrica"), cx = Math.round(edif.fabrica.x), rx = Math.round(m.w / 2), mitad = Math.round(m.sw / 2);
+    return { m, cx, rx, mitad, capBase: groundY - m.sh, s: m.lado };
+  };
+  const chimeneas = () => {
+    const { m, cx, rx, capBase } = geomFabrica();
+    return [-0.5, 0.28].map((u) => {
+      const dx = Math.round(u * rx);
+      return { dx, x: cx + dx + 1, y: capBase - 2 - Math.round(m.ch * Math.sqrt(1 - (dx / rx) ** 2)) - 6 };
+    });
+  };
+  const nubeX = (c) => (c.llueve ? c.xf : c.x0 + Math.sin(t * 0.15 + c.ph) * 10);
+
+  function actualizarClima(dt) {
+    const obj = edif.fabrica && nObreros > 0 ? clamp(Math.round(1 + Math.log2(nObreros) * 0.9), 1, 10) : 0;
+    const fx = edif.fabrica ? edif.fabrica.x : Wc / 2;
+    while (nubes.length < obj) {
+      const r = rng(nubes.length * 977 + 13);
+      nubes.push({ x0: clamp(fx + (r() - 0.5) * 220, 24, Wc - 24), y: groundY * (0.3 + r() * 0.2), w: 26 + Math.round(r() * 14), ph: r() * TAU, p: 0, llueve: false, xf: 0 });
+    }
+    while (nubes.length > obj) nubes.pop();
+    for (const c of nubes) c.p = Math.min(1, c.p + dt * 0.4);
+    if (!nubes.length) { lluvia.activa = false; return; }
+    if (!lluvia.activa) {
+      lluvia.prox -= dt;
+      if (lluvia.prox <= 0) {
+        // empieza a llover desde algunas nubes: se quedan quietas sobre la zona que mojan
+        const k = clamp(Math.ceil(nubes.length / 3), 1, 3);
+        const elegidas = [...nubes].sort(() => Math.random() - 0.5).slice(0, k);
+        lluvia.zonas = elegidas.map((c) => { c.llueve = true; c.xf = nubeX({ ...c, llueve: false }); return c; });
+        lluvia.activa = true; lluvia.t = 0;
+      }
+    } else {
+      lluvia.t += dt;
+      for (const c of lluvia.zonas) {
+        const n = dt * 40 * (c.w / 30), cnt = Math.floor(n) + (Math.random() < n % 1 ? 1 : 0);
+        for (let i = 0; i < cnt; i++) {
+          const x = c.xf + (Math.random() - 0.5) * c.w, y0 = c.y + 7, vy = 75 + Math.random() * 30;
+          part(x, y0, 0, vy, { tipo: "lluvia", dur: Math.max(0.1, (groundY - y0) / vy) });
+        }
+        // todo honguito que toque la lluvia queda mojado (improductivo) y se le reinicia el tiempo
+        for (const v of visuales) if (!v.oculto && Math.abs(v.x - c.xf) <= c.w / 2 + 2) v.acidoT = ACIDO.dur;
+      }
+      if (lluvia.t > 8) {
+        for (const c of lluvia.zonas) c.llueve = false;
+        lluvia.activa = false; lluvia.zonas = [];
+        lluvia.prox = clamp(75 - nubes.length * 5, 30, 70) * (0.7 + Math.random() * 0.6);
+      }
+    }
+  }
+
+  // Obrero: entra a la fábrica, sale con una cajita, la deja en la cinta y de ahí sale un hongo chiquito.
+  function actualizarObrero(v, dt) {
+    if (v.oculto) {
+      v.alfa = 0;
+      v.tDentro -= dt;
+      brillos.fabrica = Math.max(brillos.fabrica || 0, 0.25);
+      if (v.tDentro <= 0) {
+        const G = geomFabrica();
+        v.oculto = false; v.alfa = 0; v.caja = true; v.modo = "lleva";
+        v.x = G.cx + (Math.random() - 0.5) * 4;
+        v.meta = G.cx + G.s * (G.mitad + 3);
+        v.dir = Math.sign(v.meta - v.x) || G.s;
+      }
+      return;
+    }
+    v.alfa = Math.min(1, v.alfa + dt * 2.5);
+    v.animT += dt;
+    v.hop = 0;
+    v.estira = 0;
+    if (v.modo === "idle") {
+      v.estira = Math.sin(v.animT * 3 + v.i) * 0.5;
+      v.espera -= dt;
+      if (v.espera <= 0) { v.meta = edif.fabrica.x + (Math.random() - 0.5) * 4; v.dir = Math.sign(v.meta - v.x) || 1; v.modo = "ir"; }
+    } else if (v.modo === "ir" || v.modo === "lleva") {
+      v.hop = Math.abs(Math.sin(v.animT * 12)) * 1.4;
+      const d = v.meta - v.x, paso = VEL * 0.9 * dt;
+      if (Math.abs(d) <= paso) {
+        v.x = v.meta;
+        if (v.modo === "ir") { v.modo = "dentro"; v.oculto = true; v.tDentro = 1.5 + Math.random() * 2.5; motas(v.x, groundY - 6, 3, 0.4, "#c8c8dc"); }
+        else { v.modo = "deja"; v.tDeja = 0; }
+      } else v.x += Math.sign(d) * paso;
+    } else if (v.modo === "deja") {
+      v.tDeja += dt;
+      v.hop = Math.abs(Math.sin(v.tDeja * 10)) * 0.8;
+      if (v.tDeja > 0.5) {
+        v.caja = false;
+        const G = geomFabrica(), fin = G.cx + G.s * (G.rx - 3);
+        cola.push({ t: 1.1, fn: () => {
+          if (brotes.length >= maxBrotes() || !edif.fabrica) return;
+          const col = Math.floor(Math.random() * PALETA.length);
+          brotes.push({ x: Math.round(fin + G.s * (2 + Math.random() * 8)), t: 0, vida: 12 + Math.random() * 6, col });
+          motas(fin + G.s * 4, groundY - 3, 4, 0.4, PALETA[col]);
+        } });
+        v.modo = "idle"; v.espera = 0.2 + Math.random() * 1.5;
+      }
+    }
+  }
+
   function actualizarMusico(v, dt) {
     v.alfa = Math.min(1, v.alfa + dt * 2.5);
     v.animT += dt;
@@ -829,13 +972,21 @@ export function crearEscena(canvas) {
     sincronizarVisuales(state);
     actualizarCohete(dt);
     const mHalf = medidas().w / 2;
+    const dtG = dt;
+    nObreros = state.honguitos.obrero || 0;
     for (const v of visuales) {
+      const dt = v.acidoT > 0 ? dtG * 0.6 : dtG; // mojados: se mueven más lento
+      if (v.acidoT > 0) {
+        v.acidoT -= dtG;
+        if (Math.random() < dtG * 3) part(v.x + (Math.random() - 0.5) * 4, groundY - HH - 1, 0, 8, { tipo: "mota", dur: 0.6, col: VERDE_ACIDO, r: 1 });
+      }
       if (v.tipo === "musico") { actualizarMusico(v, dt); continue; }
       if (v.tipo === "jardinero") { actualizarJardinero(v, dt); continue; }
       if (v.tipo === "atleta") { actualizarAtleta(v, dt); continue; }
       if (v.tipo === "trader") { actualizarTrader(v, dt); continue; }
       if (v.tipo === "astronauta") { actualizarAstronauta(v, dt); continue; }
       if (v.tipo === "maestro") { actualizarMaestro(v, dt); continue; }
+      if (v.tipo === "obrero") { actualizarObrero(v, dt); continue; }
       v.alfa = Math.min(1, v.alfa + dt * 2.5);
       v.animT += dt;
       v.hop = 0;
@@ -884,6 +1035,26 @@ export function crearEscena(canvas) {
       }
     }
 
+    actualizarClima(dtG);
+    // fracción de cada tipo que está mojada: el motor la usa para bajar su producción
+    const total = {}, mojados = {}, restan = {};
+    for (const v of visuales) {
+      if (v.oculto) continue;
+      total[v.tipo] = (total[v.tipo] || 0) + 1;
+      if (v.acidoT > 0) { mojados[v.tipo] = (mojados[v.tipo] || 0) + 1; restan[v.tipo] = Math.max(restan[v.tipo] || 0, v.acidoT); }
+    }
+    const ahoraMs = Date.now();
+    for (const tipo of TIPOS_VISUALES) improd[tipo] = { f: (mojados[tipo] || 0) / (total[tipo] || 1), hasta: ahoraMs + (restan[tipo] || 0) * 1000 };
+    // humo verde por las chimneas: más obreros, más humo
+    if (edif.fabrica && nObreros > 0) {
+      humoAcum += dtG * (1.5 + 1.2 * Math.log2(nObreros + 1));
+      while (humoAcum >= 1) {
+        humoAcum -= 1;
+        const ch = chimeneas()[Math.floor(Math.random() * 2)];
+        part(ch.x + (Math.random() - 0.5) * 2, ch.y, (Math.random() - 0.3) * 5, -7 - Math.random() * 5, { tipo: "humo", dur: 2 + Math.random() * 1.5 });
+      }
+    }
+
     // los brotes se desvanecen con el tiempo y se vuelven una espora que viaja al hongo madre
     for (let i = brotes.length - 1; i >= 0; i--) {
       const b = brotes[i];
@@ -912,6 +1083,7 @@ export function crearEscena(canvas) {
           motas(p.x1, p.y1, 6, 0.9, p.col);
           aroPart(p.x1, p.y1, 12, 0.4);
         }
+        if (p.tipo === "lluvia" && Math.random() < 0.3) motas(p.x, groundY - 1, 1, 0.3, VERDE_ACIDO);
         particulas.splice(i, 1);
         continue;
       }
@@ -920,6 +1092,10 @@ export function crearEscena(canvas) {
       } else if (p.tipo === "gota") {
         p.x += p.vx * dt; p.y += p.vy * dt; p.vy += 140 * dt;
         if (p.y >= groundY) p.t = p.dur;
+      } else if (p.tipo === "humo") {
+        p.x += p.vx * dt; p.y += p.vy * dt;
+      } else if (p.tipo === "lluvia") {
+        p.y += p.vy * dt;
       } else if (p.tipo === "sudor") {
         p.x += p.vx * dt; p.y += p.vy * dt; p.vy += 110 * dt; p.vx *= 1 - dt * 0.8;
         if (p.y >= groundY) p.t = p.dur;
@@ -1078,7 +1254,7 @@ export function crearEscena(canvas) {
     g.globalAlpha = alfa;
     const col = EDIFICIOS[id].color;
     const { capBase, ch, rx, mitad } = hongoBase(cx, m, 0, brillos[id] || 0, col, col);
-    manchasDe(id + ":" + semilla, (id === "conservatorio" ? 5 : id === "vivero" ? 11 : id === "gimnasio" ? 23 : id === "trade" ? 37 : id === "astropuerto" ? 53 : 71) + semilla, 7 + m.nivel * 2).forEach((q) => {
+    manchasDe(id + ":" + semilla, (id === "conservatorio" ? 5 : id === "vivero" ? 11 : id === "gimnasio" ? 23 : id === "trade" ? 37 : id === "astropuerto" ? 53 : id === "escuela" ? 71 : 89) + semilla, 7 + m.nivel * 2).forEach((q) => {
       const c2 = q.v < 0.5 ? mezcla(col, "#ffffff", 0.35) : mezcla(col, "#000000", 0.45);
       manchaCap(cx, capBase, rx, ch, cx + Math.round(q.u * rx), capBase - 2 - Math.round(q.h * ch), Math.max(1, Math.round(ch * q.f * 0.7)), c2, false);
     });
@@ -1185,6 +1361,46 @@ export function crearEscena(canvas) {
       if (["espera", "abordaje", "despegue", "aterriza"].includes(cohete.fase) || !edif[id]) {
         const tiembla = cohete.fase === "despegue" ? Math.round(Math.sin(t * 60) * (0.5 + cohete.llama)) : 0;
         g.drawImage(spriteCohete, px - 3 + tiembla, groundY - 11);
+      }
+    } else if (id === "fabrica") {
+      // chimeneas con franja de acero, engranaje girando, ventanas con siluetas que se mueven y cinta
+      const nn = edif[id] ? nObreros : 0, vel = 0.6 + Math.log2(nn + 1) * 0.5;
+      for (const u of [-0.5, 0.28]) {
+        const dx = Math.round(u * rx), y0 = capBase - 2 - Math.round(ch * Math.sqrt(1 - (dx / rx) ** 2)) - 6;
+        g.fillStyle = BLANCO; g.fillRect(cx + dx, y0, 4, 8);
+        g.fillStyle = "#3a3a4e"; g.fillRect(cx + dx + 1, y0 + 1, 2, 7);
+        g.fillStyle = col; g.fillRect(cx + dx, y0 + 2, 4, 1);
+        g.fillStyle = VERDE_ACIDO; g.fillRect(cx + dx + 1, y0 + 1, 2, 1);
+      }
+      // engranaje
+      g.save();
+      g.translate(cx - mitad + 6, capBase + 8);
+      g.rotate(t * vel);
+      g.drawImage(spriteEngranaje, -4.5, -4.5);
+      g.restore();
+      // ventana con siluetas de obreros yendo y viniendo (más obreros, más siluetas)
+      const wx = cx + 2, wy = capBase + 4, ww = mitad - 3;
+      g.fillStyle = "#1a1a10"; g.fillRect(wx, wy, ww, 4);
+      g.fillStyle = "#ffcf3f";
+      const cant = Math.min(4, 1 + Math.floor(Math.log2(nn + 1) / 1.5));
+      for (let i = 0; i < cant; i++) {
+        const px = wx + 1 + Math.round((Math.sin(t * (1.2 + i * 0.5) + i * 2) * 0.5 + 0.5) * (ww - 3));
+        g.fillRect(px, wy + 1, 2, 2);
+      }
+      // puerta de operarios
+      g.fillStyle = "#14141d"; g.fillRect(cx - 2, groundY - 6, 5, 5);
+      g.fillStyle = "#ffcf3f"; g.fillRect(cx - 2, groundY - 7, 5, 1);
+      // cinta transportadora del lado de la rama, bajo el sombrero
+      const bs = m.lado, b0 = cx + bs * (mitad + 1), b1 = cx + bs * (rx - 2);
+      g.fillStyle = "#14141d"; g.fillRect(Math.min(b0, b1), groundY - 3, Math.abs(b1 - b0) + 1, 2);
+      g.fillStyle = "#6a6a88";
+      const off = Math.floor(t * (3 + vel * 2));
+      for (let i = 0; i < Math.abs(b1 - b0); i += 3) g.fillRect(b0 + bs * ((i + off) % Math.max(3, Math.abs(b1 - b0))), groundY - 2, 1, 1);
+      for (let i = 0; i < Math.min(3, 1 + Math.floor(Math.log2(nn + 1) / 2)); i++) {
+        const u = ((t * (0.25 + vel * 0.1) + i / 3) % 1);
+        const ix = Math.round(b0 + (b1 - b0) * u);
+        g.fillStyle = PALETA[i % PALETA.length]; g.fillRect(ix - 1, groundY - 5, 3, 1); g.fillRect(ix, groundY - 6, 1, 1);
+        g.fillStyle = BLANCO; g.fillRect(ix, groundY - 4, 1, 1);
       }
     } else if (id === "escuela") {
       // campana arriba con techito, banderín, pizarrón con garabatos y puerta de madera
@@ -1303,6 +1519,20 @@ export function crearEscena(canvas) {
     }
   }
 
+  // nubes verdes de contaminación sobre la fábrica
+  function dibujarNubes() {
+    for (const c of nubes) {
+      const x = Math.round(nubeX(c)), y = Math.round(c.y + Math.sin(t * 0.4 + c.ph) * 1.5), w = c.w;
+      const col = c.llueve ? "#3f8f1f" : "#5fbf2f";
+      g.globalAlpha = 0.55 * c.p;
+      disco(x - w * 0.27, y + 2, 5, col); disco(x, y, 7, col); disco(x + w * 0.27, y + 2, 5, col);
+      disco(x - w * 0.42, y + 4, 3, col); disco(x + w * 0.42, y + 4, 3, col);
+      g.fillStyle = c.llueve ? "#2f6f15" : "#3f8f1f";
+      g.fillRect(Math.round(x - w * 0.45), y + 5, Math.round(w * 0.9), 2);
+      g.globalAlpha = 1;
+    }
+  }
+
   function dibujarCoheteEnVuelo() {
     if (cohete.fase !== "vuelo" && cohete.fase !== "regreso") return;
     g.save();
@@ -1335,15 +1565,19 @@ export function crearEscena(canvas) {
     const base = Math.round(groundY - v.hop);
     const pose = v.modo === "walk" ? (Math.floor(v.animT * 11) % 2) : 0;
     const spr = v.tipo === "musico" ? spritesMusico[v.modo === "canta" ? [0, 2, 3, 2][Math.floor(v.tCanta * 8) % 4] : pose]
-      : v.tipo === "jardinero" ? spritesJard[pose] : v.tipo === "atleta" ? spritesAtl[pose] : v.tipo === "maestro" ? spritesMaestro[v.modo === "clase" ? (Math.floor(v.animT * 5) % 2 ? 2 : 3) : pose] : v.tipo === "astronauta" ? spritesAstro[pose] : v.tipo === "trader" ? spritesTrader[v.modo === "llama" ? (Math.floor(v.tLlama * 6) % 2 ? 2 : 3) : pose] : spritesHongo[v.col][pose];
+      : v.tipo === "jardinero" ? spritesJard[pose] : v.tipo === "atleta" ? spritesAtl[pose] : v.tipo === "obrero" ? spritesObrero[pose] : v.tipo === "maestro" ? spritesMaestro[v.modo === "clase" ? (Math.floor(v.animT * 5) % 2 ? 2 : 3) : pose] : v.tipo === "astronauta" ? spritesAstro[pose] : v.tipo === "trader" ? spritesTrader[v.modo === "llama" ? (Math.floor(v.tLlama * 6) % 2 ? 2 : 3) : pose] : spritesHongo[v.col][pose];
     const alto = HH + Math.round(v.estira);
     const x = Math.round(v.x);
     g.globalAlpha = v.alfa;
     g.save();
     if (v.dir < 0) { g.translate(x, 0); g.scale(-1, 1); g.translate(-x, 0); }
-    g.drawImage(spr, x - 4, base - alto, HW, alto);
+    g.drawImage(v.acidoT > 0 ? verde(spr) : spr, x - 4, base - alto, HW, alto);
     g.restore();
     g.globalAlpha = 1;
+    if (v.caja) {
+      g.fillStyle = "#c8673a"; g.fillRect(x + v.dir * 4 - 1, base - 6, 4, 4);
+      g.fillStyle = "#e8a070"; g.fillRect(x + v.dir * 4 - 1, base - 6, 4, 1);
+    }
     if (v.modo === "clase") {
       // libro abierto frente al maestro: tapa lima, páginas blancas y lomo; las páginas se agitan
       const bx = x + v.dir * 6, by = base - 6, pg = Math.floor(v.animT * 4) % 2;
@@ -1406,6 +1640,17 @@ export function crearEscena(canvas) {
       } else if (p.tipo === "gota") {
         g.fillStyle = "#2eaaf5";
         g.fillRect(Math.round(p.x), Math.round(p.y), 1, 2);
+      } else if (p.tipo === "humo") {
+        g.globalAlpha = 0.5 * (1 - k);
+        g.fillStyle = "#7fd04a";
+        const r = 2 + Math.floor(k * 3);
+        g.fillRect(Math.round(p.x) - (r >> 1), Math.round(p.y) - (r >> 1), r, r);
+        g.globalAlpha = 1;
+      } else if (p.tipo === "lluvia") {
+        g.globalAlpha = 0.75;
+        g.fillStyle = VERDE_ACIDO;
+        g.fillRect(Math.round(p.x), Math.round(p.y), 1, 3);
+        g.globalAlpha = 1;
       } else if (p.tipo === "sudor") {
         g.globalAlpha = k < 0.7 ? 1 : (1 - k) / 0.3;
         g.fillStyle = "#8fe0ff";
@@ -1453,6 +1698,7 @@ export function crearEscena(canvas) {
     for (const f of flotantes) { g.fillStyle = f.col; g.fillRect(Math.round(f.x + Math.sin(t * f.sp + f.ph) * f.ax), Math.round(f.y), f.r, f.r); }
     g.globalAlpha = 1;
 
+    dibujarNubes();
     dibujarMadre();
     for (const id in edif) dibujarEdificio(id, edif[id].x);
     dibujarCoheteEnVuelo();

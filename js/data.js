@@ -64,22 +64,29 @@ const EDIF_DEF = [
     color: "#2fa84f",
   },
   {
-    id: "gimnasio",
+    id: "fabrica",
     tier: 4,
+    nombre: "Fábrica hongil",
+    desc: "Un hongo con chimeneas y cinta transportadora. Habilita a los obreros, que fabrican hongos chiquitos... y humo verde que a veces vuelve como lluvia ácida.",
+    color: "#9db4c8",
+  },
+  {
+    id: "gimnasio",
+    tier: 5,
     nombre: "Gym hongil",
     desc: "Un hongo con pesas. Habilita a los atletas, que entrenan afuera con mancuernas y sudan esporas.",
     color: "#ff8a1f",
   },
   {
     id: "trade",
-    tier: 5,
+    tier: 6,
     nombre: "Trade center hongil",
     desc: "Un hongo con pantallas de bolsa. Habilita a los traders: sus acciones suben y, al llegar arriba, cobran todas las esporas de golpe.",
     color: "#f5c518",
   },
   {
     id: "astropuerto",
-    tier: 6,
+    tier: 7,
     nombre: "Astropuerto hongil",
     desc: "Un hongo con un cohete-hongo estacionado. Habilita a los astronautas, que viajan a la luna y la van llenando de bases hongiles.",
     color: "#4fb4ff",
@@ -92,6 +99,10 @@ export const EDIFICIOS = Object.fromEntries(EDIF_DEF.map((e) => {
 
 // Bolsa (traders): sus ganancias no entran de a poco sino de golpe, cada `ciclo` segundos.
 export const BOLSA = { ciclo: 18 };
+
+// Lluvia ácida (la trae la contaminación de la fábrica): cada honguito mojado produce `pct` menos
+// durante `dur` segundos. Mojarse de nuevo no suma más %, solo reinicia el tiempo.
+export const ACIDO = { pct: 0.4, dur: 20 };
 
 // Luna: cada `ciclo` segundos con astronautas se hace una expedición y la luna suma una base
 // (hasta `maxBases`; después las bases existentes crecen).
@@ -107,9 +118,10 @@ const HONG_DEF = [
   { id: "maestro", tier: 1, nombre: "Maestro", sprite: "maestro", desc: "Pasea con sus alumnitos y les da clase; tras varias clases alguno se gradúa y salen esporas.", color: "#b5e61d", casa: "escuela" },
   { id: "musico", tier: 2, nombre: "Músico", sprite: "musico", desc: "Canta cada tanto y su música rinde esporas.", color: "#a77bff", casa: "conservatorio" },
   { id: "jardinero", tier: 3, nombre: "Jardinero", sprite: "jardinero", desc: "Riega el piso y brotan honguitos que se desvanecen y se vuelven esporas.", color: "#2fa84f", casa: "vivero" },
-  { id: "atleta", tier: 4, nombre: "Atleta", sprite: "atleta", desc: "Entrena con mancuernas al lado del gym y transpira esporas.", color: "#ff8a1f", casa: "gimnasio" },
-  { id: "trader", tier: 5, nombre: "Trader", sprite: "trader", desc: "Hace llamados y mueve acciones en el trade center. Cada ciclo de bolsa cobra todo junto.", color: "#f5c518", casa: "trade" },
-  { id: "astronauta", tier: 6, nombre: "Astronauta", sprite: "astronauta", desc: "Se sube al cohete, viaja a la luna y vuelve con esporas. Cada expedición suma una base hongil lunar.", color: "#4fb4ff", casa: "astropuerto" },
+  { id: "obrero", tier: 4, nombre: "Obrero", sprite: "obrero", desc: "Trabaja en la fábrica: entra, arma hongos chiquitos y los deja en la cinta. Cuantos más hay, más humo y más lluvia ácida.", color: "#9db4c8", casa: "fabrica" },
+  { id: "atleta", tier: 5, nombre: "Atleta", sprite: "atleta", desc: "Entrena con mancuernas al lado del gym y transpira esporas.", color: "#ff8a1f", casa: "gimnasio" },
+  { id: "trader", tier: 6, nombre: "Trader", sprite: "trader", desc: "Hace llamados y mueve acciones en el trade center. Cada ciclo de bolsa cobra todo junto.", color: "#f5c518", casa: "trade" },
+  { id: "astronauta", tier: 7, nombre: "Astronauta", sprite: "astronauta", desc: "Se sube al cohete, viaja a la luna y vuelve con esporas. Cada expedición suma una base hongil lunar.", color: "#4fb4ff", casa: "astropuerto" },
 ];
 export const HONGUITOS = Object.fromEntries(HONG_DEF.map((h) => {
   const v = valoresTier(h.tier);

@@ -1,8 +1,16 @@
 import { D } from './decimal.js';
 import { agregarHongoFondo } from './state.js';
-import { HONGUITOS, MEJORAS, EDIFICIOS, PRESTIGIO, BOLSA, LUNA } from './data.js';
+import { HONGUITOS, MEJORAS, EDIFICIOS, PRESTIGIO, BOLSA, LUNA, ACIDO } from './data.js';
 
 // Lógica pura del juego: nada de DOM ni canvas acá.
+
+// Improductividad por lluvia ácida (la escribe la escena, que sabe qué honguitos se mojaron):
+// por tipo, la fracción de sus honguitos mojados y hasta cuándo dura (ms). No se guarda.
+export const improd = {};
+export function factorAcido(id) {
+  const m = improd[id];
+  return m && m.hasta > Date.now() ? 1 - ACIDO.pct * m.f : 1;
+}
 
 export function multiplicador(state, tipoId) {
   let m = D(1);
@@ -15,7 +23,7 @@ export function multiplicador(state, tipoId) {
 // Esporas/s que genera un tipo de honguito (con sus mejoras).
 export function produccionPorTipo(state, id) {
   const n = state.honguitos[id] || 0;
-  return n > 0 ? HONGUITOS[id].prod.mul(n).mul(multiplicador(state, id)) : D(0);
+  return n > 0 ? HONGUITOS[id].prod.mul(n).mul(multiplicador(state, id)).mul(factorAcido(id)) : D(0);
 }
 
 // Nivel de prestigio según el total de esporas ganadas, y progreso hacia el siguiente.
@@ -41,8 +49,7 @@ export function revisarHitos(state) {
 export function produccionPorSeg(state) {
   let total = D(0);
   for (const id in HONGUITOS) {
-    const n = state.honguitos[id] || 0;
-    if (n > 0) total = total.add(HONGUITOS[id].prod.mul(n).mul(multiplicador(state, id)));
+    total = total.add(produccionPorTipo(state, id));
   }
   return total;
 }
