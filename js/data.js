@@ -124,6 +124,7 @@ const HONG_DEF = [
   { id: "basico", tier: 0, nombre: "Honguito", sprite: "honguito", desc: "Carga esporas al hongo madre.", color: "#ff6fb5" },
   { id: "maestro", tier: 1, nombre: "Maestro", sprite: "maestro", desc: "Pasea con sus alumnitos y les da clase; tras varias clases alguno se gradúa y salen esporas.", color: "#b5e61d", casa: "escuela" },
   { id: "musico", tier: 2, nombre: "Músico", sprite: "musico", desc: "Canta cada tanto y su música rinde esporas.", color: "#a77bff", casa: "conservatorio" },
+  { id: "cientifico", tier: 3.5, tierCosto: 2.5, inv: 1, nombre: "Científico", sprite: "cientifico", desc: "Hace experimentos y genera investigación: cuantos más hay, más rápido se investiga.", color: "#2fd4c4", casa: "universidad" },
   { id: "jardinero", tier: 3, nombre: "Jardinero", sprite: "jardinero", desc: "Riega el piso y brotan honguitos que se desvanecen y se vuelven esporas.", color: "#2fa84f", casa: "vivero" },
   { id: "obrero", tier: 4, nombre: "Obrero", sprite: "obrero", desc: "Trabaja en la fábrica: entra, arma hongos chiquitos y los deja en la cinta. Cuantos más hay, más humo y más lluvia ácida.", color: "#9db4c8", casa: "fabrica" },
   { id: "atleta", tier: 5, nombre: "Atleta", sprite: "atleta", desc: "Entrena con mancuernas al lado del gym y transpira esporas.", color: "#ff8a1f", casa: "gimnasio" },
@@ -131,12 +132,13 @@ const HONG_DEF = [
   { id: "astronauta", tier: 7, nombre: "Astronauta", sprite: "astronauta", desc: "Se sube al cohete, viaja a la luna y vuelve con esporas. Cada expedición suma una base hongil lunar.", color: "#4fb4ff", casa: "astropuerto" },
 ];
 export const HONGUITOS = Object.fromEntries(HONG_DEF.map((h) => {
-  const v = valoresTier(h.tier);
+  const v = valoresTier(h.tierCosto ?? h.tier);
   return [h.id, {
     ...h,
     costoBase: C(v.costoBase),
     crecimiento: MODO_PRUEBA ? 1 : v.crecimiento,
-    prod: D(v.prod),
+    prod: h.inv ? D(0) : D(valoresTier(h.tier).prod), // los científicos no dan esporas: dan investigación (`invProd`)
+    invProd: h.inv ? D(h.inv) : D(0),
   }];
 }));
 
@@ -160,29 +162,104 @@ export const MEJORAS = [
   },
 ];
 
-// Tecnologías: se investigan en la Universidad hongil. Cada una exige tener el edificio de su
-// tema (`edificio`) y, a veces, otra tecnología antes (`req`). Dan un multiplicador de producción
-// (`aplica`: "todos" o un honguito) y/o `acidoMenos` (reduce el castigo de la lluvia ácida).
-// Costo: el costo base del tier del honguito × `mul` (así se acomoda solo con la fórmula de tiers).
-const TEC_TEMAS = [
-  ["maestro", "escuela", ["Pizarrón de tiza fosforescente", "Plan de estudios hongil"]],
-  ["musico", "conservatorio", ["Partituras fúngicas", "Acústica de micelio"]],
-  ["jardinero", "vivero", ["Riego por goteo hongil", "Sustrato enriquecido"]],
-  ["obrero", "fabrica", ["Herramientas de precisión hongil", "Líneas de montaje"]],
-  ["atleta", "gimnasio", ["Proteína de micelio", "Entrenamiento de élite"]],
-  ["trader", "trade", ["Algoritmo de trading hongil", "Análisis de mercado"]],
-  ["astronauta", "astropuerto", ["Trajes presurizados", "Propulsores de espora"]],
-];
+// ---- Hitos de cantidad (como en Adventure Capitalist): al tener 25, 50, 100... honguitos de un
+// tipo, ese tipo produce ×2 más. Son automáticos.
+export const HITOS = [25, 50, 100, 200, 400, 800];
+
+// ---- Investigaciones (Universidad hongil) ----
+// Cada tipo de honguito (y "todos") tiene 10 niveles de investigación que suman un % chico de
+// producción. El % exacto de cada nivel se sortea con la semilla de la partida (state.semilla),
+// así que cambia de una partida a otra. Se investigan de a una, y el progreso lo ponen los
+// científicos (puntos de investigación por segundo). Cada nivel exige el anterior y tener el
+// edificio de su tema.
+const TEC_NOMBRES = {
+  todos: ["Método científico", "Revisión por pares", "Becas de investigación", "Congreso internacional", "Premio hongil de ciencias"],
+  maestro: ["Pizarrón de tiza fosforescente", "Plan de estudios hongil", "Biblioteca ampliada", "Clases magistrales", "Posgrado fúngico"],
+  musico: ["Partituras fúngicas", "Acústica de micelio", "Afinadores de precisión", "Sala de ensayo", "Orquesta sinfónica"],
+  jardinero: ["Riego por goteo hongil", "Sustrato enriquecido", "Injertos de colores", "Invernadero climatizado", "Banco de esporas"],
+  obrero: ["Herramientas de precisión hongil", "Líneas de montaje", "Cascos reforzados", "Automatización básica", "Control de calidad"],
+  atleta: ["Proteína de micelio", "Entrenamiento de élite", "Ropa deportiva técnica", "Fisioterapia hongil", "Dieta balanceada"],
+  trader: ["Algoritmo de trading hongil", "Análisis de mercado", "Terminal de cotizaciones", "Cobertura de riesgo", "Información al instante"],
+  astronauta: ["Trajes presurizados", "Propulsores de espora", "Navegación estelar", "Escudo térmico", "Observatorio lunar"],
+  cientifico: ["Microscopios mejorados", "Laboratorio de alta pureza", "Cuadernos de campo", "Cafetera industrial", "Supercomputadora de micelio"],
+};
+export const NIVELES_TEC = 10;
+export const TECNOLOGIAS = Object.entries(TEC_NOMBRES).flatMap(([target, nombres]) => {
+  const h = HONG_DEF.find((x) => x.id === target);
+  const edificio = h ? h.casa : "universidad";
+  const tier = h ? h.tier : 3.5;
+  return Array.from({ length: NIVELES_TEC }, (_, i) => {
+    const nivel = i + 1;
+    return {
+      id: `${target}_${nivel}`,
+      target, nivel, edificio,
+      req: nivel > 1 ? `${target}_${nivel - 1}` : null,
+      nombre: nombres[i % 5] + (nivel > 5 ? " II" : ""),
+      trabajo: MODO_PRUEBA ? 4 + nivel : Math.round(40 * Math.pow(1.65, nivel - 1) * Math.pow(1.3, tier)),
+    };
+  });
+});
+export const TEC_POR_ID = Object.fromEntries(TECNOLOGIAS.map((t) => [t.id, t]));
+
+// ---- Mejoras de edificio (se compran con esporas en la ventana de cada edificio) ----
+// ef: "prod" (×producción), "vel" (más velocidad: animaciones y ciclos más cortos, y un poco de
+// producción), "crit" (cada segundo hay `prob` de chance de un golpe crítico: de golpe `seg`
+// segundos de producción), "buff" (habilidad activa: ×`mult` durante `dur` s, recarga `cd` s),
+// "sinergia" (cada `cada` honguitos de `fuente`, +`bono` a `objetivo`: un tipo, "todos" o
+// "investigacion") y "acido" (menos castigo de la lluvia ácida).
+// Cada una pide tener `req` honguitos de su tipo. Costo: costo base del tier × mul.
 const T = (tier, mul) => C(Math.ceil(valoresTier(tier).costoBase * mul));
-export const TECNOLOGIAS = [
-  { id: "metodo", nombre: "Método científico hongil", desc: "Todos los honguitos producen ×1,25.", edificio: null, costo: T(3.5, 1), aplica: "todos", mult: D(1.25) },
-  { id: "becas", nombre: "Becas de investigación", desc: "Todos los honguitos producen ×1,5.", edificio: null, req: "metodo", costo: T(4.5, 3), aplica: "todos", mult: D(1.5) },
-  ...TEC_TEMAS.flatMap(([tipo, edificio, nombres]) => {
-    const { tier, nombre } = HONG_DEF.find((h) => h.id === tipo);
-    return [
-      { id: `${tipo}1`, nombre: nombres[0], desc: `+50% de producción de ${nombre.toLowerCase()}s.`, edificio, costo: T(tier, 4), aplica: tipo, mult: D(1.5) },
-      { id: `${tipo}2`, nombre: nombres[1], desc: `Los ${nombre.toLowerCase()}s producen ×2.`, edificio, req: `${tipo}1`, costo: T(tier, 25), aplica: tipo, mult: D(2) },
-    ];
-  }),
-  { id: "filtros", nombre: "Filtros de chimenea hongiles", desc: "La lluvia ácida quita un 35% menos de producción.", edificio: "fabrica", costo: T(4, 10), aplica: null, mult: D(1), acidoMenos: 0.35 },
+const M = (tipo, sufijo, nombre, mul, req, ef) => {
+  const h = HONG_DEF.find((x) => x.id === tipo);
+  return { id: `${tipo}_${sufijo}`, edificio: h.casa, tipo, nombre, costo: T(h.tierCosto ?? h.tier, mul), req, aplica: tipo, ...ef };
+};
+export const MEJ_EDIF = [
+  M("maestro", "libros", "Libros de texto ilustrados", 4, 5, { ef: "prod", mult: 1.25 }),
+  M("maestro", "recreo", "Recreo extendido", 15, 10, { ef: "vel", mult: 1.3 }),
+  M("maestro", "honores", "Graduación con honores", 40, 15, { ef: "crit", prob: 0.03, seg: 12 }),
+  M("maestro", "tutorias", "Tutorías en red", 90, 20, { ef: "sinergia", fuente: "maestro", cada: 10, bono: 0.03, objetivo: "investigacion" }),
+  M("maestro", "examenes", "Semana de exámenes", 250, 25, { ef: "buff", mult: 2, dur: 30, cd: 300 }),
+
+  M("musico", "afinacion", "Afinación perfecta", 4, 5, { ef: "prod", mult: 1.25 }),
+  M("musico", "ritmo", "Ritmo acelerado", 15, 10, { ef: "vel", mult: 1.3 }),
+  M("musico", "solo", "Solo de virtuoso", 40, 15, { ef: "crit", prob: 0.03, seg: 12 }),
+  M("musico", "coro", "Coro hongil", 90, 20, { ef: "sinergia", fuente: "musico", cada: 15, bono: 0.02, objetivo: "todos" }),
+  M("musico", "gira", "Gira mundial", 250, 25, { ef: "buff", mult: 2, dur: 30, cd: 300 }),
+
+  M("jardinero", "fertilizante", "Fertilizante orgánico", 4, 5, { ef: "prod", mult: 1.25 }),
+  M("jardinero", "riego", "Riego automático", 15, 10, { ef: "vel", mult: 1.3 }),
+  M("jardinero", "semillas", "Semillas de colores", 40, 15, { ef: "crit", prob: 0.03, seg: 12 }),
+  M("jardinero", "huerta", "Huerta orgánica", 90, 20, { ef: "sinergia", fuente: "jardinero", cada: 10, bono: 0.02, objetivo: "atleta" }),
+  M("jardinero", "floracion", "Floración", 250, 25, { ef: "buff", mult: 2, dur: 30, cd: 300 }),
+
+  M("obrero", "especializada", "Mano de obra especializada", 4, 5, { ef: "prod", mult: 1.25 }),
+  M("obrero", "turno", "Turno extra", 15, 10, { ef: "vel", mult: 1.3 }),
+  M("obrero", "lote", "Lote perfecto", 40, 15, { ef: "crit", prob: 0.03, seg: 12 }),
+  M("obrero", "filtros", "Filtros de chimenea hongiles", 60, 15, { ef: "acido", acidoMenos: 0.35 }),
+  M("obrero", "turbo", "Cinta turbo", 250, 25, { ef: "buff", mult: 2, dur: 30, cd: 300 }),
+
+  M("atleta", "pesas", "Pesas olímpicas", 4, 5, { ef: "prod", mult: 1.25 }),
+  M("atleta", "entrenador", "Entrenador personal", 15, 10, { ef: "vel", mult: 1.3 }),
+  M("atleta", "record", "Récord personal", 40, 15, { ef: "crit", prob: 0.03, seg: 12 }),
+  M("atleta", "club", "Club deportivo", 90, 20, { ef: "sinergia", fuente: "atleta", cada: 10, bono: 0.02, objetivo: "obrero" }),
+  M("atleta", "batido", "Batido de proteína", 250, 25, { ef: "buff", mult: 2, dur: 30, cd: 300 }),
+
+  M("trader", "informacion", "Acceso a información", 4, 5, { ef: "prod", mult: 1.25 }),
+  M("trader", "frecuencia", "Terminal de alta frecuencia", 15, 10, { ef: "vel", mult: 1.3 }),
+  M("trader", "suerte", "Golpe de suerte", 40, 15, { ef: "crit", prob: 0.03, seg: 12 }),
+  M("trader", "fondo", "Fondo de inversión", 90, 20, { ef: "sinergia", fuente: "trader", cada: 10, bono: 0.02, objetivo: "todos" }),
+  M("trader", "burbuja", "Burbuja especulativa", 250, 25, { ef: "buff", mult: 2, dur: 30, cd: 300 }),
+
+  M("astronauta", "combustible", "Combustible de espora", 4, 5, { ef: "prod", mult: 1.25 }),
+  M("astronauta", "reutilizable", "Cohete reutilizable", 15, 10, { ef: "vel", mult: 1.3 }),
+  M("astronauta", "descubrimiento", "Descubrimiento lunar", 40, 15, { ef: "crit", prob: 0.03, seg: 12 }),
+  M("astronauta", "observatorio", "Observatorio orbital", 90, 20, { ef: "sinergia", fuente: "astronauta", cada: 10, bono: 0.03, objetivo: "investigacion" }),
+  M("astronauta", "gravedad", "Gravedad cero", 250, 25, { ef: "buff", mult: 2, dur: 30, cd: 300 }),
+
+  M("cientifico", "laboratorio", "Laboratorio equipado", 4, 5, { ef: "prod", mult: 1.25 }),
+  M("cientifico", "cafe", "Café de laboratorio", 15, 10, { ef: "vel", mult: 1.3 }),
+  M("cientifico", "eureka", "¡Eureka!", 40, 15, { ef: "crit", prob: 0.03, seg: 12 }),
+  M("cientifico", "premios", "Premios de la academia", 90, 20, { ef: "sinergia", fuente: "cientifico", cada: 10, bono: 0.01, objetivo: "todos" }),
+  M("cientifico", "nocturno", "Turno nocturno", 250, 25, { ef: "buff", mult: 2, dur: 30, cd: 300 }),
 ];
+export const MEJ_EDIF_POR_ID = Object.fromEntries(MEJ_EDIF.map((m) => [m.id, m]));

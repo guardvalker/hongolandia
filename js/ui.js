@@ -1,6 +1,6 @@
-import { HONGUITOS, MEJORAS, EDIFICIOS, TECNOLOGIAS } from './data.js';
+import { HONGUITOS, MEJORAS, EDIFICIOS, TECNOLOGIAS, MEJ_EDIF, TEC_POR_ID, HITOS, NIVELES_TEC } from './data.js';
 import { fmt, fmtRate } from './format.js';
-import { factorAcido, produccionPorSeg, produccionPorTipo, prestigio, costoHonguito, costoHonguitos, maxHonguitos, comprarHonguitos, comprarMejora, tecnologiaDisponible } from './engine.js';
+import { factorAcido, produccionPorSeg, produccionPorTipo, prestigio, costoHonguito, costoHonguitos, maxHonguitos, comprarHonguitos, comprarMejora, tecDisponible, pctTec, invPorSeg, proximoHito, elegirInvestigacion, comprarMejoraEdificio, activarHabilidad, buffActivo } from './engine.js';
 import { exportar, importar, borrarGuardado } from './state.js';
 import { CHANGELOG } from './changelog.js';
 
@@ -53,6 +53,7 @@ export function crearUI(api) {
   function abrir(cual, titulo, render, ancla = null) {
     abierta = cual;
     anclaFn = ancla;
+    $("hoja-mover").hidden = true;
     colocar();
     hojaTitulo.textContent = titulo;
     hojaCuerpo.replaceChildren();
@@ -117,56 +118,143 @@ export function crearUI(api) {
     }
   }
 
-  // ---- Universidad: investigar tecnologías (no tiene honguitos propios) ----
-  function filasTecnologias(id, ancla) {
-    const s = api.estado();
-    const pendientes = TECNOLOGIAS.filter((t) => tecnologiaDisponible(s, t));
-    seccion("Investigaciones");
-    if (!pendientes.length) {
-      const nota = document.createElement("p");
-      nota.className = "nota";
-      nota.textContent = "No hay nada para investigar por ahora. Construí más edificios para desbloquear tecnologías de su tema.";
-      hojaCuerpo.append(nota);
+  // ---- Textos de las mejoras ----
+  const num = (x) => String(+x.toFixed(2)).replace(".", ",");
+  const plural = (id) => HONGUITOS[id].nombre.toLowerCase() + "s";
+  const objetivoTxt = (o) => (o === "todos" ? "todos los honguitos" : o === "investigacion" ? "la velocidad de investigación" : "la producción de " + plural(o));
+  function descMej(m) {
+    const p = plural(m.aplica || m.tipo), prod = m.aplica === "cientifico" ? "investigación" : "producción";
+    switch (m.ef) {
+      case "prod": return `Los ${p} ${m.aplica === "cientifico" ? "investigan" : "producen"} ×${num(m.mult)}.`;
+      case "vel": return `+${Math.round((m.mult - 1) * 100)}% de velocidad para los ${p} (animaciones y ciclos más cortos) y un poco más de ${prod}.`;
+      case "crit": return `Cada segundo, ${Math.round(m.prob * 100)}% de chance de golpe crítico: ${m.seg} s de ${prod} de los ${p} de golpe.`;
+      case "buff": return `Habilidad: ×${m.mult} a los ${p} durante ${m.dur} s (recarga ${Math.round(m.cd / 60)} min).`;
+      case "sinergia": return `Cada ${m.cada} ${plural(m.fuente)}: +${num(m.bono * 100)}% a ${objetivoTxt(m.objetivo)}.`;
+      case "acido": return `La lluvia ácida quita un ${Math.round(m.acidoMenos * 100)}% menos de producción.`;
     }
-    for (const t of pendientes) {
-      const tema = t.edificio ? EDIFICIOS[t.edificio].nombre + ": " : "";
-      const f = fila(t.nombre, tema + t.desc, () => {
-        if (comprarMejora(api.estado(), t.id)) { api.guardar(); abrirCasa(id, ancla); }
-      });
-      filas.push({ tipo: "mejora", mj: t, ...f });
-    }
-    const hechas = TECNOLOGIAS.filter((t) => s.mejoras[t.id]);
-    if (hechas.length) {
-      seccion("Investigado");
-      for (const t of hechas) {
-        const nota = document.createElement("p");
-        nota.className = "nota";
-        nota.textContent = "✓ " + t.nombre;
-        hojaCuerpo.append(nota);
-      }
+    return "";
+  }
+  function descTec(s, t) {
+    const que = t.target === "todos" ? "de producción de todos los honguitos" : t.target === "cientifico" ? "de velocidad de investigación" : "de producción de " + plural(t.target);
+    return `+${num(pctTec(s, t))}% ${que}.`;
+  }
+  const tiempo = (seg) => (!isFinite(seg) ? "sin científicos" : seg < 90 ? Math.ceil(seg) + " s" : seg < 5400 ? Math.round(seg / 60) + " min" : (seg / 3600).toFixed(1).replace(".", ",") + " h");
+  const nota = (texto) => { const p = document.createElement("p"); p.className = "nota"; p.textContent = texto; hojaCuerpo.append(p); return p; };
+
+  // ---- Hitos de cantidad (info) ----
+  function notasHitos(casa) {
+    for (const id in HONGUITOS) {
+      if (HONGUITOS[id].casa !== casa) continue;
+      const n = api.estado().honguitos[id] || 0;
+      const sig = proximoHito(n);
+      nota(sig ? `Hito: al llegar a ${sig} ${plural(id)} producen ×2 (tenés ${n}).` : `Todos los hitos de ${plural(id)} alcanzados.`);
     }
   }
 
-  // ---- Edificio con casa propia (ej. conservatorio): comprar los honguitos de su tipo ----
+  // ---- Mejoras de edificio y habilidades activas ----
+  function filasMejorasEdificio(id, reabrir) {
+    const s = api.estado();
+    const mias = MEJ_EDIF.filter((m) => m.edificio === id);
+    const pendientes = mias.filter((m) => !s.mejoras[m.id]);
+    const habilidades = mias.filter((m) => m.ef === "buff" && s.mejoras[m.id]);
+    const hechas = mias.filter((m) => s.mejoras[m.id] && m.ef !== "buff");
+    if (pendientes.length) {
+      seccion("Mejoras");
+      for (const m of pendientes) {
+        const f = fila(m.nombre, descMej(m) + ` Requiere ${m.req} ${plural(m.tipo)}.`, () => {
+          if (comprarMejoraEdificio(api.estado(), m.id)) { api.guardar(); reabrir(); }
+        });
+        f.refresh = (st) => {
+          const faltan = (st.honguitos[m.tipo] || 0) < m.req;
+          f.btn.textContent = faltan ? `${st.honguitos[m.tipo] || 0}/${m.req}` : fmt(m.costo);
+          f.btn.disabled = faltan || st.esporas.lt(m.costo);
+        };
+        filas.push(f);
+      }
+    }
+    if (habilidades.length) {
+      seccion("Habilidades");
+      for (const m of habilidades) {
+        const f = fila(m.nombre, descMej(m), () => { if (activarHabilidad(api.estado(), m.id)) { api.guardar(); actualizar(true); } });
+        f.refresh = (st) => {
+          const ahora = Date.now(), h = st.habil[m.id];
+          if (h && ahora < h.hasta) { f.btn.textContent = Math.ceil((h.hasta - ahora) / 1000) + " s"; f.btn.disabled = true; f.btn.classList.add("activa"); }
+          else if (h && ahora < h.listoEn) { const r = Math.ceil((h.listoEn - ahora) / 1000); f.btn.textContent = Math.floor(r / 60) + ":" + String(r % 60).padStart(2, "0"); f.btn.disabled = true; f.btn.classList.remove("activa"); }
+          else { f.btn.textContent = "Activar"; f.btn.disabled = false; f.btn.classList.remove("activa"); }
+        };
+        filas.push(f);
+      }
+    }
+    if (hechas.length) {
+      seccion("Mejoras compradas");
+      for (const m of hechas) nota("✓ " + m.nombre + " — " + descMej(m));
+    }
+  }
+
+  // ---- Universidad: investigación con científicos ----
+  function seccionInvestigacion(reabrir) {
+    const s = api.estado();
+    seccion("Investigación");
+    const estado = document.createElement("div");
+    estado.className = "fila inv-estado";
+    const info = document.createElement("div");
+    info.className = "fila-info";
+    const tit = document.createElement("b");
+    const det = document.createElement("span");
+    const barra = document.createElement("div");
+    barra.className = "barra";
+    const relleno = document.createElement("i");
+    barra.append(relleno);
+    info.append(tit, det, barra);
+    estado.append(info);
+    hojaCuerpo.append(estado);
+    const n0 = Object.keys(s.mejoras).length;
+    filas.push({ refresh: (st) => {
+      if (Object.keys(st.mejoras).length !== n0) { reabrir(); return; } // terminó una: se arma la lista de nuevo
+      const v = invPorSeg(st), act = st.invest.actual ? TEC_POR_ID[st.invest.actual] : null;
+      if (!act) { tit.textContent = "Sin investigación en curso"; det.textContent = `Elegí una abajo. Investigación: ${fmt(v)} pts/s.`; relleno.style.width = "0%"; return; }
+      const p = st.invest.prog[act.id] || 0;
+      tit.textContent = act.nombre;
+      det.textContent = `${fmt(p)} / ${fmt(act.trabajo)} pts · ${fmt(v)} pts/s · faltan ${tiempo((act.trabajo - p) / v)}`;
+      relleno.style.width = Math.min(100, (p / act.trabajo) * 100) + "%";
+    } });
+    // el siguiente nivel disponible de cada tema
+    const disponibles = TECNOLOGIAS.filter((t) => tecDisponible(s, t));
+    if (!disponibles.length) nota("No hay nada para investigar por ahora: construí más edificios para abrir tecnologías de su tema.");
+    for (const t of disponibles) {
+      const tema = t.target === "todos" ? "General" : EDIFICIOS[t.edificio].nombre;
+      const f = fila(`${t.nombre} · nivel ${t.nivel}`, `${tema}: ${descTec(s, t)} (${fmt(t.trabajo)} pts)`, () => { if (elegirInvestigacion(api.estado(), t.id)) { api.guardar(); actualizar(true); } });
+      f.refresh = (st) => {
+        const en = st.invest.actual === t.id, p = st.invest.prog[t.id] || 0;
+        f.btn.textContent = en ? "En curso" : p > 0 ? Math.round((p / t.trabajo) * 100) + "%" : "Investigar";
+        f.btn.disabled = en;
+      };
+      filas.push(f);
+    }
+    // resumen de lo ya investigado, por tema
+    const resumen = [];
+    for (const target of new Set(TECNOLOGIAS.map((t) => t.target))) {
+      const hechas = TECNOLOGIAS.filter((t) => t.target === target && s.mejoras[t.id]);
+      if (hechas.length) resumen.push(`${target === "todos" ? "General" : HONGUITOS[target].nombre}: nivel ${hechas.length}/${NIVELES_TEC} (+${num(hechas.reduce((a, t) => a + pctTec(s, t), 0))}%)`);
+    }
+    if (resumen.length) { seccion("Investigado"); for (const r of resumen) nota("✓ " + r); }
+  }
+
+  // ---- Edificio: honguitos propios, mejoras, habilidades, investigación ----
   function abrirCasa(id, ancla) {
+    const reabrir = () => abrirCasa(id, ancla);
     abrir("casa", EDIFICIOS[id].nombre, () => {
-      const mv = document.createElement("button");
-      mv.className = "btn mover";
-      mv.textContent = "Mover / intercambiar";
-      mv.addEventListener("click", () => { cerrar(); api.mover(id); });
-      hojaCuerpo.append(mv);
-      if (id === "universidad") { filasTecnologias(id, ancla); return; }
+      const mv = $("hoja-mover");
+      mv.hidden = false;
+      mv.onclick = () => { cerrar(); api.mover(id); };
       filasHonguitos(id);
-      // tecnologías ya investigadas en la Universidad para el tema de este edificio
-      const hechas = TECNOLOGIAS.filter((t) => t.edificio === id && api.estado().mejoras[t.id]);
-      if (hechas.length) {
+      notasHitos(id);
+      if (id === "universidad") seccionInvestigacion(reabrir);
+      filasMejorasEdificio(id, reabrir);
+      const tecs = TECNOLOGIAS.filter((t) => t.edificio === id && t.target !== "todos" && api.estado().mejoras[t.id]);
+      if (tecs.length && id !== "universidad") {
         seccion("Tecnologías");
-        for (const t of hechas) {
-          const nota = document.createElement("p");
-          nota.className = "nota";
-          nota.textContent = "✓ " + t.nombre + " — " + t.desc;
-          hojaCuerpo.append(nota);
-        }
+        nota(`Investigación de la Universidad: nivel ${tecs.length}/${NIVELES_TEC} (+${num(tecs.reduce((a, t) => a + pctTec(api.estado(), t), 0))}% de producción).`);
       }
     }, ancla);
   }
@@ -382,7 +470,7 @@ export function crearUI(api) {
       const tiene = (s.honguitos[id] || 0) > 0;
       dpsFilas[id].el.hidden = !tiene;
       if (tiene) {
-        dpsFilas[id].val.textContent = fmtRate(produccionPorTipo(s, id));
+        dpsFilas[id].val.textContent = HONGUITOS[id].invProd.gt(0) ? fmt(invPorSeg(s)) + ' inv/s' : fmtRate(produccionPorTipo(s, id));
         dpsFilas[id].val.style.color = factorAcido(id) < 1 ? "#9dff4a" : ""; // mojados por lluvia ácida
       }
     }
@@ -394,6 +482,7 @@ export function crearUI(api) {
     if (abierta && anclaFn) colocar(); // sigue al edificio si cambia de tamaño
     if (abierta !== "madre" && abierta !== "casa" && !forzar) return;
     for (const f of filas) {
+      if (f.refresh) { f.refresh(s); continue; }
       if (f.tipo === "honguito") {
         const cant = ajustes.cantidad || 1;
         const k = cant === "max" ? Math.max(1, maxHonguitos(s, f.id)) : cant;

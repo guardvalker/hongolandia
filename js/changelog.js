@@ -1,5 +1,18 @@
 export const CHANGELOG = [
   {
+    v: "0.21.0",
+    fecha: "2026-10-04",
+    cambios: [
+      "El botón de mover/intercambiar pasó a ser un ícono de dos flechas en círculo, al lado de la ✕ de cerrar.",
+      "Universidad: ahora se investiga en vez de gastar esporas. Hay un honguito nuevo, el Científico, que genera puntos de investigación por segundo: cuantos más, más rápido se investiga. Se investiga de a una cosa (la barra de progreso se ve en la ventana) y al terminar sigue sola con el nivel siguiente.",
+      "Las investigaciones son por niveles (10 por tema: General y uno por cada tipo de honguito). Cada nivel da un % chico de producción (desde ~0,5% hasta ~4%) que se sortea distinto en cada partida. Cada tema exige tener su edificio.",
+      "Mejoras de edificio (se compran con esporas en la ventana de cada edificio, y piden tener cierta cantidad de honguitos del tipo): productividad, velocidad (animaciones y ciclos más cortos), golpes críticos (de golpe 12 s de producción, con destello dorado), sinergias (por ejemplo cada 10 maestros +3% a la velocidad de investigación; cada 10 atletas +2% a los obreros) y filtros de chimenea.",
+      "Habilidades activas: buffs temporales ×2 durante 30 s con recarga de 5 min (Semana de exámenes, Gira mundial, Cinta turbo, etc.). Se ven con chispas doradas sobre esos honguitos y corren con el reloj real.",
+      "Hitos de cantidad: al tener 25, 50, 100, 200, 400 y 800 honguitos de un tipo, ese tipo produce ×2 más por cada umbral. Cada ventana muestra el próximo hito.",
+      "Los científicos hacen experimentos con matraces de colores y a veces se les prende el foco de una idea.",
+    ],
+  },
+  {
     v: "0.20.0",
     fecha: "2026-10-04",
     cambios: [
