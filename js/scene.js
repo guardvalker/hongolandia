@@ -658,7 +658,7 @@ export function crearEscena(canvas, opciones = {}) {
     const cw = canvas.width, chh = canvas.height;
     const r = Math.max(18, Math.round(Math.min(cw, chh) * 0.12));
     // nunca detrás del sombrero del madre, por grande que se ponga
-    return { r, x: Math.round(Math.max(C0 + Wc0 * 0.4, C0 + medidas().w / 2 + r + 10)), y: Math.round(groundY - chh * 0.46) };
+    return { r, x: Math.round(Math.max(C0 + Wc0 * 0.5, C0 + medidas().w / 2 + r + 40)), y: Math.round(groundY - chh * 0.54) };
   }
   // posición de la plataforma: bajo el sombrero, del lado contrario a la rama hongo
   function padCohete() {
