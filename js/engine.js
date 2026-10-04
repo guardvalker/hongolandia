@@ -1,20 +1,22 @@
 import { D } from './decimal.js';
 import { agregarHongoFondo } from './state.js';
-import { HONGUITOS, MEJORAS, EDIFICIOS, PRESTIGIO, BOLSA, LUNA, ACIDO } from './data.js';
+import { HONGUITOS, MEJORAS, EDIFICIOS, PRESTIGIO, BOLSA, LUNA, ACIDO, TECNOLOGIAS } from './data.js';
 
 // Lógica pura del juego: nada de DOM ni canvas acá.
 
 // Improductividad por lluvia ácida (la escribe la escena, que sabe qué honguitos se mojaron):
 // por tipo, la fracción de sus honguitos mojados y hasta cuándo dura (ms). No se guarda.
 export const improd = {};
+// efectos de tecnologías que no son multiplicadores (se recalcula en cada tick)
+export const efectos = { acidoMenos: 0 };
 export function factorAcido(id) {
   const m = improd[id];
-  return m && m.hasta > Date.now() ? 1 - ACIDO.pct * m.f : 1;
+  return m && m.hasta > Date.now() ? 1 - ACIDO.pct * (1 - efectos.acidoMenos) * m.f : 1;
 }
 
 export function multiplicador(state, tipoId) {
   let m = D(1);
-  for (const mj of MEJORAS) {
+  for (const mj of [...MEJORAS, ...TECNOLOGIAS]) {
     if (state.mejoras[mj.id] && (mj.aplica === "todos" || mj.aplica === tipoId)) m = m.mul(mj.mult);
   }
   return m;
@@ -78,6 +80,7 @@ function expedicionLunar(state) {
 }
 
 export function tick(state, dt) {
+  efectos.acidoMenos = TECNOLOGIAS.reduce((a, t) => (state.mejoras[t.id] && t.acidoMenos ? 1 - (1 - a) * (1 - t.acidoMenos) : a), 0);
   // los traders no cobran de a poco: acumulan tiempo y pagan todo junto al cerrar cada ciclo de bolsa
   const trader = produccionPorTipo(state, "trader");
   let ganancia = produccionPorSeg(state).sub(trader).mul(dt);
@@ -166,9 +169,15 @@ export function colocarEdificio(state, id, dx) {
   return true;
 }
 
+// ¿Se puede investigar esta tecnología? (tener el edificio de su tema y la anterior)
+export function tecnologiaDisponible(state, t) {
+  return !state.mejoras[t.id] && (!t.edificio || !!state.edificios[t.edificio]) && (!t.req || !!state.mejoras[t.req]);
+}
+
 export function comprarMejora(state, id) {
-  const mj = MEJORAS.find((m) => m.id === id);
+  const mj = [...MEJORAS, ...TECNOLOGIAS].find((m) => m.id === id);
   if (!mj || state.mejoras[id] || state.esporas.lt(mj.costo)) return false;
+  if ((mj.edificio && !state.edificios[mj.edificio]) || (mj.req && !state.mejoras[mj.req])) return false;
   state.esporas = state.esporas.sub(mj.costo);
   state.mejoras[id] = true;
   return true;

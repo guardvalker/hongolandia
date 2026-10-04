@@ -67,6 +67,7 @@ const TAM_BASE = {
   astropuerto: { w: 44, ch: 21, sw: 18, sh: 15 },
   escuela: { w: 40, ch: 19, sw: 17, sh: 14 },
   fabrica: { w: 46, ch: 21, sw: 20, sh: 15 },
+  universidad: { w: 44, ch: 21, sw: 20, sh: 16 },
 };
 const NOTA = ["..##.", "..#.#", "..#..", "..#..", "###..", "###.."];
 
@@ -380,7 +381,12 @@ export function crearEscena(canvas) {
     Wc = Math.ceil(canvas.width / S);
     Hc = Math.ceil(canvas.height / S);
     lo.width = Wc; lo.height = Hc;
+    const pisoAntes = groundY;
     groundY = Math.round(Hc * 0.74);
+    if (pisoAntes > 0 && groundY !== pisoAntes) { // las partículas en el aire acompañan al piso, no a la pantalla
+      const d = groundY - pisoAntes;
+      for (const p of particulas) { p.y += d; if (p.y0 !== undefined) { p.y0 += d; p.y1 += d; } }
+    }
     madre.x = C0;
     extent = Math.max(extent, Wc0 / 2);
     limitarCam();
@@ -947,11 +953,11 @@ export function crearEscena(canvas) {
 
   // las acciones tocaron el techo: lluvia de esporas de golpe hacia el hongo madre
   function cobroBolsa() {
-    const m = tam("trade"), ex = edif.trade.x, ey = groundY - m.sh - m.ch;
+    const m = tam("trade"), ex = edif.trade.x, ey = groundY - m.sh - m.ch, eyRel = m.sh + m.ch; // eyRel: altura sobre el piso
     brillos.trade = 1;
     aroPart(ex, ey + m.ch * 0.4, 50, 0.7);
     motas(ex, ey, 18, 1.6, DORADO);
-    for (let i = 0; i < 26; i++) cola.push({ t: i * 0.045, fn: () => lanzarEspora(ex + (Math.random() - 0.5) * m.w * 0.6, ey + Math.random() * m.ch * 0.5, i % 3 ? DORADO : PALETA[i % PALETA.length]) });
+    for (let i = 0; i < 26; i++) cola.push({ t: i * 0.045, fn: () => lanzarEspora(ex + (Math.random() - 0.5) * m.w * 0.6, groundY - eyRel + Math.random() * m.ch * 0.5, i % 3 ? DORADO : PALETA[i % PALETA.length]) });
   }
 
   // ---------- update ----------
@@ -1308,7 +1314,7 @@ export function crearEscena(canvas) {
     g.globalAlpha = alfa;
     const col = EDIFICIOS[id].color;
     const { capBase, ch, rx, mitad } = hongoBase(cx, m, 0, brillos[id] || 0, col, col);
-    manchasDe(id + ":" + semilla, (id === "conservatorio" ? 5 : id === "vivero" ? 11 : id === "gimnasio" ? 23 : id === "trade" ? 37 : id === "astropuerto" ? 53 : id === "escuela" ? 71 : 89) + semilla, 7 + m.nivel * 2).forEach((q) => {
+    manchasDe(id + ":" + semilla, (id === "conservatorio" ? 5 : id === "vivero" ? 11 : id === "gimnasio" ? 23 : id === "trade" ? 37 : id === "astropuerto" ? 53 : id === "escuela" ? 71 : id === "universidad" ? 97 : 89) + semilla, 7 + m.nivel * 2).forEach((q) => {
       const c2 = q.v < 0.5 ? mezcla(col, "#ffffff", 0.35) : mezcla(col, "#000000", 0.45);
       manchaCap(cx, capBase, rx, ch, cx + Math.round(q.u * rx), capBase - 2 - Math.round(q.h * ch), Math.max(1, Math.round(ch * q.f * 0.7)), c2, false);
     });
@@ -1416,6 +1422,24 @@ export function crearEscena(canvas) {
         const tiembla = cohete.fase === "despegue" ? Math.round(Math.sin(t * 60) * (0.5 + cohete.llama)) : 0;
         g.drawImage(spriteCohete, px - 3 + tiembla, groundY - 11);
       }
+    } else if (id === "universidad") {
+      // birrete sobre el sombrero con borla, foco de ideas que parpadea, columnas, escalones y puerta
+      const by = capBase - ch - 3;
+      g.fillStyle = "#14141d"; g.fillRect(cx - 5, by - 1, 11, 1); g.fillRect(cx - 3, by, 7, 2);
+      g.fillStyle = BLANCO; g.fillRect(cx - 5, by - 2, 11, 1);
+      g.fillStyle = DORADO; g.fillRect(cx + 5, by - 1, 1, 4); g.fillRect(cx + 5, by + 3, 1, 1);
+      const idea = Math.floor(t * 1.5) % 4 === 0;
+      g.fillStyle = idea ? "#ffe14d" : "#7a6a1f";
+      g.fillRect(cx - 9, by - 8, 3, 3); g.fillRect(cx - 8, by - 5, 1, 2);
+      if (idea) { g.fillStyle = "#fff6a8"; g.fillRect(cx - 12, by - 7, 1, 1); g.fillRect(cx - 4, by - 7, 1, 1); g.fillRect(cx - 8, by - 10, 1, 1); }
+      // tallo: dos columnas blancas, puerta en arco y escalones
+      const ya = capBase + 4;
+      g.fillStyle = BLANCO;
+      g.fillRect(cx - mitad + 2, ya, 2, m.sh - 6); g.fillRect(cx + mitad - 4, ya, 2, m.sh - 6);
+      g.fillRect(cx - mitad + 1, ya, 4, 1); g.fillRect(cx + mitad - 5, ya, 4, 1);
+      g.fillStyle = "#0e2a28"; g.fillRect(cx - 2, groundY - 8, 5, 7); g.fillRect(cx - 1, groundY - 9, 3, 1);
+      g.fillStyle = col; g.fillRect(cx - 3, groundY - 8, 1, 7); g.fillRect(cx + 3, groundY - 8, 1, 7); g.fillRect(cx - 2, groundY - 9, 1, 1); g.fillRect(cx + 2, groundY - 9, 1, 1); g.fillRect(cx - 1, groundY - 10, 3, 1);
+      g.fillStyle = "#c8c8dc"; g.fillRect(cx - mitad - 1, groundY - 2, mitad * 2 + 2, 1); g.fillRect(cx - mitad + 1, groundY - 3, mitad * 2 - 2, 1);
     } else if (id === "fabrica") {
       // chimeneas con franja de acero, engranaje girando, ventanas con siluetas que se mueven y cinta
       const nn = edif[id] ? nObreros : 0, vel = 0.6 + Math.log2(nn + 1) * 0.5;

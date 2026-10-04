@@ -1,5 +1,15 @@
 export const CHANGELOG = [
   {
+    v: "0.20.0",
+    fecha: "2026-10-04",
+    cambios: [
+      "Zoom: las partículas y animaciones en el aire (esporas viajando, lluvia ácida, humo, notas, sudor, destellos) ya no se quedan pegadas a la altura de la pantalla: acompañan al piso al acercar o alejar.",
+      "Nuevo edificio: Universidad hongil (sombrero turquesa con birrete y foco de ideas que parpadea, columnas, puerta en arco y escalones). No produce esporas ni tiene honguitos: en su ventana se investigan tecnologías.",
+      "Tecnologías: 2 generales (Método científico ×1,25 a todos; Becas de investigación ×1,5, después de la anterior) y 2 por cada edificio con honguito (+50% y luego ×2 para su tipo, por ejemplo \"Herramientas de precisión hongil\" para los obreros de la fábrica). Cada una exige tener el edificio de su tema. Además, \"Filtros de chimenea hongiles\" (fábrica) reduce un 35% el castigo de la lluvia ácida.",
+      "Las tecnologías ya investigadas aparecen listadas en la ventana del edificio de su tema.",
+    ],
+  },
+  {
     v: "0.19.2",
     fecha: "2026-10-04",
     cambios: [

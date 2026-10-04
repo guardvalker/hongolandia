@@ -1,6 +1,6 @@
-import { HONGUITOS, MEJORAS, EDIFICIOS } from './data.js';
+import { HONGUITOS, MEJORAS, EDIFICIOS, TECNOLOGIAS } from './data.js';
 import { fmt, fmtRate } from './format.js';
-import { factorAcido, produccionPorSeg, produccionPorTipo, prestigio, costoHonguito, costoHonguitos, maxHonguitos, comprarHonguitos, comprarMejora } from './engine.js';
+import { factorAcido, produccionPorSeg, produccionPorTipo, prestigio, costoHonguito, costoHonguitos, maxHonguitos, comprarHonguitos, comprarMejora, tecnologiaDisponible } from './engine.js';
 import { exportar, importar, borrarGuardado } from './state.js';
 import { CHANGELOG } from './changelog.js';
 
@@ -117,6 +117,36 @@ export function crearUI(api) {
     }
   }
 
+  // ---- Universidad: investigar tecnologías (no tiene honguitos propios) ----
+  function filasTecnologias(id, ancla) {
+    const s = api.estado();
+    const pendientes = TECNOLOGIAS.filter((t) => tecnologiaDisponible(s, t));
+    seccion("Investigaciones");
+    if (!pendientes.length) {
+      const nota = document.createElement("p");
+      nota.className = "nota";
+      nota.textContent = "No hay nada para investigar por ahora. Construí más edificios para desbloquear tecnologías de su tema.";
+      hojaCuerpo.append(nota);
+    }
+    for (const t of pendientes) {
+      const tema = t.edificio ? EDIFICIOS[t.edificio].nombre + ": " : "";
+      const f = fila(t.nombre, tema + t.desc, () => {
+        if (comprarMejora(api.estado(), t.id)) { api.guardar(); abrirCasa(id, ancla); }
+      });
+      filas.push({ tipo: "mejora", mj: t, ...f });
+    }
+    const hechas = TECNOLOGIAS.filter((t) => s.mejoras[t.id]);
+    if (hechas.length) {
+      seccion("Investigado");
+      for (const t of hechas) {
+        const nota = document.createElement("p");
+        nota.className = "nota";
+        nota.textContent = "✓ " + t.nombre;
+        hojaCuerpo.append(nota);
+      }
+    }
+  }
+
   // ---- Edificio con casa propia (ej. conservatorio): comprar los honguitos de su tipo ----
   function abrirCasa(id, ancla) {
     abrir("casa", EDIFICIOS[id].nombre, () => {
@@ -125,7 +155,19 @@ export function crearUI(api) {
       mv.textContent = "Mover / intercambiar";
       mv.addEventListener("click", () => { cerrar(); api.mover(id); });
       hojaCuerpo.append(mv);
+      if (id === "universidad") { filasTecnologias(id, ancla); return; }
       filasHonguitos(id);
+      // tecnologías ya investigadas en la Universidad para el tema de este edificio
+      const hechas = TECNOLOGIAS.filter((t) => t.edificio === id && api.estado().mejoras[t.id]);
+      if (hechas.length) {
+        seccion("Tecnologías");
+        for (const t of hechas) {
+          const nota = document.createElement("p");
+          nota.className = "nota";
+          nota.textContent = "✓ " + t.nombre + " — " + t.desc;
+          hojaCuerpo.append(nota);
+        }
+      }
     }, ancla);
   }
 

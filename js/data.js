@@ -64,6 +64,13 @@ const EDIF_DEF = [
     color: "#2fa84f",
   },
   {
+    id: "universidad",
+    tier: 3.5, // sin honguito propio: no produce, investiga (el tier solo fija su costo)
+    nombre: "Universidad hongil",
+    desc: "Un hongo con columnas y birrete. No produce esporas: investiga mejoras para los demás honguitos y tecnologías ligadas al tema de cada edificio.",
+    color: "#2fd4c4",
+  },
+  {
     id: "fabrica",
     tier: 4,
     nombre: "Fábrica hongil",
@@ -151,4 +158,31 @@ export const MEJORAS = [
     aplica: "basico",
     mult: D(2),
   },
+];
+
+// Tecnologías: se investigan en la Universidad hongil. Cada una exige tener el edificio de su
+// tema (`edificio`) y, a veces, otra tecnología antes (`req`). Dan un multiplicador de producción
+// (`aplica`: "todos" o un honguito) y/o `acidoMenos` (reduce el castigo de la lluvia ácida).
+// Costo: el costo base del tier del honguito × `mul` (así se acomoda solo con la fórmula de tiers).
+const TEC_TEMAS = [
+  ["maestro", "escuela", ["Pizarrón de tiza fosforescente", "Plan de estudios hongil"]],
+  ["musico", "conservatorio", ["Partituras fúngicas", "Acústica de micelio"]],
+  ["jardinero", "vivero", ["Riego por goteo hongil", "Sustrato enriquecido"]],
+  ["obrero", "fabrica", ["Herramientas de precisión hongil", "Líneas de montaje"]],
+  ["atleta", "gimnasio", ["Proteína de micelio", "Entrenamiento de élite"]],
+  ["trader", "trade", ["Algoritmo de trading hongil", "Análisis de mercado"]],
+  ["astronauta", "astropuerto", ["Trajes presurizados", "Propulsores de espora"]],
+];
+const T = (tier, mul) => C(Math.ceil(valoresTier(tier).costoBase * mul));
+export const TECNOLOGIAS = [
+  { id: "metodo", nombre: "Método científico hongil", desc: "Todos los honguitos producen ×1,25.", edificio: null, costo: T(3.5, 1), aplica: "todos", mult: D(1.25) },
+  { id: "becas", nombre: "Becas de investigación", desc: "Todos los honguitos producen ×1,5.", edificio: null, req: "metodo", costo: T(4.5, 3), aplica: "todos", mult: D(1.5) },
+  ...TEC_TEMAS.flatMap(([tipo, edificio, nombres]) => {
+    const { tier, nombre } = HONG_DEF.find((h) => h.id === tipo);
+    return [
+      { id: `${tipo}1`, nombre: nombres[0], desc: `+50% de producción de ${nombre.toLowerCase()}s.`, edificio, costo: T(tier, 4), aplica: tipo, mult: D(1.5) },
+      { id: `${tipo}2`, nombre: nombres[1], desc: `Los ${nombre.toLowerCase()}s producen ×2.`, edificio, req: `${tipo}1`, costo: T(tier, 25), aplica: tipo, mult: D(2) },
+    ];
+  }),
+  { id: "filtros", nombre: "Filtros de chimenea hongiles", desc: "La lluvia ácida quita un 35% menos de producción.", edificio: "fabrica", costo: T(4, 10), aplica: null, mult: D(1), acidoMenos: 0.35 },
 ];
