@@ -474,7 +474,7 @@ export function crearEscena(canvas, opciones = {}) {
   // El hongo madre crece sin techo, pero ya no por las esporas: solo por los puntos de prestigio
   // (con la fracción de la barra, para que crezca suave) y por cada edificio construido.
   function medidasMadre(pf, nEd, bonus) {
-    let w = 30 * Math.pow(1 + pf / 22, 0.9);
+    let w = 30 * (1 + pf / 10);
     w *= (bonus ? BONUS_CONSERV : 1) * (1 + 0.06 * nEd);
     w = Math.round(w);
     return { w, ch: Math.round(w * 0.57), sw: Math.max(14, Math.round(w * 0.42)), sh: Math.round(w * 0.4) };

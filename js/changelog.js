@@ -1,5 +1,12 @@
 export const CHANGELOG = [
   {
+    v: "0.33.1",
+    fecha: "2026-10-04",
+    cambios: [
+      "El hongo madre crece más: ahora son 3 celdas más de ancho por cada punto de prestigio (antes bastante menos). Prestigio 56 con 3 edificios mide unas 230 celdas; prestigio 100 con casi todos los edificios, unas 500. Sigue sin depender de las esporas directamente.",
+    ],
+  },
+  {
     v: "0.33.0",
     fecha: "2026-10-04",
     cambios: [
