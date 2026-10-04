@@ -1,4 +1,5 @@
 import { D } from './decimal.js';
+import { agregarHongoFondo } from './state.js';
 import { HONGUITOS, MEJORAS, EDIFICIOS, PRESTIGIO } from './data.js';
 
 // Lógica pura del juego: nada de DOM ni canvas acá.
@@ -26,6 +27,15 @@ export function prestigio(total) {
   while (n > 0 && total.lt(acum(n))) n--;
   const base = acum(n), need = acum(n + 1).sub(base), cur = total.sub(base);
   return { puntos: n, cur, need, frac: Math.min(1, Math.max(0, cur.div(need).toNumber())) };
+}
+
+// Cada 5 niveles de prestigio crece un hongo gigante en el fondo.
+export function revisarHitos(state) {
+  const n = Math.floor(prestigio(state.total).puntos / 5);
+  while (state.hitos < n) {
+    state.hitos++;
+    agregarHongoFondo(state);
+  }
 }
 
 export function produccionPorSeg(state) {
@@ -64,6 +74,7 @@ export function colocarEdificio(state, id, x) {
   if (!e || state.edificios[id] || state.esporas.lt(e.costo)) return false;
   state.esporas = state.esporas.sub(e.costo);
   state.edificios[id] = { x };
+  agregarHongoFondo(state);
   return true;
 }
 

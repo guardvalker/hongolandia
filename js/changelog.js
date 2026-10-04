@@ -1,5 +1,14 @@
 export const CHANGELOG = [
   {
+    v: "0.10.0",
+    fecha: "2026-10-03",
+    cambios: [
+      "El contador de esporas/s va más en la esquina y, si lo tocás, se pliega y muestra solo el total (se recuerda).",
+      "La barra de prestigio es más larga y se adapta al ancho de la pantalla.",
+      "Fondo vivo: cada edificio nuevo y cada 5 niveles de prestigio crece un hongo gigante, muy oscuro y sutil, detrás del prado.",
+    ],
+  },
+  {
     v: "0.9.0",
     fecha: "2026-10-03",
     cambios: [

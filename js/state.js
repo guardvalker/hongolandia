@@ -4,6 +4,17 @@ import { ETAPAS } from './data.js';
 const KEY = "hongolandia-save";
 export const SAVE_VERSION = 1;
 
+// Hongos gigantes del fondo (decorativos, muy oscuros): uno por edificio nuevo y uno cada
+// 5 niveles de prestigio. Se guarda su posición (fracción del ancho) y su tamaño relativo.
+export const MAX_HONGOS_FONDO = 30;
+export function nuevoHongoFondo() {
+  return { x: 0.04 + Math.random() * 0.92, s: 0.6 + Math.random() * 0.7, v: Math.floor(Math.random() * 1e6) };
+}
+export function agregarHongoFondo(state) {
+  state.fondo.push(nuevoHongoFondo());
+  if (state.fondo.length > MAX_HONGOS_FONDO) state.fondo.shift();
+}
+
 export function nuevoEstado() {
   return {
     v: SAVE_VERSION,
@@ -12,6 +23,8 @@ export function nuevoEstado() {
     honguitos: { basico: 1 },
     mejoras: {},
     edificios: {}, // id -> { x } (fracción del ancho de pantalla)
+    fondo: [], // hongos gigantes decorativos del fondo
+    hitos: 0, // cuántos hitos de prestigio (cada 5 niveles) ya dieron su hongo
     flags: {},
     creado: Date.now(),
   };
@@ -46,6 +59,9 @@ function deserializar(raw) {
     honguitos: { ...base.honguitos, ...raw.honguitos },
     mejoras: { ...raw.mejoras },
     edificios: { ...raw.edificios },
+    // partidas viejas: un hongo de fondo por cada edificio que ya tenían
+    fondo: Array.isArray(raw.fondo) ? raw.fondo : Object.keys(raw.edificios || {}).map(nuevoHongoFondo),
+    hitos: raw.hitos ?? 0,
     flags: { ...raw.flags },
   };
 }

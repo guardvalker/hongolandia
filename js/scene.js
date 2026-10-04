@@ -47,6 +47,8 @@ const PATAS = [".ww...ww.", "..ww.ww.."];
 const VIOLETA = "#a77bff";
 const BONUS_CONSERV = 1.15; // el conservatorio agranda al hongo madre
 const VERDE = "#2fa84f";
+const GIGANTE = "#222232"; // hongos gigantes del fondo: apenas más oscuros que el cielo
+const GIGANTE_MANCHA = "#252535";
 // medidas de los edificios (mismo formato que MADRE)
 const TAM = {
   conservatorio: { w: 36, ch: 19, sw: 15, sh: 13 },
@@ -78,6 +80,7 @@ export function crearEscena(canvas) {
   const edif = {}; // id -> { x } en celdas, para los edificios construidos
   const brillos = {}; // id -> destello del edificio (0..1)
   const brotes = []; // honguitos pasajeros regados por los jardineros
+  const gigantes = []; // hongos gigantes oscuros del fondo: { x, s, v, p (0..1 crecimiento), cv (canvas) }
   let bonusMadre = false;
   let colocando = null; // { id, x } mientras el jugador elige dónde ponerlo
   const visuales = [];
@@ -188,6 +191,42 @@ export function crearEscena(canvas) {
     }
   }
 
+  // ---------- hongos gigantes del fondo (siluetas muy oscuras que brotan con los hitos) ----------
+  function construirGigante(gi) {
+    const r = rng(gi.v);
+    const base = Math.min(groundY * 0.2, Wc * 0.12) * gi.s; // se achica en pantallas angostas
+    const ch = Math.round(base), sh = Math.round(base * 1.4);
+    const w = Math.round(ch * (1.9 + r() * 0.5)), sw = Math.round(w * (0.28 + r() * 0.12));
+    const c = document.createElement("canvas");
+    c.width = w; c.height = ch + sh;
+    const x = c.getContext("2d");
+    x.fillStyle = GIGANTE;
+    x.fillRect(Math.round((w - sw) / 2), ch - 1, sw, sh + 1); // tallo
+    for (let dy = 0; dy < ch; dy++) { // sombrero: media elipse
+      const hw = Math.round((w / 2) * Math.sqrt(1 - (dy / ch) ** 2));
+      x.fillRect(Math.round(w / 2) - hw, ch - dy - 1, hw * 2, 1);
+    }
+    x.fillStyle = GIGANTE_MANCHA; // manchas apenas más claras
+    const n = 3 + Math.floor(r() * 3);
+    for (let k = 0; k < n; k++) {
+      const u = 0.18 + r() * 0.64, v = 0.25 + r() * 0.5;
+      const px = Math.round(u * w), py = Math.round(ch - v * ch * Math.sqrt(1 - ((u - 0.5) * 2) ** 2));
+      const rr = 2 + Math.floor(r() * (ch / 7));
+      for (let dy = -rr; dy <= rr; dy++) { const hw = Math.floor(Math.sqrt(rr * rr - dy * dy)); x.fillRect(px - hw, py + dy, hw * 2 + 1, 1); }
+    }
+    gi.cv = c;
+  }
+
+  function sincronizarGigantes(state, instantaneo) {
+    const f = state.fondo;
+    if (f.length < gigantes.length) { gigantes.length = 0; instantaneo = true; } // partida reemplazada
+    while (gigantes.length < f.length) {
+      const gi = { ...f[gigantes.length], p: instantaneo ? 1 : 0 };
+      construirGigante(gi);
+      gigantes.push(gi);
+    }
+  }
+
   function resize() {
     dpr = window.devicePixelRatio || 1;
     const cw = canvas.clientWidth, ch = canvas.clientHeight;
@@ -200,6 +239,7 @@ export function crearEscena(canvas) {
     groundY = Math.round(Hc * 0.74);
     madre.x = Math.round(Wc / 2);
     pintarFondo();
+    for (const gi of gigantes) construirGigante(gi);
   }
 
   // ---------- entidades ----------
@@ -406,6 +446,8 @@ export function crearEscena(canvas) {
     }
     for (const id in brillos) brillos[id] = Math.max(0, brillos[id] - dt * 2);
 
+    sincronizarGigantes(state, inicial);
+    for (const gi of gigantes) if (gi.p < 1) gi.p = Math.min(1, gi.p + dt / 5);
     sincronizarVisuales(state);
     const mHalf = medidas().w / 2;
     for (const v of visuales) {
@@ -645,6 +687,10 @@ export function crearEscena(canvas) {
     g.globalAlpha = 1;
     g.clearRect(0, 0, Wc, Hc);
         g.drawImage(fondo, 0, 0);
+    for (const gi of gigantes) {
+      const hT = gi.cv.height, h = Math.max(1, Math.round(hT * suave(gi.p)));
+      g.drawImage(gi.cv, 0, hT - h, gi.cv.width, h, Math.round(gi.x * Wc - gi.cv.width / 2), groundY - h, gi.cv.width, h);
+    }
     // estrellitas y manchas flotantes (fondo)
     for (const s of estrellas) {
       const a = 0.25 + 0.45 * Math.sin(t * 1.5 + s.ph) ** 2;

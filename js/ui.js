@@ -7,7 +7,7 @@ import { CHANGELOG } from './changelog.js';
 // Preferencias de interfaz (no forman parte de la partida): guardadas aparte.
 const KEY_AJ = "hongolandia-ajustes";
 const ajustes = (() => {
-  try { return { transparencia: false, ...JSON.parse(localStorage.getItem(KEY_AJ) || "{}") }; } catch (_) { return { transparencia: false }; }
+  try { return { transparencia: false, dpsPlegado: false, ...JSON.parse(localStorage.getItem(KEY_AJ) || "{}") }; } catch (_) { return { transparencia: false, dpsPlegado: false }; }
 })();
 const aplicarAjustes = () => document.body.classList.toggle("transp", !!ajustes.transparencia);
 aplicarAjustes();
@@ -242,6 +242,15 @@ export function crearUI(api) {
   const elNum = $("presti-num");
   const elDpsTotal = $("dps-total");
   let puntosPrev = null;
+
+  // tocar el contador de esporas/s lo pliega (solo total) o lo despliega; se recuerda
+  const elDps = $("dps");
+  elDps.classList.toggle("plegado", !!ajustes.dpsPlegado);
+  elDps.addEventListener("click", () => {
+    ajustes.dpsPlegado = !ajustes.dpsPlegado;
+    elDps.classList.toggle("plegado", ajustes.dpsPlegado);
+    try { localStorage.setItem(KEY_AJ, JSON.stringify(ajustes)); } catch (_) {}
+  });
 
   // una fila por tipo de honguito en el contador de esporas/s (se muestran solo los que tenés)
   const dpsFilas = {};

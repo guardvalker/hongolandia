@@ -36,10 +36,10 @@ html, body {
 
 #hud {
   position: fixed; top: 0; left: 0; right: 0; pointer-events: none;
-  padding: calc(env(safe-area-inset-top) + 12px) 12px 0;
-  display: flex; justify-content: center; align-items: flex-start;
+  padding: calc(env(safe-area-inset-top) + 12px) 64px 0 12px;
+  display: flex; justify-content: flex-start; align-items: flex-start;
 }
-#barra-bloque { display: flex; flex-direction: column; align-items: stretch; width: min(360px, calc(100vw - 112px)); }
+#barra-bloque { display: flex; flex-direction: column; align-items: stretch; flex: 1; min-width: 0; }
 .hud-label { font-size: 11px; letter-spacing: .14em; text-transform: uppercase; color: var(--ambar); text-align: center; }
 #esporas { font-family: var(--num); font-size: 22px; line-height: 1.4; text-align: center; font-variant-numeric: tabular-nums; }
 #barra-info { display: flex; justify-content: space-between; align-items: baseline; margin: 4px 0 3px; font-size: 12px; color: var(--dim); }
@@ -51,7 +51,7 @@ html, body {
 @keyframes destello { 50% { background: #fff; } }
 
 /* contador de esporas/s por tipo de honguito */
-#dps { position: fixed; left: 12px; top: calc(env(safe-area-inset-top) + 108px); padding: 6px 8px; min-width: 150px; pointer-events: none; }
+#dps { position: fixed; left: 12px; top: calc(env(safe-area-inset-top) + 104px); padding: 6px 8px; min-width: 150px; cursor: pointer; }
 .dps-titulo { font-size: 10px; letter-spacing: .14em; text-transform: uppercase; color: var(--ambar); margin-bottom: 4px; }
 .dps-fila { display: flex; align-items: center; gap: 6px; font-size: 12px; line-height: 1.6; }
 .dps-fila .dps-tipo { width: 8px; height: 8px; flex: none; }
@@ -136,3 +136,18 @@ body.transp #hoja-cerrar { background: rgba(45, 45, 64, .6); }
 #colocar.visible { display: flex; }
 #colocar .btn { background: #ff5a14; color: #fff; padding: 8px 10px; font-size: 10px; flex: none; }
 #hoja.anclada h2 { flex: 1; min-width: 0; padding-right: 6px; }
+
+/* contador de esporas/s plegable */
+.dps-titulo::after { content: " ▾"; }
+#dps.plegado .dps-titulo::after { content: " ▸"; }
+#dps.plegado #dps-filas { display: none; }
+#dps.plegado .dps-total { margin-top: 0; padding-top: 0; border-top: 0; }
+#dps.plegado .dps-titulo { margin-bottom: 0; }
+
+/* pantallas anchas: contador en la esquina y barra larga, centrada y adaptable */
+@media (min-width: 760px) {
+  #hud { justify-content: center; padding: calc(env(safe-area-inset-top) + 12px) 12px 0; }
+  #barra-bloque { flex: none; width: clamp(420px, 56vw, 820px); }
+  #dps { top: calc(env(safe-area-inset-top) + 12px); }
+}
+.dps-fila[hidden] { display: none; }

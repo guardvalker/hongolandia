@@ -1,5 +1,5 @@
 import { cargar, guardar, nuevoEstado, etapaDe } from './state.js';
-import { tick, colocarEdificio } from './engine.js';
+import { tick, colocarEdificio, revisarHitos } from './engine.js';
 import { crearEscena } from './scene.js';
 import { crearUI } from './ui.js';
 
@@ -76,6 +76,7 @@ function frame(ahora) {
   escena.update(dt, state, etapaDe(state));
   escena.draw();
   if (ahora >= proximoHud) {
+    revisarHitos(state);
     ui.actualizar(false);
     proximoHud = ahora + 250;
   }
