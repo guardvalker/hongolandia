@@ -1273,6 +1273,23 @@ export function crearEscena(canvas, opciones = {}) {
     const hijos = new Array(nodos.length).fill(0);
     nodos.forEach((n) => { if (n.par >= 0) hijos[n.par]++; });
     nodos.forEach((n, i) => { if (!hijos[i] && !n.cam && n.d > 30) camara(i); });
+    // escaleras: solo en tramos empinados y largos, rectas y sin pisarse entre sí; el resto son rampas
+    const empinada = (n) => n.par >= 0 && Math.abs(n.y - nodos[n.par].y) > 1.8 * Math.abs(n.x - nodos[n.par].x);
+    const tramos = [];
+    nodos.forEach((n, i) => {
+      if (!empinada(n)) return;
+      const p = nodos[n.par];
+      if (p.tramo !== undefined) n.tramo = p.tramo; else { n.tramo = tramos.length; tramos.push({ ids: [], x: p.x, y0: p.y }); }
+      tramos[n.tramo].ids.push(i);
+    });
+    const fijos = [];
+    for (const tr of tramos) {
+      const y1 = tr.ids.reduce((m, i) => Math.max(m, nodos[i].y), 0);
+      if (y1 - tr.y0 < 12 || fijos.some((k) => Math.abs(k.x - tr.x) < 10 && k.y0 < y1 && tr.y0 < k.y1)) { for (const i of tr.ids) nodos[i].tramo = undefined; continue; }
+      tr.y1 = y1; fijos.push(tr);
+      for (const i of tr.ids) { nodos[i].x = tr.x; nodos[i].esc = true; }
+    }
+    nodos.forEach((n) => { if (!n.esc) n.tramo = undefined; });
     const orden = nodos.map((_, i) => i).sort((p, q) => nodos[p].d - nodos[q].d);
     const total = nodos.reduce((m, n) => Math.max(m, n.d), 1);
     const prof2 = nodos.reduce((m, n) => Math.max(m, n.y), 0) + 6;
@@ -1296,7 +1313,7 @@ export function crearEscena(canvas, opciones = {}) {
         elipse2(cb, X, Y - n.camY + 1, n.cam + 1, n.camY + 1, "#34344e");
         elipse2(ch, X, Y - n.camY + 1, n.cam, n.camY, "#08080e");
       }
-      if (p && empinado(p, n)) { // escalera: dos largueros y peldaños cada 3 celdas
+      if (p && n.esc) { // escalera: dos largueros y peldaños cada 3 celdas
         const pasos = Math.max(1, Math.round(Math.abs(n.y - p.y)));
         for (let k = 0; k <= pasos; k++) {
           const f = k / pasos, lx = Math.round(p.x + (n.x - p.x) * f + m.medio + m.mg), ly = Math.round(p.y + (n.y - p.y) * f);

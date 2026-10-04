@@ -1,5 +1,12 @@
 export const CHANGELOG = [
   {
+    v: "0.27.2",
+    fecha: "2026-10-04",
+    cambios: [
+      "Escaleras de la mina arregladas: antes había una en casi cualquier tramo inclinado y se pisaban entre sí. Ahora solo hay escaleras en los tramos verdaderamente empinados y largos, son rectas, y no se dibuja ninguna encima de otra. El resto de los tramos son rampas sin escalera.",
+    ],
+  },
+  {
     v: "0.27.1",
     fecha: "2026-10-04",
     cambios: [
