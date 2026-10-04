@@ -89,7 +89,7 @@ export function crearEscena(canvas) {
   const g = lo.getContext("2d");
   let dpr = 1, S = 1, Wc = 0, Hc = 0, groundY = 0;
   // cámara: Wc/Hc = celdas visibles; S = px por celda (niveles enteros para que el pixel art quede nítido)
-  let S0 = 1, Wc0 = 300, Hc0 = 300, niveles = [1], zoomIdx = null, camX = C0, extent = 150;
+  let groundRef = 220, S0 = 1, Wc0 = 300, Hc0 = 300, niveles = [1], zoomIdx = null, camX = C0, extent = 150;
   const LIM0 = () => C0 - extent, LIM1 = () => C0 + extent; // hasta dónde llega lo que hay en el mundo
   const offX = () => Math.round(Wc / 2 - camX);
   function limitarCam() {
@@ -376,6 +376,7 @@ export function crearEscena(canvas) {
     canvas.height = Math.round(ch * dpr);
     Wc0 = Math.ceil(canvas.width / S0);
     Hc0 = Math.ceil(canvas.height / S0);
+    groundRef = Math.round(Hc0 * 0.74);
     Wc = Math.ceil(canvas.width / S);
     Hc = Math.ceil(canvas.height / S);
     lo.width = Wc; lo.height = Hc;
@@ -627,7 +628,7 @@ export function crearEscena(canvas) {
   // ---- Luna y expediciones ----
   function geomLuna() {
     const r = Math.max(18, Math.round(Math.min(Wc0, Hc0) * 0.1));
-    return { r, x: Math.round(C0 + Wc0 * 0.32), y: Math.round(groundY * 0.36) };
+    return { r, x: Math.round(C0 + Wc0 * 0.32), y: Math.round(groundY - groundRef * 0.64) };
   }
   // posición de la plataforma: bajo el sombrero, del lado contrario a la rama hongo
   function padCohete() {
@@ -809,12 +810,15 @@ export function crearEscena(canvas) {
     });
   };
   const nubeX = (c) => c.x;
+  // Altura de la nube sobre el piso: entre 48% y 72% de la altura de referencia (la del zoom
+  // inicial), así no cambia al hacer zoom.
+  const nubeY = (c) => groundY - groundRef * c.fy;
 
   function actualizarClima(dt) {
     const obj = edif.fabrica && nObreros > 0 ? clamp(Math.round(1 + Math.log2(nObreros) * 0.9), 1, 10) : 0;
     while (nubes.length < obj) {
       const r = rng(nubes.length * 977 + 13);
-      nubes.push({ x: LIM0() + r() * 2 * extent, vx: (r() < 0.5 ? -1 : 1) * (2 + r() * 4), y: groundY * (0.28 + r() * 0.24), w: 26 + Math.round(r() * 14), ph: r() * TAU, p: 0, llueve: false });
+      nubes.push({ x: LIM0() + r() * 2 * extent, vx: (r() < 0.5 ? -1 : 1) * (2 + r() * 4), fy: 0.48 + r() * 0.24, w: 26 + Math.round(r() * 14), ph: r() * TAU, p: 0, llueve: false });
     }
     while (nubes.length > obj) nubes.pop();
     for (const c of nubes) {
@@ -840,7 +844,7 @@ export function crearEscena(canvas) {
       for (const c of lluvia.zonas) {
         const n = dt * 40 * (c.w / 30), cnt = Math.floor(n) + (Math.random() < n % 1 ? 1 : 0);
         for (let i = 0; i < cnt; i++) {
-          const x = c.x + (Math.random() - 0.5) * c.w, y0 = c.y + 7, vy = 75 + Math.random() * 30;
+          const x = c.x + (Math.random() - 0.5) * c.w, y0 = nubeY(c) + 7, vy = 75 + Math.random() * 30;
           part(x, y0, 0, vy, { tipo: "lluvia", dur: Math.max(0.1, (groundY - y0) / vy) });
         }
         // todo honguito que toque la lluvia queda mojado (improductivo) y se le reinicia el tiempo
@@ -1577,7 +1581,7 @@ export function crearEscena(canvas) {
   // nubes verdes de contaminación sobre la fábrica
   function dibujarNubes() {
     for (const c of nubes) {
-      const x = Math.round(nubeX(c)), y = Math.round(c.y + Math.sin(t * 0.4 + c.ph) * 1.5), w = c.w;
+      const x = Math.round(nubeX(c)), y = Math.round(nubeY(c) + Math.sin(t * 0.4 + c.ph) * 1.5), w = c.w;
       const col = c.llueve ? "#3f8f1f" : "#5fbf2f";
       g.globalAlpha = 0.55 * c.p;
       disco(x - w * 0.27, y + 2, 5, col); disco(x, y, 7, col); disco(x + w * 0.27, y + 2, 5, col);

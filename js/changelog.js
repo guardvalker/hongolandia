@@ -1,5 +1,12 @@
 export const CHANGELOG = [
   {
+    v: "0.19.2",
+    fecha: "2026-10-04",
+    cambios: [
+      "Las nubes tienen una altura fija sobre el piso (mínimo y máximo) que no cambia al hacer zoom: al acercar quedan más arriba, fuera de pantalla, y al alejar se ven a la misma altura de siempre. La luna también.",
+    ],
+  },
+  {
     v: "0.19.1",
     fecha: "2026-10-04",
     cambios: [
