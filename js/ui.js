@@ -34,6 +34,7 @@ export function crearUI(api) {
   // hacia la derecha de la pantalla y pasa a layout angosto. Sin edificio: tarjeta abajo.
   function colocar() {
     hoja.style.cssText = "";
+    hoja.style.setProperty("--ac", acentoActual);
     hoja.classList.remove("anclada");
     if (!anclaFn) return;
     const r = anclaFn();
@@ -59,10 +60,11 @@ export function crearUI(api) {
     }
   }
 
-  let entrar = false, flashIdx = -1;
+  let entrar = false, flashIdx = -1, acentoActual = "#b5e61d";
   function abrir(cual, titulo, render, ancla = null, acento = "#b5e61d") {
     // los elementos de la lista aparecen con una animación, salvo al rearmarla tras una compra
     entrar = !(hoja.classList.contains("abierta") && hojaTitulo.textContent === titulo);
+    acentoActual = acento;
     hoja.style.setProperty("--ac", acento);
     abierta = cual;
     anclaFn = ancla;
@@ -355,6 +357,27 @@ export function crearUI(api) {
     }, ancla);
   }
 
+  // ---- Dungeon: aviso al encontrarla (primera vez) o al tocar su puerta en la mina ----
+  function mostrarDungeon(primera) {
+    abrir("dungeon", primera ? "¡Dungeon encontrada!" : "La puerta de la dungeon", () => {
+      if (primera) {
+        nota("Los mineros terminaron de cavar toda la mina... y al fondo encontraron una puerta antigua que late con una luz violeta.").classList.add("hecha");
+        nota("Detrás hay una dungeon para explorar.").classList.add("hecha");
+      } else {
+        nota("Al fondo de la mina, una puerta antigua late con una luz violeta.").classList.add("hecha");
+      }
+      nota("Todavía no se puede entrar: la exploración llega en una próxima versión.");
+      const b = document.createElement("button");
+      b.className = "btn";
+      b.textContent = "Entendido";
+      b.addEventListener("click", cerrar);
+      const caja = document.createElement("div");
+      caja.className = "botones";
+      caja.append(b);
+      hojaCuerpo.append(caja);
+    }, null, "#b06bff");
+  }
+
   // ---- Ajustes ----
   function abrirAjustes() {
     abrir("ajustes", "Ajustes", () => {
@@ -610,6 +633,7 @@ export function crearUI(api) {
 
   return {
     toast,
+    mostrarDungeon,
     actualizar,
     abrirMadre,
     abrirCasa,

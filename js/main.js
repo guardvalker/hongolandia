@@ -17,7 +17,17 @@ function aplicarEvento(tipo) {
   ui.toast(r.texto + (r.ganancia ? " +" + fmt(r.ganancia) + " esporas" : ""));
   guardar(state);
 }
-const escena = crearEscena(canvas, { onEvento: aplicarEvento });
+const escena = crearEscena(canvas, {
+  onEvento: aplicarEvento,
+  // los mineros terminaron de cavar toda la mina: aparece la puerta de la dungeon (una sola vez por partida)
+  onDungeon() {
+    if (state.flags.dungeon) return;
+    state.flags.dungeon = true;
+    guardar(state);
+    escena.mostrarPuerta();
+    setTimeout(() => ui.mostrarDungeon(true), 2600);
+  },
+});
 
 escena.setLimite(ajustes.visibles);
 
@@ -131,6 +141,7 @@ canvas.addEventListener("click", (e) => {
   const hit = escena.toque(e.clientX - r.left, e.clientY - r.top);
   if (hit && hit.quien === "evento") { escena.tomarEvento(hit.ev); aplicarEvento(hit.ev.tipo); return; }
   if (ui.hojaAbierta()) return;
+  if (hit && hit.quien === "puerta") { ui.mostrarDungeon(false); return; }
   if (hit && hit.quien === "madre") {
     escena.pulsoMadre();
     ui.abrirMadre(escena.rectMadre);

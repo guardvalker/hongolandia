@@ -96,6 +96,7 @@ export function crearEscena(canvas, opciones = {}) {
   let groundRef = 220, S0 = 1, Wc0 = 300, Hc0 = 300, niveles = [1], zoomIdx = null, camX = C0, camY = 0, extent = 150;
   // mina: túneles bajo el piso (coordenadas relativas a la entrada: x al costado, y hacia abajo)
   let mina = null, minaKey = "", minaP = null, nMineros = 0, lastMx = 0;
+  let dungeonFlag = false, puertaT = -1, puertaAvisada = false; // puerta de la dungeon: aparece al cavar el 100% de la mina
   const LIM0 = () => C0 - extent, LIM1 = () => C0 + extent; // hasta dónde llega lo que hay en el mundo
   const offX = () => Math.round(Wc / 2 - camX);
   // camY = cuánto se bajó el mundo para ver más cielo: hasta la altura que se ve con el zoom más alejado
@@ -123,7 +124,7 @@ export function crearEscena(canvas, opciones = {}) {
     const nivel = f >= 1.55 ? 3 : f >= 1.3 ? 2 : f >= 1.12 ? 1 : 0;
     return (cacheTam[clave] = { w: Math.round(b.w * f), ch: Math.round(b.ch * f), sw: Math.round(b.sw * f), sh: Math.round(b.sh * f), nivel, lado });
   }
-  let tNiveles = 0, tPrest = 0, pfMadre = 0;
+  let tNiveles = 0, tPrest = 0, pfMadre = 0, camObj = null;
   let tBolsa = 0, nBolsa = null, hayTraders = false; // reflejo de state.bolsa para dibujar el gráfico
   const cola = []; // acciones diferidas {t, fn}
   let contam = 0, nMagos = 0, evT = /evento/.test(location.search) ? 2 : 40 + Math.random() * 60;
@@ -1234,7 +1235,7 @@ export function crearEscena(canvas, opciones = {}) {
   const TR = 5.5; // radio de los túneles (entra un honguito)
   const minaProfMax = () => Math.round(0.26 * Hc0 * 2.6);
   // cuánto de la mina está cavada según los mineros (0..1): crece con el log de la cantidad
-  const minaObjetivo = (n) => (n <= 0 ? 0 : clamp(0.1 + (Math.log10(n) / 2.3) * 0.9, 0.1, 1));
+  const minaObjetivo = (n) => (n <= 0 ? 0 : clamp(0.1 + (Math.log10(n) / 1.77) * 0.9, 0.1, 1)); // 100% con 60 mineros
   const empinado = (a, b) => Math.abs(b.y - a.y) > 1.3 * Math.abs(b.x - a.x);
   function generarMina() {
     const r = rng(7 + semilla * 31);
@@ -1282,6 +1283,12 @@ export function crearEscena(canvas, opciones = {}) {
     const hijos = new Array(nodos.length).fill(0);
     nodos.forEach((n) => { if (n.par >= 0) hijos[n.par]++; });
     nodos.forEach((n, i) => { if (!hijos[i] && !n.cam && n.d > 30) camara(i); });
+    // la puerta de la dungeon: al fondo del tramo más lejano, en una sala sin yacimientos
+    let fin = 0;
+    nodos.forEach((n, i) => { if (n.d > nodos[fin].d) fin = i; });
+    if (!nodos[fin].cam) camara(fin);
+    for (let q = yac.length - 1; q >= 0; q--) if (Math.hypot(nodos[yac[q].nodo].x - nodos[fin].x, nodos[yac[q].nodo].y - nodos[fin].y) < 34) yac.splice(q, 1); // nada de cristales cerca de la puerta
+    const puerta = { nodo: fin };
     // escaleras: solo en tramos empinados y largos, rectas y sin pisarse entre sí; el resto son rampas
     const empinada = (n) => n.par >= 0 && Math.abs(n.y - nodos[n.par].y) > 1.8 * Math.abs(n.x - nodos[n.par].x);
     const tramos = [];
@@ -1303,7 +1310,7 @@ export function crearEscena(canvas, opciones = {}) {
     const total = nodos.reduce((m, n) => Math.max(m, n.d), 1);
     const prof2 = nodos.reduce((m, n) => Math.max(m, n.y), 0) + 6;
     const mg = 30, cv = () => { const c = document.createElement("canvas"); c.width = 2 * medio + 2 * mg; c.height = prof + mg + 24; return c; };
-    mina = { nodos, yac, orden, total, depth: prof2, medio, mg, cvBorde: cv(), cvHueco: cv(), cvDet: cv(), nDib: 0 };
+    mina = { puerta, nodos, yac, orden, total, depth: prof2, medio, mg, cvBorde: cv(), cvHueco: cv(), cvDet: cv(), nDib: 0 };
   }
   // dibuja en los lienzos los nodos que el frente ya alcanzó (se cava de a poco, sin redibujar todo)
   function revelarMina(frente) {
@@ -1361,6 +1368,16 @@ export function crearEscena(canvas, opciones = {}) {
     const antes = minaP;
     minaP = minaP < obj ? Math.min(obj, minaP + (9 / mina.total) * dt) : obj;
     const frente = minaP * mina.total, nAntes = mina.nDib;
+    // la mina llegó al 100%: aparece la puerta de la dungeon y se avisa (una sola vez por partida)
+    if (dungeonFlag) { if (puertaT < 0) puertaT = 99; }
+    else if (!puertaAvisada && minaP >= 1 && obj >= 1) {
+      puertaAvisada = true; puertaT = 0;
+      const n = mina.nodos[mina.puerta.nodo];
+      motas(edif.mina.x + n.x, groundY + n.y - 8, 30, 1.6, "#c58aff");
+      aroPart(edif.mina.x + n.x, groundY + n.y - 8, 26, 0.9);
+      opciones.onDungeon?.();
+    }
+    if (puertaT >= 0 && puertaT < 99) puertaT += dt;
     revelarMina(frente);
     // polvo en las puntas que se están cavando
     if (minaP !== antes) {
@@ -1383,6 +1400,27 @@ export function crearEscena(canvas, opciones = {}) {
     g.drawImage(mina.cvBorde, ox, groundY + 1);
     g.drawImage(mina.cvHueco, ox, groundY + 1);
     g.drawImage(mina.cvDet, ox, groundY + 1);
+    // puerta de la dungeon (al fondo de la mina)
+    if (puertaT >= 0) {
+      const n = mina.nodos[mina.puerta.nodo], X = Math.round(x0 + n.x), Y = groundY + Math.round(n.y);
+      const a = Math.min(1, puertaT / 1.5), pulso = 0.5 + 0.5 * Math.sin(t * 2.2);
+      g.globalAlpha = a * (0.12 + 0.1 * pulso); disco(X, Y - 8, 17, "#b06bff");
+      g.globalAlpha = a;
+      g.fillStyle = "#5a5a78"; g.fillRect(X - 6, Y - 16, 12, 16); g.fillRect(X - 5, Y - 17, 10, 1); g.fillRect(X - 3, Y - 18, 6, 1);
+      g.fillStyle = "#14082a"; g.fillRect(X - 4, Y - 15, 8, 15); g.fillRect(X - 3, Y - 16, 6, 1);
+      g.fillStyle = "#8a8aa8"; g.fillRect(X - 6, Y - 16, 1, 2); g.fillRect(X + 5, Y - 16, 1, 2); g.fillRect(X - 1, Y - 18, 2, 1);
+      for (let k = 0; k < 4; k++) { // destellos que suben dentro del portal
+        const u = (t * 0.6 + k * 0.27) % 1;
+        g.fillStyle = k % 2 ? "#c58aff" : "#fff"; g.fillRect(X - 3 + ((k * 5) % 7), Y - 2 - Math.round(u * 12), 1, 1);
+      }
+      for (const lado of [-1, 1]) { // antorchas
+        const tx = X + lado * 10;
+        g.fillStyle = "#6a4a2a"; g.fillRect(tx, Y - 9, 1, 5);
+        g.fillStyle = Math.floor(t * 9 + lado) % 2 ? "#ffd23f" : "#ff8a1f"; g.fillRect(tx - 1, Y - 12, 3, 3);
+        g.globalAlpha = a * 0.1; disco(tx, Y - 11, 6, "#ffd23f"); g.globalAlpha = a;
+      }
+      g.globalAlpha = 1;
+    }
     // yacimientos: racimos grandes de cristales-hongo que se achican al picarlos y vuelven a crecer
     for (const y of mina.yac) {
       const n = mina.nodos[y.nodo];
@@ -1641,6 +1679,8 @@ export function crearEscena(canvas, opciones = {}) {
     for (const id in brillos) brillos[id] = Math.max(0, brillos[id] - dt * 2);
     // hasta dónde llega el mundo: el que haya en pantalla o lo que ocupan madre y edificios
     extent = Math.max(Wc0 / 2, (medidas().w + Object.keys(edif).reduce((a, id) => a + tam(id).w + 24, 0) + 120) / 2);
+    if (mina && edif.mina) extent = Math.max(extent, Math.abs(edif.mina.x - C0) + mina.medio + 40); // la cámara tiene que poder llegar al fondo de la mina
+    if (camObj) { const k = Math.min(1, dt * 2.5); camX += (camObj.x - camX) * k; camY += (camObj.y - camY) * k; if (Math.abs(camObj.x - camX) < 1 && Math.abs(camObj.y - camY) < 1) camObj = null; }
     limitarCam();
 
     sincronizarGigantes(state, inicial);
@@ -1655,6 +1695,7 @@ export function crearEscena(canvas, opciones = {}) {
     contam = state.contam || 0;
     nMagos = state.honguitos.mago || 0;
     nMineros = state.honguitos.minero || 0;
+    dungeonFlag = !!state.flags?.dungeon;
     sincronizarMina(dtG);
     for (const v of visuales) {
       const dt = (v.acidoT > 0 ? dtG * 0.6 : dtG) * (velTipo[v.tipo] || 1); // mojados: más lentos; mejoras de velocidad: más rápidos
@@ -2592,6 +2633,10 @@ export function crearEscena(canvas, opciones = {}) {
     const cx = (px * dpr) / S - offX();
     const cy = (py * dpr) / S - offY();
     for (const ev of cielo) if (Math.abs(cx - ev.x) < 9 && Math.abs(cy - evY(ev)) < 9) return { quien: "evento", ev };
+    if (puertaT >= 0 && mina && edif.mina) {
+      const n = mina.nodos[mina.puerta.nodo];
+      if (Math.abs(cx - (edif.mina.x + n.x)) < 9 && cy > groundY + n.y - 20 && cy < groundY + n.y + 2) return { quien: "puerta" };
+    }
     for (const id in edif) {
       if (colocando?.mover && colocando.id === id) continue;
       const m = tam(id);
@@ -2651,7 +2696,13 @@ export function crearEscena(canvas, opciones = {}) {
     zoomIdx = nuevo;
     resize();
   }
-  const pan = (px, py = 0) => { camX -= (px * dpr) / S; camY += (py * dpr) / S; limitarCam(); };
+  const pan = (px, py = 0) => { camObj = null; camX -= (px * dpr) / S; camY += (py * dpr) / S; limitarCam(); };
+  // lleva la cámara (con un deslizamiento suave) hasta la puerta de la dungeon
+  function mostrarPuerta() {
+    if (!mina || !edif.mina) return;
+    const n = mina.nodos[mina.puerta.nodo];
+    camObj = { x: edif.mina.x + n.x, y: Hc * 0.5 - groundY - n.y };
+  }
   const recentrar = () => { camX = C0; camY = 0; limitarCam(); };
 
   const tomar = (ev) => tomarEvento(ev);
@@ -2661,5 +2712,5 @@ export function crearEscena(canvas, opciones = {}) {
     while (brotes.length > maxBrotes()) brotes.shift();
   }
 
-  return { tomarEvento: tomar, zoom, pan, recentrar, setLimite, resize, update, draw, toque, pulsoMadre, rectMadre, rectEdificio, iniciarColocacion, moverColocacion, cancelarColocacion, confirmarColocacion };
+  return { tomarEvento: tomar, mostrarPuerta, zoom, pan, recentrar, setLimite, resize, update, draw, toque, pulsoMadre, rectMadre, rectEdificio, iniciarColocacion, moverColocacion, cancelarColocacion, confirmarColocacion };
 }

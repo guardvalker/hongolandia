@@ -1,5 +1,14 @@
 export const CHANGELOG = [
   {
+    v: "0.34.0",
+    fecha: "2026-10-04",
+    cambios: [
+      "Primer paso de la dungeon: cuando los mineros terminan de cavar el 100% de la mina, aparece una puerta antigua al fondo (en una sala propia con antorchas y una luz violeta que late), la cámara se desliza hasta ahí y sale una ventana avisando «¡Dungeon encontrada!». Pasa una sola vez por partida; la puerta queda y, al tocarla, se vuelve a abrir el aviso. Todavía no se puede entrar: la exploración (el sistema RPG) viene después.",
+      "La mina ahora llega al 100% con 60 mineros (antes habría hecho falta una cantidad inalcanzable con la economía nueva).",
+      "La cámara ahora puede llegar a toda la mina, incluso cuando se extiende más que el resto del mundo. Las ventanas de aviso y los títulos recuperaron su color de acento.",
+    ],
+  },
+  {
     v: "0.33.1",
     fecha: "2026-10-04",
     cambios: [
