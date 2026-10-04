@@ -91,7 +91,7 @@ export function crearEscena(canvas, opciones = {}) {
   const ctx = canvas.getContext("2d");
   const lo = document.createElement("canvas");
   const g = lo.getContext("2d");
-  let dpr = 1, S = 1, Wc = 0, Hc = 0, groundY = 0;
+  let dpr = 1, S = 1, K = 1, Wc = 0, Hc = 0, groundY = 0;
   // cámara: Wc/Hc = celdas visibles; S = px por celda (niveles enteros para que el pixel art quede nítido)
   let groundRef = 220, S0 = 1, Wc0 = 300, Hc0 = 300, niveles = [1], zoomIdx = null, camX = C0, camY = 0, extent = 150;
   // mina: túneles bajo el piso (coordenadas relativas a la entrada: x al costado, y hacia abajo)
@@ -123,6 +123,7 @@ export function crearEscena(canvas, opciones = {}) {
     const nivel = f >= 1.55 ? 3 : f >= 1.3 ? 2 : f >= 1.12 ? 1 : 0;
     return (cacheTam[clave] = { w: Math.round(b.w * f), ch: Math.round(b.ch * f), sw: Math.round(b.sw * f), sh: Math.round(b.sh * f), nivel, lado });
   }
+  let tNiveles = 0;
   let tBolsa = 0, nBolsa = null, hayTraders = false; // reflejo de state.bolsa para dibujar el gráfico
   const cola = []; // acciones diferidas {t, fn}
   let contam = 0, nMagos = 0, evT = /evento/.test(location.search) ? 2 : 40 + Math.random() * 60;
@@ -366,8 +367,9 @@ export function crearEscena(canvas, opciones = {}) {
     const r = rng(11);
     const H = Hc;
     fondo = document.createElement("canvas");
-    fondo.width = Wc; fondo.height = H;
+    fondo.width = Math.ceil(Wc * K); fondo.height = Math.ceil(H * K);
     const c = fondo.getContext("2d");
+    c.scale(K, K);
     c.fillStyle = BG;
     c.fillRect(0, 0, Wc, H);
     colinas(c, r, groundY, Hc * 0.2, COL_COLINA[0]);
@@ -375,12 +377,13 @@ export function crearEscena(canvas, opciones = {}) {
     c.fillStyle = BG_SUELO;
     c.fillRect(0, groundY + 1, Wc, H - groundY);
     c.fillStyle = BLANCO;
-    c.fillRect(0, groundY, Wc, 1);
+    c.fillRect(0, groundY, Wc, Math.max(1, Math.round(1 / K)));
 
     estrellas.length = 0;
-    for (let i = 0; i < 40; i++) estrellas.push({ x: Math.floor(r() * Wc), y: Math.floor(r() * groundY * 0.8), ph: r() * TAU });
+    const masc = Math.min(8, Math.max(1, (Wc * Hc) / (Wc0 * Hc0)));
+    for (let i = 0; i < Math.round(40 * masc); i++) estrellas.push({ x: Math.floor(r() * Wc), y: Math.floor(r() * groundY * 0.8), ph: r() * TAU });
     flotantes.length = 0;
-    for (let i = 0; i < 70; i++) {
+    for (let i = 0; i < Math.round(70 * masc); i++) {
       flotantes.push({
         x: r() * Wc, y: r() * groundY, vy: 1 + r() * 2.5, ax: 3 + r() * 8, sp: 0.3 + r() * 0.5, ph: r() * TAU,
         col: PALETA[Math.floor(r() * PALETA.length)], r: r() < 0.15 ? 2 : 1,
@@ -424,22 +427,36 @@ export function crearEscena(canvas, opciones = {}) {
     }
   }
 
+  // Niveles de zoom: enteros para acercar y, cuando el hongo madre ya no entra en pantalla, niveles
+  // fraccionarios para alejar (hasta verlo entero). Cuanto más crece el madre, más se puede alejar.
+  function calcNiveles() {
+    const base = [...new Set([1, 2, 3, 4, 5, 6, 8, 10, 12, S0].filter((k) => k <= Math.max(S0 * 3, 8)))].sort((a, b) => a - b);
+    const m = medM;
+    if (!m) return base;
+    const fit = Math.max(0.02, Math.min(canvas.width / (1.2 * m.w), (0.74 * canvas.height) / (1.2 * (m.ch + m.sh))));
+    if (fit >= 1) return base;
+    const alej = [];
+    for (let z = 0.7; z > fit * 1.05; z *= 0.7) alej.push(z);
+    alej.push(fit);
+    return [...alej.reverse(), ...base];
+  }
   function resize() {
     dpr = window.devicePixelRatio || 1;
     const cw = canvas.clientWidth, ch = canvas.clientHeight;
     S0 = Math.max(1, Math.round((dpr * Math.min(cw, ch)) / ANCHO_REF));
-    niveles = [...new Set([1, 2, 3, 4, 5, 6, 8, 10, 12, S0].filter((k) => k <= Math.max(S0 * 3, 8)))].sort((a, b) => a - b);
+    canvas.width = Math.round(cw * dpr);
+    canvas.height = Math.round(ch * dpr);
+    niveles = calcNiveles();
     if (zoomIdx === null) zoomIdx = niveles.indexOf(S0);
     zoomIdx = clamp(zoomIdx, 0, niveles.length - 1);
     S = niveles[zoomIdx];
-    canvas.width = Math.round(cw * dpr);
-    canvas.height = Math.round(ch * dpr);
     Wc0 = Math.ceil(canvas.width / S0);
     Hc0 = Math.ceil(canvas.height / S0);
     groundRef = Math.round(Hc0 * 0.74);
     Wc = Math.ceil(canvas.width / S);
     Hc = Math.ceil(canvas.height / S);
-    lo.width = Wc; lo.height = Hc;
+    K = Math.min(1, S); // píxeles por celda del buffer: con el zoom alejado de 1 el buffer sigue siendo del tamaño de la pantalla
+    lo.width = Math.ceil(Wc * K); lo.height = Math.ceil(Hc * K);
     const pisoAntes = groundY;
     groundY = Math.round(Hc * 0.74);
     if (pisoAntes > 0 && groundY !== pisoAntes) { // las partículas en el aire acompañan al piso, no a la pantalla
@@ -1597,6 +1614,16 @@ export function crearEscena(canvas, opciones = {}) {
     for (let i = cola.length - 1; i >= 0; i--) { cola[i].t -= dt; if (cola[i].t <= 0) { cola[i].fn(); cola.splice(i, 1); } }
     bonusMadre = Object.keys(state.edificios).some((id) => EDIFICIOS[id]?.crecimientoMadre);
     medM = medidasMadre(state.total.toNumber(), Object.keys(state.edificios).length, bonusMadre);
+    // al crecer el madre se agregan niveles para alejar más (sin tocar el zoom actual)
+    if ((tNiveles -= dt) <= 0) {
+      tNiveles = 1;
+      const nn = calcNiveles();
+      if (nn.length !== niveles.length || nn[0] !== niveles[0]) {
+        niveles = nn;
+        zoomIdx = nn.reduce((best, z, i) => (Math.abs(z - S) < Math.abs(nn[best] - S) ? i : best), 0);
+        if (nn[zoomIdx] !== S) resize();
+      }
+    }
     coloresMadre = ["#ff4d4d", ...Object.keys(state.edificios).filter((id) => EDIFICIOS[id]).map((id) => EDIFICIOS[id].color)];
     const otros = [];
     for (const id of Object.keys(EDIFICIOS)) {
@@ -2518,14 +2545,15 @@ export function crearEscena(canvas, opciones = {}) {
   }
 
   function draw() {
-    g.imageSmoothingEnabled = false;
+    g.setTransform(K, 0, 0, K, 0, 0);
+    g.imageSmoothingEnabled = K < 1;
     g.globalAlpha = 1;
     g.clearRect(0, 0, Wc, Hc);
     g.fillStyle = BG;
     g.fillRect(0, 0, Wc, Hc);
     const oy = offY();
     if (oy < 0) { g.fillStyle = BG_SUELO; g.fillRect(0, groundY + oy, Wc, Hc); }
-    g.drawImage(fondo, 0, oy);
+    g.drawImage(fondo, 0, oy, Wc, Hc);
     for (const gi of gigantes) {
       const hT = gi.cv.height, h = Math.max(1, Math.round(hT * suave(gi.p)));
       g.drawImage(gi.cv, 0, hT - h, gi.cv.width, h, Math.round(gi.x * Wc - gi.cv.width / 2), groundY - h + oy, gi.cv.width, h);

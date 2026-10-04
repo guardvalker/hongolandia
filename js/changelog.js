@@ -1,5 +1,13 @@
 export const CHANGELOG = [
   {
+    v: "0.29.0",
+    fecha: "2026-10-04",
+    cambios: [
+      "Zoom alejado dinámico: cuando el hongo madre crece tanto que ya no entra en pantalla, aparecen más niveles de zoom para alejar, hasta poder verlo entero. Cuanto más crece, más se puede alejar (se agregan niveles solos, sin mover el zoom en el que estás).",
+      "Con el zoom muy alejado los dibujos se ven más chicos y suaves, y el piso, las estrellas y las partículas se reparten por toda la pantalla.",
+    ],
+  },
+  {
     v: "0.28.1",
     fecha: "2026-10-04",
     cambios: [
