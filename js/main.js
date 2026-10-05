@@ -1,5 +1,5 @@
 import { cargar, guardar, nuevoEstado, etapaDe } from './state.js';
-import { tick, colocarEdificio, revisarHitos, cobrarEvento, maxAusencia } from './engine.js';
+import { tick, colocarEdificio, revisarHitos, cobrarEvento, maxAusencia, tocarMadre, autoToques } from './engine.js';
 import { fmt } from './format.js';
 import { crearEscena } from './scene.js';
 import { crearUI, ajustes } from './ui.js';
@@ -15,6 +15,17 @@ let colocando = null; // id del edificio que se está ubicando (comprado)
 let moviendo = null; // id del edificio que se está moviendo (ya construido)
 
 const canvas = document.getElementById("juego");
+// "+N" que sube y se desvanece donde se tocó el hongo madre
+function numeroFlotante(x, y, valor, auto = false) {
+  const el = document.createElement("div");
+  el.className = "num-flota" + (auto ? " auto" : "");
+  el.textContent = "+" + fmt(valor);
+  el.style.left = x + (Math.random() - 0.5) * 24 + "px";
+  el.style.top = y + "px";
+  document.body.append(el);
+  el.addEventListener("animationend", () => el.remove());
+}
+document.getElementById("btn-madre").addEventListener("click", () => ui.abrirMadre(escena.rectMadre));
 // Un evento del cielo (tocado o recogido solo): se aplica y se avisa con un cartelito.
 function aplicarEvento(tipo) {
   const r = cobrarEvento(state, tipo);
@@ -153,8 +164,8 @@ canvas.addEventListener("click", (e) => {
   if (hit && hit.quien === "mercader") { ui.mostrarMercader(); return; }
   if (hit && hit.quien === "puerta") { ui.mostrarDungeon(false); return; }
   if (hit && hit.quien === "madre") {
+    numeroFlotante(e.clientX, e.clientY, tocarMadre(state));
     escena.pulsoMadre();
-    ui.abrirMadre(escena.rectMadre);
   } else if (hit && EDIFICIOS[hit.quien]) {
     ui.abrirCasa(hit.quien, () => escena.rectEdificio(hit.quien));
   }
@@ -203,6 +214,12 @@ function frame(ahora) {
   escena.update(dt, state, etapaDe(state));
   escena.draw();
   resultadoDungeon();
+  if (autoToques.n > 0) { // el autoclick tocó el hongo madre: un pulso y un número por cuadro
+    autoToques.n = 0;
+    const r = escena.rectMadre();
+    escena.pulsoMadre();
+    if (r && !document.hidden) numeroFlotante(r.x0 + (r.x1 - r.x0) * (0.3 + Math.random() * 0.4), r.y0 + (r.y1 - r.y0) * 0.3, autoToques.valor, true);
+  }
   vista.actualizar(dt);
   if (ahora >= proximoHud) {
     revisarHitos(state);

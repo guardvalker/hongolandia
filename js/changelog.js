@@ -1,5 +1,14 @@
 export const CHANGELOG = [
   {
+    v: "0.42.0",
+    fecha: "2026-10-05",
+    cambios: [
+      "Tocar el hongo madre ahora junta esporas (1 por toque al principio), con un «+N» flotante. La ventana del hongo madre (honguitos, edificios y mejoras) se abre con el botón «Hongo madre» abajo a la izquierda.",
+      "Sección «Toques» en el hongo madre con mejoras por niveles: Toque firme (+1 espora por toque por nivel), Savia en la campana (+1% de tus esporas/s por toque por nivel) y Manos de micelio (toques ×2 por nivel). Van apareciendo a medida que juntás esporas.",
+      "Autoclick: se desbloquea en el hongo madre y toca solo 1 vez por segundo con la mitad del valor de un toque. «Autoclick veloz» suma 0,5 toques/s por nivel (hasta 7/s) y «Autoclick potente» sube el valor de cada toque automático hasta el 100%. La Fiebre del micelio también multiplica los toques.",
+    ],
+  },
+  {
     v: "0.41.1",
     fecha: "2026-10-04",
     cambios: [

@@ -1,7 +1,7 @@
 import { D } from './decimal.js';
 import { agregarHongoFondo } from './state.js';
 import { arteM, arteA } from './artefactos.js';
-import { HONGUITOS, MEJORAS, EDIFICIOS, PRESTIGIO, BOLSA, LUNA, ACIDO, TECNOLOGIAS, TEC_POR_ID, MEJ_EDIF, MEJ_EDIF_POR_ID, HITOS, MODO_PRUEBA, EVENTOS, EVENTO_CFG } from './data.js';
+import { HONGUITOS, MEJORAS, EDIFICIOS, PRESTIGIO, BOLSA, LUNA, ACIDO, TECNOLOGIAS, TEC_POR_ID, MEJ_EDIF, MEJ_EDIF_POR_ID, MEJ_CLICK, MEJ_CLICK_POR_ID, HITOS, MODO_PRUEBA, EVENTOS, EVENTO_CFG } from './data.js';
 
 // Lógica pura del juego: nada de DOM ni canvas acá.
 
@@ -132,6 +132,34 @@ export function invPorSeg(state) {
   return n > 0 ? n * HONGUITOS.cientifico.invProd.toNumber() * multiplicador(state, "cientifico").toNumber() * bonoSinergia(state, "investigacion") * arteM(state, "inv_vel") : 0;
 }
 
+// ---- Toques en el hongo madre y autoclick ----
+const nivelClick = (state, ef) => { const m = MEJ_CLICK.find((x) => x.ef === ef); return m ? nivelMej(state, m.id) : 0; };
+// toques automáticos pendientes de mostrar (los consume la escena; no se guarda)
+export const autoToques = { n: 0, valor: D(0) };
+export function valorToque(state, prod = produccionPorSeg(state)) {
+  const base = D(1 + nivelClick(state, "fuerza")).add(prod.mul(0.01 * nivelClick(state, "savia")));
+  return base.mul(2 ** nivelClick(state, "manos")).mul(eventoMult(state));
+}
+export const autoPorSeg = (state) => (nivelClick(state, "auto") ? 1 + 0.5 * nivelClick(state, "autoVel") : 0);
+export const autoFraccion = (state) => 0.5 + 0.1 * nivelClick(state, "autoFuerza");
+export function tocarMadre(state) {
+  const v = valorToque(state);
+  state.esporas = state.esporas.add(v);
+  state.total = state.total.add(v);
+  state.flags.toco = true;
+  return v;
+}
+export function comprarMejoraClick(state, id) {
+  const m = MEJ_CLICK_POR_ID[id];
+  const n = m ? nivelMej(state, id) : 0;
+  if (!m || n >= m.max || (m.requiere && !nivelMej(state, m.requiere))) return false;
+  const c = costoMej(state, m);
+  if (state.esporas.lt(c)) return false;
+  state.esporas = state.esporas.sub(c);
+  state.mejoras[id] = n + 1;
+  return true;
+}
+
 // Esporas/s que genera un tipo de honguito (con sus mejoras).
 export function produccionPorTipo(state, id) {
   const n = state.honguitos[id] || 0;
@@ -254,6 +282,19 @@ export function tick(state, dt) {
     else ganancia = ganancia.add(tasa.mul(e.seg * veces));
   }
   avanzarInvestigacion(state, puntosInv);
+  // autoclick: toques automáticos acumulados con el tiempo
+  const tasaAuto = autoPorSeg(state);
+  if (tasaAuto > 0) {
+    state.autoAcc = (state.autoAcc || 0) + dt * tasaAuto;
+    const n = Math.floor(state.autoAcc);
+    if (n > 0) {
+      state.autoAcc -= n;
+      const v = valorToque(state).mul(autoFraccion(state));
+      ganancia = ganancia.add(v.mul(n));
+      autoToques.n = Math.min(autoToques.n + n, 50);
+      autoToques.valor = v;
+    }
+  }
   state.esporas = state.esporas.add(ganancia);
   state.total = state.total.add(ganancia);
 }

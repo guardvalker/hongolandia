@@ -217,6 +217,19 @@ export const MEJORAS = [
   { id: "micelio_ancestral", nombre: "Micelio ancestral", desc: "Todos los honguitos producen ×10.", costo: C(4e19), aplica: "todos", mult: D(10), desde: C(4e18) },
 ];
 
+// Mejoras del hongo madre para los toques (y el autoclick). Por niveles: costo × esc por nivel.
+// ef: fuerza (+1 espora por toque), savia (+1% de las esporas/s por toque), manos (toque ×2),
+// auto (desbloquea el autoclick), autoVel (+0,5 toques/s), autoFuerza (+10% del valor de cada toque automático).
+export const MEJ_CLICK = [
+  { id: "click_fuerza", ef: "fuerza", nombre: "Toque firme", max: 20, costo: D(40), esc: 1.6, desde: D(10), desc: (n) => `Cada toque da +${n} ${n === 1 ? "espora" : "esporas"} más.` },
+  { id: "click_savia", ef: "savia", nombre: "Savia en la campana", max: 30, costo: D(2e4), esc: 2.2, desde: D(2e3), desc: (n) => `Cada toque da además el ${n}% de tus esporas/s.` },
+  { id: "click_manos", ef: "manos", nombre: "Manos de micelio", max: 5, costo: D(3000), esc: 40, desde: D(300), desc: (n) => `Los toques valen ×${2 ** n}.` },
+  { id: "auto_unlock", ef: "auto", nombre: "Autoclick: el hongo se palpa solo", max: 1, costo: D(800), esc: 1, desde: D(80), desc: () => "El hongo madre se toca solo, 1 vez por segundo, con la mitad del valor de un toque." },
+  { id: "auto_vel", ef: "autoVel", nombre: "Autoclick veloz", max: 12, costo: D(2000), esc: 1.7, requiere: "auto_unlock", desc: (n) => `El autoclick toca ${(1 + 0.5 * n).toLocaleString("es-AR")} veces por segundo.` },
+  { id: "auto_fuerza", ef: "autoFuerza", nombre: "Autoclick potente", max: 5, costo: D(5e4), esc: 6, requiere: "auto_unlock", desde: D(5e3), desc: (n) => `Cada toque automático vale el ${50 + 10 * n}% de uno manual.` },
+];
+export const MEJ_CLICK_POR_ID = Object.fromEntries(MEJ_CLICK.map((m) => [m.id, m]));
+
 // ---- Hitos de cantidad (como en Adventure Capitalist): al tener 25, 50, 100... honguitos de un
 // tipo, ese tipo produce ×2 más. Son automáticos.
 export const HITOS = [25, 50, 100, 200, 400, 800];

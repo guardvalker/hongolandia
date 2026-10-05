@@ -308,3 +308,9 @@ body.transp #hoja-cerrar { background: rgba(45, 45, 64, .6); }
 .obj.bloq small { color: #5a5a78; }
 .dps-fila.debuff, .dps-fila.debuff b { color: #ff4d4d; }
 .dps-fila.debuff span:not(.dps-tipo)::after { content: " ▼"; font-size: 9px; }
+
+/* botón para abrir la ventana del hongo madre (tocar el hongo ahora junta esporas) */
+#btn-madre { position: fixed; left: 12px; bottom: calc(env(safe-area-inset-bottom) + 28px); z-index: 5; font-size: 13px; }
+.num-flota { position: fixed; z-index: 7; pointer-events: none; transform: translate(-50%, 0); font-family: var(--num); font-size: 10px; color: #ffe14d; text-shadow: 0 2px 0 #000; animation: flota .9s steps(9) forwards; }
+.num-flota.auto { color: #bff7f0; font-size: 8px; }
+@keyframes flota { to { transform: translate(-50%, -48px); opacity: 0; } }

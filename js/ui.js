@@ -3,9 +3,9 @@ import { getEvento, DEF_MEJ, nivelDef, costoDef, comprarDef, ofertasMercader, pr
 import { TIPOS_TORRE, EVOLUCIONES, ENEMIGOS, TORRES_MAX, SOLD_MAX, costoTorre, costoEvolucion, evolucionarTorre, sumarSoldados, statsTorre, dpsTorre, infoDefensa, quedan } from './invasion.js';
 import { ARTEFACTOS, ARTE_POR_ID, iconoArtefacto, cantArte } from './artefactos.js';
 import { OBJETOS, escalaJefes, CLASES, TABERNA_MEJ, costoMerc, contratar, comprarTab, nivelTab, costoTab, sanos, iniciar as iniciarExploracion, getRun, PARTY_MAX, mercStats, CRISTAL_MULT } from './dungeon.js';
-import { EVENTOS, HONGUITOS, MEJORAS, EDIFICIOS, TECNOLOGIAS, MEJ_EDIF, TEC_POR_ID, HITOS, NIVELES_TEC } from './data.js';
+import { EVENTOS, HONGUITOS, MEJORAS, EDIFICIOS, TECNOLOGIAS, MEJ_EDIF, MEJ_CLICK, TEC_POR_ID, HITOS, NIVELES_TEC } from './data.js';
 import { fmt, fmtRate } from './format.js';
-import { factorAcido, factorMeteoro, produccionPorSeg, produccionPorTipo, prestigio, costoHonguito, costoHonguitos, maxHonguitos, comprarHonguitos, comprarMejora, tecDisponible, pctTec, invPorSeg, proximoHito, costoEdificio, elegirInvestigacion, comprarMejoraEdificio, activarHabilidad, buffActivo, nivelMej, costoMej, durBuff, cdHabilidad, alternarSobrecarga, trabajoEf } from './engine.js';
+import { factorAcido, factorMeteoro, produccionPorSeg, produccionPorTipo, prestigio, costoHonguito, costoHonguitos, maxHonguitos, comprarHonguitos, comprarMejora, tecDisponible, pctTec, invPorSeg, proximoHito, costoEdificio, elegirInvestigacion, comprarMejoraEdificio, activarHabilidad, buffActivo, nivelMej, costoMej, valorToque, autoPorSeg, autoFraccion, comprarMejoraClick, durBuff, cdHabilidad, alternarSobrecarga, trabajoEf } from './engine.js';
 import { exportar, importar, borrarGuardado } from './state.js';
 import { CHANGELOG } from './changelog.js';
 
@@ -407,11 +407,37 @@ export function crearUI(api) {
     }, ancla, ed.color);
   }
 
+  // ---- Toques del hongo madre y autoclick ----
+  function seccionToques(ancla) {
+    const s = api.estado();
+    seccion("Toques");
+    const info = nota("");
+    filas.push({ refresh: (st) => {
+      const a = autoPorSeg(st);
+      info.textContent = `Cada toque al hongo madre da ${fmt(valorToque(st))} ${valorToque(st).eq(1) ? "espora" : "esporas"}.` + (a ? ` Autoclick: ${a.toLocaleString("es-AR")}/s × ${fmt(valorToque(st).mul(autoFraccion(st)))}.` : "");
+    } });
+    const visibles = MEJ_CLICK.filter((m) => nivelMej(s, m.id) < m.max && (!m.requiere || nivelMej(s, m.requiere)) && (nivelMej(s, m.id) > 0 || !m.desde || s.total.gte(m.desde)));
+    for (const m of visibles) {
+      const n = nivelMej(s, m.id);
+      const f = fila(m.max > 1 ? `${m.nombre} · nivel ${n}/${m.max}` : m.nombre, m.desc(n + 1), () => { if (comprarMejoraClick(api.estado(), m.id)) { api.guardar(); abrirMadre(ancla); } });
+      if (m.max > 1) {
+        const pips = document.createElement("div");
+        pips.className = "pips";
+        for (let k = 0; k < Math.min(m.max, 12); k++) { const q = document.createElement("i"); if (k < n) q.className = k === n - 1 && f.el.classList.contains("flash") ? "on nuevo" : "on"; pips.append(q); }
+        f.el.querySelector(".fila-info").append(pips);
+      }
+      f.refresh = (st) => { const c = costoMej(st, m); f.btn.textContent = fmt(c); f.btn.disabled = st.esporas.lt(c); };
+      filas.push(f);
+    }
+    for (const m of MEJ_CLICK) if (nivelMej(s, m.id) >= m.max) nota("✓ " + m.nombre + (m.max > 1 ? ` (nivel ${m.max})` : "") + " — " + m.desc(m.max)).classList.add("hecha");
+  }
+
   // ---- Hongo madre: comprar honguitos, edificios y mejoras ----
   function abrirMadre(ancla) {
     api.estado().flags.abrioMadre = true;
     abrir("madre", "Hongo madre", () => {
       filasHonguitos(undefined);
+      seccionToques(ancla);
       const edificios = Object.values(EDIFICIOS).filter((e) => !api.estado().edificios[e.id] && api.estado().total.gte(e.desbloqueo) && (!e.requiereFlag || api.estado().flags[e.requiereFlag]) && !e.desdeCasa);
       if (edificios.length) {
         seccion("Edificios");
@@ -933,7 +959,7 @@ export function crearUI(api) {
     elDpsTotal.textContent = fmtRate(produccionPorSeg(s));
 
     const puedeComprar = s.esporas.gte(costoHonguito(s, "basico"));
-    elHint.classList.toggle("visible", puedeComprar && !s.flags.abrioMadre && abierta !== "madre");
+    elHint.classList.toggle("visible", !s.flags.toco && !abierta);
 
     if (abierta && anclaFn) colocar(); // sigue al edificio si cambia de tamaño
     if (abierta !== "madre" && abierta !== "casa" && abierta !== "dungeon" && !forzar) return;
