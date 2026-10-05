@@ -117,7 +117,7 @@ export function crearInvasion(state, alcance) {
     };
   });
   const finSpawn = Math.max(...criaturas.map((c) => c.ret));
-  return { tipo: "invasion", t: 0, dur: finSpawn + 45, H, criaturas, derribadas: 0, robadas: 0, esporas: D(0), perdido: D(0), techo: null, techoF: inv <= 1 ? 0.4 : 0.75, torres: [] };
+  return { tipo: "invasion", t: 0, dur: finSpawn + (alcance + 60) / 5 + 30, H, criaturas, derribadas: 0, robadas: 0, esporas: D(0), perdido: D(0), techo: null, techoF: inv <= 1 ? 0.4 : 0.75, torres: [] };
 }
 
 // ---- Daño / robo ----

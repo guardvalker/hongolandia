@@ -1,5 +1,12 @@
 export const CHANGELOG = [
   {
+    v: "0.41.1",
+    fecha: "2026-10-04",
+    cambios: [
+      "Los invasores ahora nacen siempre fuera de la pantalla, incluso con el zoom al máximo alejado: aparecen más allá del borde visible y caminan o vuelan hasta la base (tardan más en llegar).",
+    ],
+  },
+  {
     v: "0.41.0",
     fecha: "2026-10-04",
     cambios: [

@@ -1286,7 +1286,7 @@ export function crearEscena(canvas, opciones = {}) {
   let tormentaA = 0, defCupula = 0;
   const alturaTorre = (v) => 24 + Math.min(6, v.t.sold) + 7;
   function procesarArcano(dt) {
-    setAlcance(extent);
+    setAlcance(extent, canvas.width / Math.min(...niveles) / 2 + 4);
     for (const e of consumirFx()) {
       const x = madre.x + (e.dx || 0);
       if (e.tipo === "impacto") {

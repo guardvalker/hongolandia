@@ -37,7 +37,8 @@ let alcance = 300; // hasta dónde llega el mundo a cada lado del hongo madre (l
 const fx = []; // efectos para la escena
 let resultado = null;
 export const getEvento = () => ev;
-export const setAlcance = (a) => { alcance = Math.max(120, Math.min(a, 600)); };
+let alcanceVista = 300; // mitad del ancho visible con el zoom al máximo alejado (los invasores nacen más allá)
+export const setAlcance = (a, vista = 0) => { alcance = Math.max(120, Math.min(a, 600)); alcanceVista = Math.max(alcance, vista); };
 export const consumirFx = () => fx.splice(0);
 export const consumirResultadoEvento = () => { const r = resultado; resultado = null; return r; };
 const rnd = (a, b) => a + Math.random() * (b - a);
@@ -101,7 +102,7 @@ function iniciar(state, tipo) {
   } else if (tipo === "invasion") {
     A.invasiones++;
     state.flags.invasion = true; // desbloquea la Barraca hongil
-    ev = crearInvasion(state, alcance);
+    ev = crearInvasion(state, alcanceVista);
   }
   fxPush({ tipo: "inicio", evento: tipo });
 }
