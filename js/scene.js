@@ -72,7 +72,7 @@ const TAM_BASE = {
   mina: { w: 42, ch: 18, sw: 18, sh: 15 },
   taberna: { w: 46, ch: 20, sw: 20, sh: 16 },
   barraca: { w: 46, ch: 19, sw: 20, sh: 15 },
-  torre_defensa: { w: 30, ch: 12, sw: 13, sh: 40 },
+  torre_def: { w: 16, ch: 0, sw: 12, sh: 30, extra: 6 }, // torres de defensa (no son edificios: se dibujan aparte)
   torre: { w: 34, ch: 15, sw: 12, sh: 26, extra: 20 }, // extra: alto del sombrero de mago sobre el sombrero
 };
 const NOTA = ["..##.", "..#.#", "..#..", "..#..", "###..", "###.."];
@@ -89,6 +89,7 @@ import { EDIFICIOS, HONGUITOS, ACIDO, EVENTOS, EVENTO_CFG } from './data.js';
 import { meteoros as danoMeteoro, improd, velocidad, eventos, buffTipoActivo, efectos, prestigio } from './engine.js';
 import { getRun } from './dungeon.js';
 import { getEvento, consumirFx, setAlcance, nivelDef } from './eventos.js';
+import { TIPOS_TORRE, statsTorre } from './invasion.js';
 import { dibujarMerc } from './dungeonVista.js';
 
 const MADRE_GRANDE = MADRE.map((m) => ({ w: Math.round(m.w * BONUS_CONSERV), ch: Math.round(m.ch * BONUS_CONSERV), sw: Math.round(m.sw * BONUS_CONSERV), sh: Math.round(m.sh * BONUS_CONSERV) }));
@@ -121,6 +122,7 @@ export function crearEscena(canvas, opciones = {}) {
   let semilla = 0;
   const cacheTam = {};
   function tam(id) {
+    if (id === "torre_def") return { w: 16, ch: 0, sw: 12, sh: 30, nivel: 0, lado: 1 };
     const clave = id + ":" + semilla;
     if (cacheTam[clave]) return cacheTam[clave];
     const b = TAM_BASE[id];
@@ -149,6 +151,7 @@ export function crearEscena(canvas, opciones = {}) {
   const cohete = { fase: "espera", t: 0, x: 0, y: 0, ang: 0, sc: 1, trip: [], llama: 0 };
   const madre = { x: 0, pulso: 0, brillo: 0 };
   const edif = {}; // id -> { x } en celdas, para los edificios construidos
+  const torresV = []; // torres de defensa: { x, t (estado), i, ang, retro }
   const brillos = {}; // id -> destello del edificio (0..1)
   const brotes = []; // honguitos pasajeros regados por los jardineros
   const gigantes = []; // hongos gigantes oscuros del fondo: { x, s, v, p (0..1 crecimiento), cv (canvas) }
@@ -597,7 +600,7 @@ export function crearEscena(canvas, opciones = {}) {
   const obstaculoMadre = (alto) => { const m = medidas(); return { x: madre.x, w: alto + 2 <= m.sh ? m.sw + 8 : m.w }; };
   const altoEdif = (id) => tam(id).ch + tam(id).sh + (TAM_BASE[id].extra ?? 8);
   // `conMadre` = false al ubicar edificios: se pueden construir directamente sobre el hongo madre (delante de su tronco)
-  const obstaculos = (alto = 99, conMadre = true) => [...(conMadre ? [obstaculoMadre(alto)] : []), ...Object.entries(edif).filter(([id]) => !(colocando?.mover && colocando.id === id)).map(([id, e]) => ({ x: e.x, w: tam(id).w }))];
+  const obstaculos = (alto = 99, conMadre = true) => [...(conMadre ? [obstaculoMadre(alto)] : []), ...Object.entries(edif).filter(([id]) => !(colocando?.mover && colocando.id === id)).map(([id, e]) => ({ x: e.x, w: tam(id).w })), ...torresV.map((v) => ({ x: v.x, w: 16 }))];
 
   // Jardinero: camina a un punto libre del piso, lo riega y ahí brota un honguito pasajero.
   function actualizarJardinero(v, dt) {
@@ -1256,7 +1259,7 @@ export function crearEscena(canvas, opciones = {}) {
     let blanco = null;
     if (e && e.tipo === "invasion") {
       let dmin = 1e9;
-      for (const c of e.criaturas) { if (!c.vivo || c.ret > 0) continue; const d = Math.abs(madre.x + c.dx - v.x); if (d < dmin) { dmin = d; blanco = c; } }
+      for (const c of e.criaturas) { if (!c.vivo || c.ret > 0 || c.tipo === "murcielago" || Math.abs(c.dx) > 250) continue; const d = Math.abs(madre.x + c.dx - v.x); if (d < dmin) { dmin = d; blanco = c; } }
     }
     if (blanco) {
       const tx = madre.x + blanco.dx, d = tx - v.x;
@@ -1278,10 +1281,10 @@ export function crearEscena(canvas, opciones = {}) {
   }
 
   // ---- Eventos arcanos (tormenta de esporas, meteoritos, mercader, invasión) ----
-  const crateres = [], disparos = [];
+  const crateres = [], tiros = [];
   let humoT = 0;
-  let tormentaA = 0, cañonAng = -0.6, cañonRetro = 0, defCupula = 0, defCanon = 0;
-  const alturaTorreDef = () => { const m = tam("torre_defensa"); return m.sh + m.ch; };
+  let tormentaA = 0, defCupula = 0;
+  const alturaTorre = (v) => 24 + Math.min(6, v.t.sold) + 7;
   function procesarArcano(dt) {
     setAlcance(extent);
     for (const e of consumirFx()) {
@@ -1293,11 +1296,21 @@ export function crearEscena(canvas, opciones = {}) {
       } else if (e.tipo === "inter") {
         const y = groundY - Hc * 0.4;
         motas(x, y, 14, 1.3, "#7fe9ff"); aroPart(x, y, 16, 0.5);
-        if (e.torre && edif.torre_defensa) { disparos.push({ x0: edif.torre_defensa.x, y0: groundY - alturaTorreDef(), x1: x, y1: y, t: 0 }); cañonAng = Math.atan2(y - (groundY - alturaTorreDef()), x - edif.torre_defensa.x); cañonRetro = 0.2; }
+        const tv = torresV[0];
+        if (e.torre && tv) { tiros.push({ kind: "basica", x0: tv.x, y0: groundY - alturaTorre(tv), x1: x, y1: y, t: 0 }); tv.ang = Math.atan2(y - (groundY - alturaTorre(tv)), x - tv.x); tv.retro = 0.2; }
       } else if (e.tipo === "kill") {
-        motas(x, groundY - 5, 9, 1, "#c58aff"); aroPart(x, groundY - 5, 10, 0.4);
-        if (e.por === "torre" && edif.torre_defensa) { disparos.push({ x0: edif.torre_defensa.x, y0: groundY - alturaTorreDef(), x1: x, y1: groundY - 5, t: 0 }); cañonAng = Math.atan2(groundY - 5 - (groundY - alturaTorreDef()), x - edif.torre_defensa.x); cañonRetro = 0.2; }
-      } else if (e.tipo === "robo") { motas(x, groundY - 6, 14, 1.5, "#ffd23f"); aroPart(madre.x, groundY - 12, 34, 0.6); flash = Math.max(flash, 0.3); }
+        const yy = groundY - 5 - (e.y || 0);
+        motas(x, yy, e.grande ? 36 : 9, e.grande ? 1.8 : 1, "#c58aff"); aroPart(x, yy, e.grande ? 40 : 10, e.grande ? 0.7 : 0.4);
+      } else if (e.tipo === "disparo") {
+        const tv = torresV[e.torre];
+        if (tv) {
+          const y0 = groundY - alturaTorre(tv), y1 = groundY - 6 - (e.y1 || 0), x1 = madre.x + e.x1;
+          tv.ang = Math.atan2(y1 - y0, x1 - tv.x); tv.retro = 0.18;
+          tiros.push({ kind: e.kind, x0: tv.x, y0, x1, y1, t: 0, radio: e.radio, cadena: e.cadena && e.cadena.map((p) => ({ x: madre.x + p.x, y: groundY - 6 - (p.y || 0) })) });
+          if (e.kind === "aoe") { motas(x1, y1, 16, 1.5, "#ff8a1f"); motas(x1, y1, 8, 1, "#ffe14d"); aroPart(x1, y1, e.radio, 0.35); }
+          else if (e.kind === "hielo") { motas(x1, y1, 12, 1, "#9fd8ff"); aroPart(x1, y1, e.radio, 0.5); }
+        }
+      } else if (e.tipo === "robo") { motas(x, groundY - 6 - (e.y || 0), 14, 1.5, "#ffd23f"); aroPart(madre.x, groundY - 12, 34, 0.6); flash = Math.max(flash, 0.3); }
       else if (e.tipo === "golpe") motas(x, groundY - 6, 4, 0.7, "#fff");
     }
     const ev = getEvento();
@@ -1319,8 +1332,8 @@ export function crearEscena(canvas, opciones = {}) {
       if (danoMeteoro.basico && danoMeteoro.basico.hasta > ahora) part(madre.x + (Math.random() - 0.5) * 20, groundY - 4, (Math.random() - 0.5) * 6, -8 - Math.random() * 8, { tipo: "mota", dur: 1.4, col: "#55555f", r: 2 });
     }
     for (let i = crateres.length - 1; i >= 0; i--) { crateres[i].t -= dt; if (crateres[i].t <= 0) crateres.splice(i, 1); }
-    for (let i = disparos.length - 1; i >= 0; i--) { disparos[i].t += dt; if (disparos[i].t > 0.25) disparos.splice(i, 1); }
-    cañonRetro = Math.max(0, cañonRetro - dt);
+    for (let i = tiros.length - 1; i >= 0; i--) { tiros[i].t += dt; if (tiros[i].t > 0.3) tiros.splice(i, 1); }
+    for (const v of torresV) v.retro = Math.max(0, v.retro - dt);
   }
   function dibujarMercader(e) {
     const x = Math.round(madre.x + e.dx), dir = Math.sign(e.meta - e.dx) || (e.dx < 0 ? 1 : -1), camina = e.estado !== "espera";
@@ -1340,12 +1353,146 @@ export function crearEscena(canvas, opciones = {}) {
     }
   }
   function dibujarCriatura(c) {
-    const x = Math.round(madre.x + c.dx), dir = c.dx < 0 ? 1 : -1, bob = Math.round(Math.abs(Math.sin(t * 13 + c.dx)) * 2), y = groundY - bob;
-    g.fillStyle = "#3a1f55"; g.fillRect(x - 4, y - 7, 9, 6); g.fillRect(x - 3, y - 8, 7, 1); g.fillRect(x - 3, y - 2 + (Math.floor(t * 14 + c.dx) % 2), 2, 2); g.fillRect(x + 2, y - 2 + ((Math.floor(t * 14 + c.dx) + 1) % 2), 2, 2);
-    g.fillStyle = "#ff3b3b"; g.fillRect(x - 2 + (dir > 0 ? 1 : 0), y - 6, 2, 2); g.fillRect(x + 1 + (dir > 0 ? 1 : 0), y - 6, 2, 2);
-    g.fillStyle = "#8a5a2a"; g.fillRect(x - dir * 6, y - 9, 4, 5); g.fillStyle = "#ffd23f"; g.fillRect(x - dir * 5, y - 7, 2, 2); // saco de esporas robadas
-    g.fillStyle = "#14141d"; g.fillRect(x - 4, y - 12, 9, 2); g.fillStyle = "#ff5a5a"; g.fillRect(x - 3, y - 12, 7, 1);
-    if (c.hp > 1) { g.fillStyle = "#fff"; g.fillRect(x - 3, y - 12, Math.min(7, c.hp), 1); }
+    const x = Math.round(madre.x + c.dx), dir = c.dx < 0 ? 1 : -1, ph = Math.floor(t * 14 + c.fase) % 2;
+    const bob = Math.round(Math.abs(Math.sin(t * 13 + c.fase)) * 2);
+    let y = groundY - bob, alto = 12;
+    if (c.tipo === "saqueador") {
+      g.fillStyle = "#3a1f55"; g.fillRect(x - 4, y - 7, 9, 6); g.fillRect(x - 3, y - 8, 7, 1); g.fillRect(x - 3, y - 2 + ph, 2, 2); g.fillRect(x + 2, y - 2 + (1 - ph), 2, 2);
+      g.fillStyle = "#ff3b3b"; g.fillRect(x - 2 + (dir > 0 ? 1 : 0), y - 6, 2, 2); g.fillRect(x + 1 + (dir > 0 ? 1 : 0), y - 6, 2, 2);
+      g.fillStyle = "#8a5a2a"; g.fillRect(x - dir * 6, y - 9, 4, 5); g.fillStyle = "#ffd23f"; g.fillRect(x - dir * 5, y - 7, 2, 2); // saco de esporas
+    } else if (c.tipo === "arquero") {
+      g.fillStyle = "#2f6b3a"; g.fillRect(x - 3, y - 8, 7, 7); g.fillRect(x - 2, y - 10, 5, 2); g.fillRect(x - 3, y - 2 + ph, 2, 2); g.fillRect(x + 1, y - 2 + (1 - ph), 2, 2);
+      g.fillStyle = "#14141d"; g.fillRect(x - 1 + (dir > 0 ? 1 : 0), y - 8, 3, 2); g.fillStyle = "#ffd23f"; g.fillRect(x + (dir > 0 ? 1 : 0), y - 8, 1, 1);
+      const tense = c.carga > 0 ? 2 : 0; // el arco se tensa mientras apunta a la base
+      g.fillStyle = "#c28a4f"; g.fillRect(x + dir * 5, y - 10, 1, 8); g.fillRect(x + dir * 4, y - 11, 1, 1); g.fillRect(x + dir * 4, y - 2, 1, 1);
+      g.fillStyle = "#fff"; g.fillRect(x + dir * (3 - tense), y - 6, 1, 1);
+      if (c.carga > 0) { g.fillStyle = "#ffd23f"; g.fillRect(x + dir * (4 + tense), y - 6, 3, 1); }
+      alto = 14;
+    } else if (c.tipo === "hechicero") {
+      const fl = Math.round(Math.sin(t * 3 + c.fase) * 1.5);
+      y = groundY - 2 + fl;
+      g.fillStyle = "#2a3f8f"; g.fillRect(x - 4, y - 9, 9, 9); g.fillRect(x - 3, y - 11, 7, 2); g.fillRect(x - 2, y - 14, 5, 3); g.fillRect(x - 1, y - 17, 3, 3);
+      g.fillStyle = "#7fe9ff"; g.fillRect(x - 2 + (dir > 0 ? 1 : 0), y - 9, 2, 2); g.fillRect(x + 1 + (dir > 0 ? 1 : 0), y - 9, 2, 2);
+      const ox = x + dir * 7, oy = y - 12 + Math.round(Math.sin(t * 5 + c.fase) * 1.5);
+      g.fillStyle = "#6a4a2a"; g.fillRect(x + dir * 6, y - 11, 1, 11);
+      g.globalAlpha = 0.35 + 0.2 * Math.sin(t * 6); disco(ox, oy, 5, "#c58aff"); g.globalAlpha = 1;
+      g.fillStyle = "#e8c8ff"; g.fillRect(ox - 1, oy - 1, 3, 3);
+      g.globalAlpha = 0.06 + 0.03 * Math.sin(t * 2); disco(x, y - 6, 24, "#7fe9ff"); g.globalAlpha = 1; // aura de escudo para los que tiene cerca
+      alto = 20;
+    } else if (c.tipo === "murcielago") {
+      const ale = Math.floor(t * 16 + c.fase) % 2;
+      y = groundY - 14 - c.y + Math.round(Math.sin(t * 4 + c.fase) * 2);
+      g.fillStyle = "#2a1a3a"; g.fillRect(x - 2, y - 3, 5, 4);
+      g.fillRect(x - 6, y - 3 - (ale ? 3 : 0), 4, 2); g.fillRect(x - 5, y - 1 - (ale ? 2 : 0), 3, 2); g.fillRect(x + 3, y - 3 - (ale ? 3 : 0), 4, 2); g.fillRect(x + 3, y - 1 - (ale ? 2 : 0), 3, 2);
+      g.fillStyle = "#ff3b3b"; g.fillRect(x - 1, y - 2, 1, 1); g.fillRect(x + 1, y - 2, 1, 1);
+      g.fillStyle = "#14141d"; g.fillRect(x - 2, y - 5, 1, 2); g.fillRect(x + 2, y - 5, 1, 2);
+      alto = 8;
+    } else if (c.tipo === "jefe") {
+      y = groundY - Math.round(Math.abs(Math.sin(t * 6 + c.fase)) * 2);
+      g.fillStyle = "#5a1a2a"; g.fillRect(x - 9, y - 16, 19, 13); g.fillRect(x - 7, y - 19, 15, 3); g.fillRect(x - 8, y - 3, 6, 3 + ph); g.fillRect(x + 3, y - 3, 6, 3 + (1 - ph));
+      g.fillStyle = "#c8c8dc"; g.fillRect(x - 8, y - 23, 2, 5); g.fillRect(x + 7, y - 23, 2, 5); g.fillRect(x - 7, y - 21, 1, 2); g.fillRect(x + 7, y - 21, 1, 2);
+      g.fillStyle = "#ffd23f"; g.fillRect(x - 5 + (dir > 0 ? 1 : 0), y - 15, 3, 3); g.fillRect(x + 2 + (dir > 0 ? 1 : 0), y - 15, 3, 3);
+      g.fillStyle = "#8a5a2a"; g.fillRect(x - dir * 11, y - 18, 5, 7); g.fillStyle = "#ffd23f"; g.fillRect(x - dir * 10, y - 16, 3, 3);
+      alto = 27;
+    }
+    if (c.lento > 0) { g.globalAlpha = 0.4; g.fillStyle = "#9fd8ff"; g.fillRect(x - 5, y - alto + 2, 11, alto - 2); g.globalAlpha = 1; }
+    if (c.esc) { g.globalAlpha = 0.5; g.fillStyle = "#7fe9ff"; g.fillRect(x - 6, y - alto, 13, 1); g.globalAlpha = 1; }
+    if (c.hp < c.hpMax || c.tipo === "jefe") {
+      const w = c.tipo === "jefe" ? 19 : 9, by = y - alto - 3;
+      g.fillStyle = "#14141d"; g.fillRect(x - (w >> 1) - 1, by - 1, w + 2, 3); g.fillStyle = "#ff5a5a"; g.fillRect(x - (w >> 1), by, Math.max(1, Math.round(w * Math.max(0, c.hp) / c.hpMax)), 1);
+    }
+  }
+  // ---- Torres de defensa ----
+  function barril(cx, cy, ang, len, grosor, col, retro) {
+    g.fillStyle = col;
+    for (let k = 0; k < len; k++) { const r = k - retro; g.fillRect(Math.round(cx + Math.cos(ang) * r) - (grosor >> 1), Math.round(cy + Math.sin(ang) * r) - (grosor >> 1), grosor, grosor); }
+  }
+  function dibujarTorre(v, alfa = 1) {
+    const tt = v.t, x = Math.round(v.x), T = TIPOS_TORRE[tt.tipo], sd = tt.sold, hh = 24 + Math.min(6, sd), top = groundY - hh;
+    g.globalAlpha = alfa;
+    g.fillStyle = "#5a5a78"; g.fillRect(x - 6, top, 12, hh);
+    g.fillStyle = "#7a7a98"; for (let yy = top + 4; yy < groundY - 1; yy += 5) g.fillRect(x - 6, yy, 12, 1);
+    g.fillStyle = "#4a4a66"; g.fillRect(x - 6, top, 2, hh);
+    g.fillStyle = "#3a2410"; g.fillRect(x - 2, groundY - 5, 4, 5);
+    g.fillStyle = "#14141d"; g.fillRect(x - 1, top + 9, 2, 4);
+    g.fillStyle = "#6a6a88"; g.fillRect(x - 8, top - 3, 16, 3);
+    g.fillStyle = "#8a8aa8"; for (const dx of [-8, -4, 0, 4]) g.fillRect(x + dx, top - 6, 3, 3);
+    g.fillStyle = T.color; g.fillRect(x - 8, top - 3, 16, 1);
+    for (let k = 0; k < sd; k++) { // soldados adentro: cabecitas con casco en el parapeto
+      const px = x - 7 + (k % 5) * 3 + (((k / 5) | 0) ? 1 : 0), py = top - 4 - ((k / 5) | 0) * 3;
+      g.fillStyle = "#8f9a5a"; g.fillRect(px, py, 2, 2); g.fillStyle = "#c8c8dc"; g.fillRect(px, py - 1, 2, 1);
+    }
+    const cy = top - 7, rec = v.retro > 0 ? 2 : 0, n = Math.min(4, 1 + Math.floor(sd / 3));
+    if (tt.tipo === "basica" || tt.tipo === "rapida" || tt.tipo === "sniper") {
+      g.fillStyle = "#4a4a66"; g.fillRect(x - 4, cy - 1, 9, 3);
+      const len = tt.tipo === "sniper" ? 17 : tt.tipo === "rapida" ? 8 : 10, gr = tt.tipo === "sniper" ? 2 : tt.tipo === "rapida" ? 2 : 3;
+      for (let k = 0; k < n; k++) {
+        const a = v.ang + (k - (n - 1) / 2) * 0.28;
+        barril(x, cy - 1, a, len, gr, "#2a2a3c", rec);
+        if (tt.tipo === "rapida") barril(x, cy - 1, a, 2, gr, T.color, rec - len + 2);
+        if (v.retro > 0.1) { g.fillStyle = "#ffe14d"; g.fillRect(Math.round(x + Math.cos(a) * (len + 1)) - 1, Math.round(cy - 1 + Math.sin(a) * (len + 1)) - 1, 3, 3); }
+      }
+      if (tt.tipo === "sniper") { g.fillStyle = "#7fe9ff"; g.fillRect(x - 1, cy - 4, 3, 2); }
+    } else if (tt.tipo === "aoe") {
+      g.fillStyle = "#4a4a66"; g.fillRect(x - 5, cy - 1, 11, 3);
+      for (let k = 0; k < n; k++) barril(x + (k - (n - 1) / 2) * 3, cy - 1, -1.15 + (v.ang > -1.57 ? 0.15 : -0.15) , 7, 5, "#3a2a2a", rec);
+      g.fillStyle = "#ff8a1f"; g.fillRect(x - 5, cy + 1, 11, 1);
+    } else if (tt.tipo === "hielo") {
+      const p = 0.5 + 0.5 * Math.sin(t * 4);
+      g.fillStyle = "#4a4a66"; g.fillRect(x - 3, cy - 1, 7, 3);
+      g.fillStyle = "#9fd8ff"; g.fillRect(x - 1, cy - 9, 3, 8); g.fillRect(x - 2, cy - 7, 5, 4); g.fillRect(x, cy - 12, 1, 3);
+      g.fillStyle = "#fff"; g.fillRect(x, cy - 8, 1, 4);
+      g.globalAlpha = alfa * (0.15 + 0.15 * p); disco(x, cy - 6, 8, "#9fd8ff"); g.globalAlpha = alfa;
+    } else if (tt.tipo === "rayo") {
+      g.fillStyle = "#4a4a66"; g.fillRect(x - 3, cy - 1, 7, 3);
+      g.fillStyle = "#8a6a2a"; g.fillRect(x - 1, cy - 8, 3, 7);
+      g.fillStyle = "#c58aff"; for (const yy of [cy - 7, cy - 5, cy - 3]) g.fillRect(x - 3, yy, 7, 1);
+      const on = Math.random() < 0.5 || v.retro > 0;
+      g.fillStyle = on ? "#fff" : "#e8c8ff"; g.fillRect(x - 2, cy - 12, 5, 4);
+      g.globalAlpha = alfa * 0.3; disco(x, cy - 10, 7, "#c58aff"); g.globalAlpha = alfa;
+    }
+    if (defCupula > 0) { // cúpula protectora contra meteoritos
+      const rr = 14 + defCupula * 2, cy2 = groundY - 2;
+      g.globalAlpha = alfa * (0.10 + 0.06 * (0.5 + 0.5 * Math.sin(t * 2)));
+      g.fillStyle = "#7fe9ff";
+      for (let dy = 0; dy < rr; dy++) { const w = Math.floor(Math.sqrt(rr * rr - dy * dy)); g.fillRect(x - w, cy2 - dy, 2, 1); g.fillRect(x + w - 2, cy2 - dy, 2, 1); }
+    }
+    g.globalAlpha = 1;
+  }
+  function dibujarTiros() {
+    for (const d of tiros) {
+      const k = d.t;
+      if (d.kind === "rayo" && d.cadena) {
+        g.globalAlpha = Math.max(0, 1 - k / 0.22);
+        const pts = [{ x: d.x0, y: d.y0 }, ...d.cadena];
+        for (let i = 1; i < pts.length; i++) {
+          const a = pts[i - 1], b = pts[i], seg = 5;
+          for (let q = 0; q < seg; q++) {
+            const u = q / seg, jx = q ? (Math.random() - 0.5) * 6 : 0, jy = q ? (Math.random() - 0.5) * 6 : 0;
+            g.fillStyle = q % 2 ? "#fff" : "#c58aff";
+            g.fillRect(Math.round(a.x + (b.x - a.x) * u + jx), Math.round(a.y + (b.y - a.y) * u + jy), 2, 2);
+          }
+        }
+        g.globalAlpha = 1;
+      } else if (d.kind === "aoe") {
+        const p = clamp(k / 0.3, 0, 1), arco = 26;
+        const px = d.x0 + (d.x1 - d.x0) * p, py = d.y0 + (d.y1 - d.y0) * p - Math.sin(p * Math.PI) * arco;
+        if (p < 1) { g.fillStyle = "#ff8a1f"; g.fillRect(Math.round(px) - 2, Math.round(py) - 2, 5, 5); g.fillStyle = "#ffe14d"; g.fillRect(Math.round(px) - 1, Math.round(py) - 1, 3, 3); }
+      } else if (d.kind === "hielo") {
+        g.globalAlpha = Math.max(0, 1 - k / 0.25);
+        g.fillStyle = "#9fd8ff";
+        for (let i = 0; i < 7; i++) { const q = clamp(k * 5 - i * 0.12, 0, 1); g.fillRect(Math.round(d.x0 + (d.x1 - d.x0) * q), Math.round(d.y0 + (d.y1 - d.y0) * q), 3, 3); }
+        g.globalAlpha = 1;
+      } else {
+        const dur = d.kind === "sniper" ? 0.2 : 0.14;
+        if (k > dur) continue;
+        g.globalAlpha = 1 - k / dur;
+        g.fillStyle = d.kind === "sniper" ? "#fff" : d.kind === "rapida" ? "#ffd23f" : "#7fe9ff";
+        const pasos = d.kind === "sniper" ? 22 : 8;
+        for (let i = 0; i < pasos; i++) { const q = clamp(k / dur * 1.5 - i * (1 / pasos) * 0.5, 0, 1); g.fillRect(Math.round(d.x0 + (d.x1 - d.x0) * q), Math.round(d.y0 + (d.y1 - d.y0) * q), d.kind === "sniper" ? 1 : 2, d.kind === "sniper" ? 1 : 2); }
+        g.globalAlpha = 1;
+      }
+    }
   }
   function dibujarArcano() {
     for (const c of crateres) { g.globalAlpha = Math.min(1, c.t / 3); g.fillStyle = "#14141d"; g.fillRect(Math.round(c.x) - 11, groundY, 23, 4); g.fillRect(Math.round(c.x) - 8, groundY + 4, 17, 2); g.fillStyle = "#3a2a1a"; g.fillRect(Math.round(c.x) - 7, groundY - 1, 15, 2); g.globalAlpha = 1; }
@@ -1361,7 +1508,7 @@ export function crearEscena(canvas, opciones = {}) {
     }
     if (e && e.tipo === "mercader") dibujarMercader(e);
     if (e && e.tipo === "invasion") for (const c of e.criaturas) if (c.vivo && c.ret <= 0) dibujarCriatura(c);
-    for (const d of disparos) { const k = d.t / 0.25; g.fillStyle = "#7fe9ff"; for (let i = 0; i < 6; i++) { const q = clamp(k * 1.4 - i * 0.07, 0, 1); g.fillRect(Math.round(d.x0 + (d.x1 - d.x0) * q), Math.round(d.y0 + (d.y1 - d.y0) * q), 2, 2); } }
+    dibujarTiros();
   }
 
   // ---- Taberna: mercenarios ----
@@ -1878,6 +2025,15 @@ export function crearEscena(canvas, opciones = {}) {
         }
       }
     }
+    const otrosT = otros.slice();
+    state.torres.forEach((tt, i) => {
+      const x = xLibre(C0 + tt.dx, 16, otrosT);
+      otrosT.push({ x, w: 16 });
+      const prev = torresV[i];
+      if (!prev && !inicial) { motas(x, groundY - 14, 26, 1.2); aroPart(x, groundY - 14, 36, 0.6); }
+      torresV[i] = { x, t: tt, i, ang: prev ? prev.ang : -0.6, retro: prev ? prev.retro : 0 };
+    });
+    torresV.length = state.torres.length;
     for (const id in brillos) brillos[id] = Math.max(0, brillos[id] - dt * 2);
     // hasta dónde llega el mundo: el que haya en pantalla o lo que ocupan madre y edificios
     extent = Math.max(Wc0 / 2, (medidas().w + Object.keys(edif).reduce((a, id) => a + tam(id).w + 24, 0) + 120) / 2);
@@ -1903,7 +2059,7 @@ export function crearEscena(canvas, opciones = {}) {
     mercInfo = state.dungeon?.merc || {};
     sincronizarMercs(dtG);
     procesarArcano(dtG);
-    defCupula = nivelDef(state, "def_cupula"); defCanon = nivelDef(state, "def_canon");
+    defCupula = nivelDef(state, "def_cupula");
     sincronizarMina(dtG);
     for (const v of visuales) {
       const dt = (v.acidoT > 0 ? dtG * 0.6 : dtG) * (velTipo[v.tipo] || 1); // mojados: más lentos; mejoras de velocidad: más rápidos
@@ -2425,24 +2581,6 @@ export function crearEscena(canvas, opciones = {}) {
       g.fillStyle = "#3a2410"; g.fillRect(cx - 4, groundY - 10, 9, 10);
       g.fillStyle = "#8a8aa8"; for (let k = 0; k < 4; k++) g.fillRect(cx - 4 + k * 3, groundY - 10, 1, 8); for (const yy of [groundY - 8, groundY - 4]) g.fillRect(cx - 4, yy, 9, 1);
       for (const lado of [-1, 1]) for (let k = 0; k < 4; k++) { const sx = cx + lado * (mitad + 4 + k * 3); g.fillStyle = "#8a5a2a"; g.fillRect(sx, groundY - 8, 2, 8); g.fillStyle = "#c28a4f"; g.fillRect(sx, groundY - 9, 2, 1); }
-    } else if (id === "torre_defensa") {
-      // torre de piedra con troneras, cañón de esporas que apunta a su blanco y, con la mejora, una cúpula contra meteoritos
-      for (let yy = capBase + 3; yy < groundY - 2; yy += 6) { g.fillStyle = "#8a8aa8"; g.fillRect(cx - mitad + 1, yy, mitad * 2 - 2, 1); }
-      for (const yy of [capBase + 8, capBase + 20]) { g.fillStyle = "#14141d"; g.fillRect(cx - 1, yy, 2, 5); }
-      g.fillStyle = "#3a2410"; g.fillRect(cx - 2, groundY - 6, 5, 6);
-      const by = capBase - ch - 2, rec = cañonRetro > 0 ? -2 : 0;
-      g.fillStyle = "#6a6a88"; g.fillRect(cx - 4, by - 1, 9, 4); g.fillStyle = "#4a4a66"; g.fillRect(cx - 3, by - 3, 7, 2);
-      g.fillStyle = "#2a2a3c";
-      for (let k = 0; k < 10; k++) g.fillRect(Math.round(cx + Math.cos(cañonAng) * (k + rec)) - 1, Math.round(by - 2 + Math.sin(cañonAng) * (k + rec)) - 1, 3, 3);
-      if (cañonRetro > 0.12) { g.fillStyle = "#ffe14d"; g.fillRect(Math.round(cx + Math.cos(cañonAng) * 11) - 1, Math.round(by - 2 + Math.sin(cañonAng) * 11) - 1, 4, 4); }
-      if (defCupula > 0) { // cúpula protectora
-        const rr = Math.round(m.w * 0.8 + defCupula * 2), cy2 = capBase - 4;
-        g.globalAlpha = 0.12 + 0.08 * (0.5 + 0.5 * Math.sin(t * 2));
-        g.fillStyle = "#7fe9ff";
-        for (let dy = 0; dy < rr; dy++) { const w = Math.floor(Math.sqrt(rr * rr - dy * dy)); g.fillRect(cx - w, cy2 - dy, 2, 1); g.fillRect(cx + w - 2, cy2 - dy, 2, 1); }
-        g.fillRect(cx - rr, cy2, rr * 2, 1);
-        g.globalAlpha = 1;
-      }
     } else if (id === "taberna") {
       // pendón en lo alto, cartel colgante con una jarra, ventanas cálidas, puerta doble y barriles
       g.fillStyle = "#8a5a2a"; g.fillRect(cx, capBase - ch - 9, 1, 9);
@@ -2945,6 +3083,7 @@ export function crearEscena(canvas, opciones = {}) {
     dibujarMadre();
     dibujarCristalesMadre();
     for (const id in edif) if (!(colocando?.mover && colocando.id === id)) dibujarEdificio(id, edif[id].x);
+    for (const v of torresV) dibujarTorre(v);
     dibujarCoheteEnVuelo();
     for (const b of brotes) {
       const falta = b.vida - b.t;
@@ -2958,7 +3097,7 @@ export function crearEscena(canvas, opciones = {}) {
     dibujarArcano();
     dibujarParticulas();
     dibujarEventos();
-    if (colocando) dibujarEdificio(colocando.id, xLibre(colocando.x, tam(colocando.id).w, obstaculos(altoEdif(colocando.id), false)), 0.55);
+    if (colocando) { const px = xLibre(colocando.x, tam(colocando.id).w, obstaculos(altoEdif(colocando.id), false)); if (colocando.id === "torre_def") dibujarTorre({ x: px, t: { tipo: "basica", sold: 0 }, ang: -0.6, retro: 0 }, 0.55); else dibujarEdificio(colocando.id, px, 0.55); }
     g.restore();
 
     if (tormentaA > 0.005) { g.globalAlpha = tormentaA; g.fillStyle = "#7a3cc0"; g.fillRect(0, 0, Wc, Hc); g.globalAlpha = 1; }
@@ -2978,7 +3117,12 @@ export function crearEscena(canvas, opciones = {}) {
       if (Math.abs(cx - (edif.mina.x + n.x)) < 9 && cy > groundY + n.y - 20 && cy < groundY + n.y + 2) return { quien: "puerta" };
     }
     const eA = getEvento();
-    if (eA && eA.tipo === "invasion") for (const c of eA.criaturas) if (c.vivo && c.ret <= 0 && Math.abs(cx - (madre.x + c.dx)) < 10 && cy > groundY - 20 && cy < groundY + 4) return { quien: "criatura", c };
+    if (eA && eA.tipo === "invasion") for (const c of eA.criaturas) {
+      if (!c.vivo || c.ret > 0) continue;
+      const r = c.tipo === "jefe" ? 14 : 10, yc = c.tipo === "murcielago" ? groundY - 14 - c.y : groundY - (c.tipo === "jefe" ? 12 : 8);
+      if (Math.abs(cx - (madre.x + c.dx)) < r && Math.abs(cy - yc) < r + 6) return { quien: "criatura", c };
+    }
+    for (const v of torresV) if (Math.abs(cx - v.x) < 9 && cy > groundY - 36 && cy < groundY + 2) return { quien: "torre_def", i: v.i };
     if (eA && eA.tipo === "mercader" && eA.estado === "espera" && Math.abs(cx - (madre.x + eA.dx)) < 11 && cy > groundY - 28 && cy < groundY + 4) return { quien: "mercader" };
     for (const id in edif) {
       if (colocando?.mover && colocando.id === id) continue;

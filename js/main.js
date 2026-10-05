@@ -8,6 +8,7 @@ import { tick as tickEventos, consumirResultadoEvento, golpearCriatura, forzarEv
 import { crearVistaDungeon } from './dungeonVista.js';
 
 import { EDIFICIOS } from './data.js';
+import { construirTorre } from './invasion.js';
 
 let state = cargar();
 let colocando = null; // id del edificio que se está ubicando (comprado)
@@ -49,7 +50,7 @@ const ui = crearUI({
   colocar(id) {
     colocando = id;
     escena.iniciarColocacion(id);
-    ui.mostrarColocar(`Tocá el piso para ubicar el ${EDIFICIOS[id].nombre}`);
+    ui.mostrarColocar(`Tocá el piso para ubicar ${id === "torre_def" ? "la torre de defensa" : "el " + EDIFICIOS[id].nombre}`);
   },
   mover(id) {
     moviendo = id;
@@ -125,7 +126,7 @@ canvas.addEventListener("click", (e) => {
   const r = canvas.getBoundingClientRect();
   if (colocando) {
     const dx = escena.confirmarColocacion(e.clientX - r.left);
-    if (dx !== null && colocarEdificio(state, colocando, dx)) guardar(state);
+    if (dx !== null && (colocando === "torre_def" ? construirTorre(state, dx) : colocarEdificio(state, colocando, dx))) guardar(state);
     terminarColocacion();
     return;
   }
@@ -148,6 +149,7 @@ canvas.addEventListener("click", (e) => {
   if (hit && hit.quien === "evento") { escena.tomarEvento(hit.ev); aplicarEvento(hit.ev.tipo); return; }
   if (ui.hojaAbierta()) return;
   if (hit && hit.quien === "criatura") { golpearCriatura(state, hit.c); return; }
+  if (hit && hit.quien === "torre_def") { ui.abrirTorre(hit.i); return; }
   if (hit && hit.quien === "mercader") { ui.mostrarMercader(); return; }
   if (hit && hit.quien === "puerta") { ui.mostrarDungeon(false); return; }
   if (hit && hit.quien === "madre") {
@@ -172,7 +174,7 @@ function economia(ahora) {
 function resultadoEvento() {
   const r = consumirResultadoEvento();
   if (!r) return;
-  if (r.tipo === "invasion") ui.toast(r.robadas ? `Los ladrones robaron parte de tu barra de prestigio (${r.robadas} de ${r.total})` + (r.derribadas ? ` · derribadas ${r.derribadas}` : "") : `¡Invasión repelida! ${r.derribadas} criaturas derribadas +${fmt(r.esporas)} esporas`);
+  if (r.tipo === "invasion") ui.toast(r.robadas ? `Los invasores robaron ${r.perdidoPct}% de tu progreso de prestigio (${r.robadas} de ${r.total} llegaron a la base) · derribados ${r.derribadas} +${fmt(r.esporas)} esporas` : `¡Invasión repelida! ${r.derribadas} enemigos derribados +${fmt(r.esporas)} esporas`);
   else if (r.tipo === "meteoros") ui.toast(`Lluvia de meteoritos: ${r.interceptados} destruidos, ${r.impactos} impactos` + (r.dano.length ? ` · dañados: ${r.dano.map((id) => id === "basico" ? "los honguitos del hongo madre" : EDIFICIOS[id].nombre).join(", ")} (producción reducida un rato)` : ""));
   guardar(state);
 }

@@ -6,24 +6,24 @@ import { D } from './decimal.js';
 import { prestigio, meteoros, produccionPorSeg } from './engine.js';
 import { HONGUITOS } from './data.js';
 import { ARTEFACTOS, ARTE_POR_ID, arteA } from './artefactos.js';
+import { crearInvasion, pasoInvasion, terminada, cerrarInvasion, danar, danoClick } from './invasion.js';
 
 export const MAGOS_MIN = 10;
 
 // ---- Mejoras de la Barraca y de la Torre de defensa (niveles guardados en state.mejoras) ----
 export const DEF_MEJ = [
-  { id: "def_entrena", edificio: "barraca", nombre: "Entrenamiento", max: 10, costo: D(5e14), esc: 1.9, desc: (n) => `Los soldados defienden un 12% mejor por nivel (ahora +${12 * n}%).` },
-  { id: "def_alerta", edificio: "barraca", nombre: "Atalaya de alerta", max: 6, costo: D(2e15), esc: 2.2, desc: (n) => `Las invasiones tardan 3 s más en llegar al hongo madre por nivel (ahora +${3 * n} s).` },
-  { id: "def_botin", edificio: "barraca", nombre: "Botín de guerra", max: 6, costo: D(1e15), esc: 2.1, desc: (n) => `Cada criatura derrotada deja un 25% más de esporas por nivel (ahora +${25 * n}%).` },
-  { id: "def_canon", edificio: "torre_defensa", nombre: "Cañón de esporas", max: 10, costo: D(8e15), esc: 2.0, desc: (n) => `La torre derriba ${(0.4 + 0.3 * n).toFixed(1).replace(".", ",")} criaturas por segundo (+0,3 por nivel).` },
-  { id: "def_cupula", edificio: "torre_defensa", nombre: "Cúpula antimeteoritos", max: 8, costo: D(1.2e16), esc: 2.1, desc: (n) => `La torre intercepta un ${10 * n}% de los meteoritos (+10% por nivel); los interceptados dejan esporas.` },
-  { id: "def_refuerzo", edificio: "torre_defensa", nombre: "Refuerzo de edificios", max: 6, costo: D(1e16), esc: 2.2, desc: (n) => `Los meteoritos que igual caen dañan un ${12 * n}% menos a los edificios y honguitos (+12% por nivel).` },
+  { id: "def_entrena", edificio: "barraca", nombre: "Entrenamiento", max: 10, costo: D(5e14), esc: 1.9, desc: (n) => `Los soldados y todas las torres hacen un 15% más de daño por nivel (ahora +${15 * n}%).` },
+  { id: "def_alerta", edificio: "barraca", nombre: "Atalaya de alerta", max: 6, costo: D(2e15), esc: 2.2, desc: (n) => `Los invasores avanzan más lento (las invasiones tardan ~3 s más en llegar por nivel; ahora +${3 * n} s).` },
+  { id: "def_botin", edificio: "barraca", nombre: "Botín de guerra", max: 6, costo: D(1e15), esc: 2.1, desc: (n) => `Cada enemigo derrotado deja un 25% más de esporas por nivel (ahora +${25 * n}%).` },
+  { id: "def_cupula", edificio: "barraca", torres: true, nombre: "Cúpula antimeteoritos", max: 8, costo: D(1.2e16), esc: 2.1, desc: (n) => `Las torres interceptan un ${10 * n}% de los meteoritos (+10% por nivel); los interceptados dejan esporas.` },
+  { id: "def_refuerzo", edificio: "barraca", torres: true, nombre: "Refuerzo de edificios", max: 6, costo: D(1e16), esc: 2.2, desc: (n) => `Los meteoritos que igual caen dañan un ${12 * n}% menos a los edificios y honguitos (+12% por nivel).` },
 ];
 export const DEF_POR_ID = Object.fromEntries(DEF_MEJ.map((m) => [m.id, m]));
 export const nivelDef = (state, id) => { const v = state.mejoras[id]; return typeof v === "number" ? v : 0; };
 export const costoDef = (state, m) => m.costo.mul(D(m.esc).pow(nivelDef(state, m.id))).ceil();
 export function comprarDef(state, id) {
   const m = DEF_POR_ID[id];
-  if (!m || !state.edificios[m.edificio]) return false;
+  if (!m || !state.edificios[m.edificio] || (m.torres && !state.torres.length)) return false;
   const n = nivelDef(state, id), c = costoDef(state, m);
   if (n >= m.max || state.esporas.lt(c)) return false;
   state.esporas = state.esporas.sub(c);
@@ -43,7 +43,7 @@ export const consumirResultadoEvento = () => { const r = resultado; resultado = 
 const rnd = (a, b) => a + Math.random() * (b - a);
 const nMagos = (state) => state.honguitos.mago || 0;
 const nSold = (state) => state.honguitos.soldado || 0;
-const fxPush = (e) => { if (fx.length < 80) fx.push(e); };
+const fxPush = (e) => { if (fx.length < 160) fx.push(e); };
 
 export function intervalo(state) {
   const n = Math.max(MAGOS_MIN, nMagos(state));
@@ -51,10 +51,8 @@ export function intervalo(state) {
   return Math.max(45, Math.min(400, base));
 }
 
-// ---- Defensa: cuántas criaturas derriban por segundo los soldados y la torre ----
-export const fuerzaSoldados = (state) => 0.12 * Math.pow(nSold(state), 0.6) * (1 + 0.12 * nivelDef(state, "def_entrena"));
-export const fuerzaTorre = (state) => (state.edificios.torre_defensa ? 0.4 + 0.3 * nivelDef(state, "def_canon") : 0);
-export const probInterceptar = (state) => Math.min(0.95, arteA(state, "arc_meteoro") + (state.edificios.torre_defensa ? 0.1 * nivelDef(state, "def_cupula") : 0));
+// ---- Defensa: ver invasion.js ----
+export const probInterceptar = (state) => Math.min(0.95, arteA(state, "arc_meteoro") + (state.torres.length ? 0.1 * nivelDef(state, "def_cupula") : 0));
 
 // ---- Artefactos del mercader ----
 export function ofertasMercader(state) {
@@ -103,13 +101,7 @@ function iniciar(state, tipo) {
   } else if (tipo === "invasion") {
     A.invasiones++;
     state.flags.invasion = true; // desbloquea la Barraca hongil
-    const n = Math.min(16, 4 + Math.floor(A.invasiones * 0.7)), dur = 30 + arteA(state, "inv_tiempo") + 3 * nivelDef(state, "def_alerta");
-    const hp = 1 + Math.floor(A.invasiones / 6);
-    ev = { tipo, t: 0, dur, criaturas: [], derribadas: 0, robadas: 0, accSold: 0, accTorre: 0, esporas: D(0) };
-    for (let i = 0; i < n; i++) {
-      const lado = i % 2 ? 1 : -1, dist = alcance * rnd(0.85, 1.05);
-      ev.criaturas.push({ dx: lado * dist, vx: -lado * (dist - 12) / (dur * rnd(0.7, 0.9)), hp, vivo: true, ret: rnd(0, 3), robo: false });
-    }
+    ev = crearInvasion(state, alcance);
   }
   fxPush({ tipo: "inicio", evento: tipo });
 }
@@ -124,40 +116,11 @@ function elegir(state) {
   return "invasion";
 }
 
-// ---- Daño al derribar / robo ----
-function recompensaCriatura(state) {
-  const botin = 1 + arteA(state, "inv_botin") + 0.25 * nivelDef(state, "def_botin");
-  return produccionPorSeg(state).mul(20 * botin).ceil();
-}
-function matar(state, c, por) {
-  if (!c.vivo) return;
-  c.hp--;
-  fxPush({ tipo: "golpe", dx: c.dx, por });
-  if (c.hp > 0) return;
-  c.vivo = false;
-  ev.derribadas++;
-  const g = recompensaCriatura(state);
-  ev.esporas = ev.esporas.add(g);
-  state.esporas = state.esporas.add(g);
-  state.total = state.total.add(g);
-  fxPush({ tipo: "kill", dx: c.dx, por });
-}
-export function golpearCriatura(state, c) { if (ev && ev.tipo === "invasion") matar(state, c, "mano"); }
-function robar(state, c) {
-  c.vivo = false; c.robo = true;
-  ev.robadas++;
-  state.arcano.robadas++;
-  // roban un 12% del progreso del nivel actual de la barra de prestigio (nunca bajan de nivel)
-  const pr = prestigio(state.total);
-  if (pr.cur.gt(0)) state.total = state.total.sub(pr.cur.mul(0.12));
-  fxPush({ tipo: "robo", dx: c.dx });
-}
+export function golpearCriatura(state, c) { if (ev && ev.tipo === "invasion") danar(state, ev, c, danoClick(ev), "mano", fxPush); }
 
 function terminar(state) {
   if (ev.tipo === "invasion") {
-    for (const c of ev.criaturas) if (c.vivo) robar(state, c);
-    if (ev.robadas === 0) state.arcano.repelidas++;
-    resultado = { tipo: "invasion", derribadas: ev.derribadas, robadas: ev.robadas, esporas: ev.esporas, total: ev.criaturas.length };
+    resultado = cerrarInvasion(state, ev, fxPush);
   } else if (ev.tipo === "meteoros") {
     resultado = { tipo: "meteoros", interceptados: ev.interceptados, impactos: ev.impactos, total: ev.total, dano: ev.dano };
   } else if (ev.tipo === "tormenta") resultado = { tipo: "tormenta" };
@@ -205,7 +168,7 @@ function paso(state, dt) {
         m.estado = "hecho"; ev.interceptados++;
         const g = produccionPorSeg(state).mul(8).ceil();
         state.esporas = state.esporas.add(g); state.total = state.total.add(g);
-        fxPush({ tipo: "inter", dx: m.dx, torre: !!state.edificios.torre_defensa });
+        fxPush({ tipo: "inter", dx: m.dx, torre: state.torres.length > 0 });
       } else if (m.estado === "cae" && !m.inter && m.t >= m.caida) {
         m.estado = "hecho"; ev.impactos++;
         const edif = bloqueoEdificio(state, m.dx);
@@ -241,18 +204,8 @@ function paso(state, dt) {
     return;
   }
   if (ev.tipo === "invasion") {
-    const vivos = ev.criaturas.filter((c) => c.vivo);
-    for (const c of vivos) {
-      c.ret -= dt;
-      if (c.ret > 0) continue;
-      c.dx += c.vx * dt;
-      if (Math.abs(c.dx) < 14) robar(state, c);
-    }
-    ev.accSold += dt * fuerzaSoldados(state);
-    ev.accTorre += dt * fuerzaTorre(state);
-    while (ev.accSold >= 1 && ev.criaturas.some((c) => c.vivo)) { ev.accSold--; const v = ev.criaturas.filter((c) => c.vivo); matar(state, v[Math.floor(Math.random() * v.length)], "soldado"); }
-    while (ev.accTorre >= 1 && ev.criaturas.some((c) => c.vivo)) { ev.accTorre--; const v = ev.criaturas.filter((c) => c.vivo); matar(state, v[Math.floor(Math.random() * v.length)], "torre"); }
-    if (!ev.criaturas.some((c) => c.vivo) || ev.t > ev.dur + 4) terminar(state);
+    pasoInvasion(state, ev, dt, fxPush);
+    if (terminada(ev)) terminar(state);
   }
 }
 

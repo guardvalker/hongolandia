@@ -124,17 +124,9 @@ const EDIF_DEF = [
     id: "barraca",
     tier: 6.5,
     nombre: "Barraca hongil",
-    desc: "Un cuartel con empalizada y estandarte. Habilita a los soldados, que defienden solos las invasiones de criaturas. Desde acá se puede construir la Torre de defensa.",
+    desc: "Un cuartel con empalizada y estandarte. Habilita a los soldados, que defienden solos las invasiones de enemigos. Desde acá se construyen las torres de defensa.",
     color: "#8f9a5a",
     requiereFlag: "invasion", // se desbloquea con la primera invasión de criaturas
-  },
-  {
-    id: "torre_defensa",
-    tier: 9.5, // muy cara; se compra desde la ventana de la Barraca
-    nombre: "Torre de defensa hongil",
-    desc: "Una torre con cañón de esporas: frena las invasiones y, con sus mejoras, destruye meteoritos antes de que caigan.",
-    color: "#c8673a",
-    desdeCasa: "barraca",
   },
   {
     id: "taberna",
@@ -183,7 +175,7 @@ const HONG_DEF = [
   { id: "jardinero", tier: 3, nombre: "Jardinero", sprite: "jardinero", desc: "Riega el piso y brotan honguitos que se desvanecen y se vuelven esporas.", color: "#2fa84f", casa: "vivero" },
   { id: "obrero", tier: 4, nombre: "Obrero", sprite: "obrero", desc: "Trabaja en la fábrica: entra, arma hongos chiquitos y los deja en la cinta. Cuantos más hay, más humo y más lluvia ácida.", color: "#9db4c8", casa: "fabrica" },
   { id: "minero", tier: 5, nombre: "Minero", sprite: "minero", desc: "Baja por debajo del piso, cava túneles y sube cristales hongiles al edificio de la mina: ahí se procesan y se vuelven esporas. Cuantos más hay, más se expande la mina.", color: "#c47a45", casa: "mina" },
-  { id: "soldado", tier: 6.5, nombre: "Soldado", sprite: "soldado", desc: "Defiende solo las invasiones de criaturas: sale al encuentro de los ladrones de esporas. No produce esporas, pero cuantos más hay, mejor se defiende todo.", color: "#8f9a5a", casa: "barraca", defensa: true },
+  { id: "soldado", tier: 6.5, nombre: "Soldado", sprite: "soldado", desc: "Defiende solo las invasiones: sale a pelear con los enemigos en tierra y los traba. No produce esporas. Además se puede meter dentro de una torre (hasta 10 por torre) para mejorarla, pero ya no vuelve a caminar.", color: "#8f9a5a", casa: "barraca", defensa: true },
   { id: "mago", tier: 6, nombre: "Mago", sprite: "mago", desc: "Prepara pociones de hongos en su caldero (esporas) y purifica las nubes de contaminación: cada nube purificada se vuelve esporas.", color: "#d12bff", casa: "torre" },
   { id: "atleta", tier: 7, nombre: "Atleta", sprite: "atleta", desc: "Entrena con mancuernas al lado del gym y transpira esporas.", color: "#ff8a1f", casa: "gimnasio" },
   { id: "trader", tier: 8, nombre: "Trader", sprite: "trader", desc: "Hace llamados y mueve acciones en el trade center. Cada ciclo de bolsa cobra todo junto.", color: "#f5c518", casa: "trade" },

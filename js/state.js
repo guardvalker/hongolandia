@@ -43,6 +43,7 @@ export function nuevoEstado() {
     honguitos: { basico: 1 },
     mejoras: {},
     edificios: {}, // id -> { x } (fracción del ancho de pantalla)
+    torres: [], // torres de defensa: { dx (celdas desde el madre), tipo, sold (soldados dentro) }
     fondo: [], // hongos gigantes decorativos del fondo
     hitos: 0, // cuántos hitos de prestigio (cada 5 niveles) ya dieron su hongo
     flags: {},
@@ -74,6 +75,12 @@ function serializar(state) {
 // Migraciones del save: una por cada cambio de SAVE_VERSION.
 function migrar(raw) {
   // if (raw.v < 2) { ...; raw.v = 2; }
+  // la Torre de defensa única pasó a ser una torre básica del sistema de torres
+  if (raw.edificios?.torre_defensa) {
+    raw.torres = Array.isArray(raw.torres) ? raw.torres : [{ dx: raw.edificios.torre_defensa.dx ?? 40, tipo: "basica", sold: 0 }];
+    raw.edificios = { ...raw.edificios };
+    delete raw.edificios.torre_defensa;
+  }
   return raw;
 }
 
@@ -89,6 +96,7 @@ function deserializar(raw) {
     honguitos: { ...base.honguitos, ...raw.honguitos },
     mejoras: { ...raw.mejoras },
     edificios: { ...raw.edificios },
+    torres: Array.isArray(raw.torres) ? raw.torres.map((t) => ({ dx: t.dx ?? 40, tipo: t.tipo || "basica", sold: Math.min(10, t.sold || 0) })) : [],
     // partidas viejas: un hongo de fondo por cada edificio que ya tenían
     fondo: Array.isArray(raw.fondo) ? espaciarFondo(raw.fondo) : espaciarFondo(Object.keys(raw.edificios || {}).map(() => nuevoHongoFondo())),
     hitos: raw.hitos ?? 0,

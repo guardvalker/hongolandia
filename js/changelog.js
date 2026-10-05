@@ -1,5 +1,16 @@
 export const CHANGELOG = [
   {
+    v: "0.41.0",
+    fecha: "2026-10-04",
+    cambios: [
+      "Las invasiones ahora son hordas: decenas de enemigos (hasta ~130) que entran caminando y volando desde los costados, fuera de la pantalla, en varias oleadas. Hay 5 tipos: Saqueadores (cuerpo a cuerpo), Arqueros ladrones (frenan a distancia y apuntan a la base), Hechiceros (magia: frenan lejos, tardan en lanzar y protegen con un escudo a los que tienen cerca, un 30% menos de daño), Murciélagos (voladores rápidos que los soldados no alcanzan) y, cada 3 invasiones, un Behemoth gigante. Los tipos nuevos aparecen a medida que pasan las invasiones.",
+      "Escalan con el prestigio: la vida de los enemigos y su cantidad suben con tus niveles de prestigio (y un poco con cada invasión), más rápido de lo que sube el daño base de torres y soldados, así que hace falta ejército, torres y mejoras. Sin defensas es una masacre: los que llegan a la base roban un porcentaje de tu progreso del nivel de prestigio (hasta el 75% por invasión, 40% la primera vez; nunca te bajan de nivel). Tocarlos con el dedo les pega.",
+      "Los soldados ya no derriban enemigos en abstracto: reparten su daño entre los terrestres más cercanos y traban a los cuerpo a cuerpo. No alcanzan a los voladores.",
+      "Torres de defensa nuevas (desde la Barraca podés construir hasta 8, cada una cuesta más; las ubicás tocando el piso). Perdieron alcance: la básica llega mucho menos que antes. Cada torre básica evoluciona una sola vez a una especial: Ráfaga (disparo rapidísimo), Francotiradora (muchísimo alcance y daño, apunta al más duro), Mortero explosivo (daño en área, solo tierra), Criogénica (ralentiza a la mitad) o Tesla (rayo en cadena entre enemigos).",
+      "Cada torre puede consumir hasta 10 soldados de la Barraca: cada uno da +12% daño, +6% cadencia y +3,5% alcance, y cada 3 le suman un cañón extra. Los soldados que entran quedan para siempre en la torre (se ven en el parapeto) y no vuelven a caminar ni a defender solos. Tocá una torre para evolucionarla y sumarle soldados. Tu torre de defensa anterior pasó a ser una torre básica. El Entrenamiento ahora mejora a soldados y torres, y la Cúpula/Refuerzo se compran en la Barraca (necesitan al menos una torre).",
+    ],
+  },
+  {
     v: "0.40.0",
     fecha: "2026-10-04",
     cambios: [

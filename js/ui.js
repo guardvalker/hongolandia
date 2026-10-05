@@ -1,5 +1,6 @@
 import { iconoObjeto } from './dungeonVista.js';
-import { getEvento, DEF_MEJ, nivelDef, costoDef, comprarDef, ofertasMercader, precioArtefacto, comprarArtefacto, fuerzaSoldados, fuerzaTorre, probInterceptar, MAGOS_MIN } from './eventos.js';
+import { getEvento, DEF_MEJ, nivelDef, costoDef, comprarDef, ofertasMercader, precioArtefacto, comprarArtefacto, probInterceptar, MAGOS_MIN } from './eventos.js';
+import { TIPOS_TORRE, EVOLUCIONES, ENEMIGOS, TORRES_MAX, SOLD_MAX, costoTorre, costoEvolucion, evolucionarTorre, sumarSoldados, statsTorre, dpsTorre, infoDefensa, quedan } from './invasion.js';
 import { ARTEFACTOS, ARTE_POR_ID, iconoArtefacto, cantArte } from './artefactos.js';
 import { OBJETOS, escalaJefes, CLASES, TABERNA_MEJ, costoMerc, contratar, comprarTab, nivelTab, costoTab, sanos, iniciar as iniciarExploracion, getRun, PARTY_MAX, mercStats, CRISTAL_MULT } from './dungeon.js';
 import { EVENTOS, HONGUITOS, MEJORAS, EDIFICIOS, TECNOLOGIAS, MEJ_EDIF, TEC_POR_ID, HITOS, NIVELES_TEC } from './data.js';
@@ -308,7 +309,7 @@ export function crearUI(api) {
   // ---- Edificio: honguitos propios, mejoras, habilidades, investigación ----
   function abrirCasa(id, ancla) {
     if (id === "taberna") { abrirTaberna(ancla); return; }
-    if (id === "barraca" || id === "torre_defensa") { abrirDefensa(id, ancla); return; }
+    if (id === "barraca") { abrirDefensa(id, ancla); return; }
     const reabrir = () => abrirCasa(id, ancla);
     abrir("casa", EDIFICIOS[id].nombre, () => {
       const mv = $("hoja-mover");
@@ -440,7 +441,7 @@ export function crearUI(api) {
     }, ancla);
   }
 
-  // ---- Barraca y Torre de defensa: soldados, mejoras y construcción de la torre ----
+  // ---- Barraca: soldados, torres de defensa y mejoras ----
   function abrirDefensa(id, ancla) {
     const reabrir = () => abrirDefensa(id, ancla);
     const ed = EDIFICIOS[id];
@@ -451,32 +452,66 @@ export function crearUI(api) {
       const info = nota("");
       filas.push({ refresh: (st) => {
         const ev = getEvento();
-        info.textContent = `Defensa: los soldados derriban ${fuerzaSoldados(st).toFixed(2).replace(".", ",")} criaturas/s` + (st.edificios.torre_defensa ? ` y la torre ${fuerzaTorre(st).toFixed(1).replace(".", ",")}` : "") + `. Meteoritos interceptados: ${Math.round(probInterceptar(st) * 100)}%. Invasiones repelidas: ${st.arcano.repelidas}/${st.arcano.invasiones}.` + (ev && ev.tipo === "invasion" ? " ¡Invasión en curso!" : "");
+        info.textContent = infoDefensa(st) + ` Meteoritos interceptados: ${Math.round(probInterceptar(st) * 100)}%. Invasiones repelidas: ${st.arcano.repelidas}/${st.arcano.invasiones}.` + (ev && ev.tipo === "invasion" ? " ¡Invasión en curso!" : "");
       } });
-      if (id === "barraca") {
-        filasHonguitos("barraca");
-        seccion("Torre de defensa");
-        const t = EDIFICIOS.torre_defensa;
-        if (api.estado().edificios.torre_defensa) nota("✓ La torre de defensa ya está construida: tocala para ver sus mejoras.").classList.add("hecha");
-        else {
-          const f = fila(t.nombre, t.desc, () => { const st = api.estado(); if (st.esporas.lt(costoEdificio(st, t))) return; cerrar(); api.colocar("torre_defensa"); }, t.color);
-          f.refresh = (st) => { const c = costoEdificio(st, t); f.btn.textContent = fmt(c); f.btn.disabled = st.esporas.lt(c); };
-          filas.push(f);
-        }
+      filasHonguitos("barraca");
+      seccion(`Torres de defensa (${api.estado().torres.length}/${TORRES_MAX})`);
+      nota("Tocá una torre en el mapa para evolucionarla y meterle soldados.");
+      if (api.estado().torres.length < TORRES_MAX) {
+        const f = fila("Construir torre", "Una torre básica que ubicás tocando el piso. Cada una nueva cuesta más.", () => { const st = api.estado(); if (st.esporas.lt(costoTorre(st))) return; cerrar(); api.colocar("torre_def"); }, ed.color);
+        f.refresh = (st) => { const c = costoTorre(st); f.btn.textContent = fmt(c); f.btn.disabled = st.esporas.lt(c); };
+        filas.push(f);
       }
       seccion("Mejoras");
       for (const m of DEF_MEJ.filter((x) => x.edificio === id)) {
         const n = nivelDef(api.estado(), m.id);
         if (n >= m.max) { nota("✓ " + m.nombre + ` (nivel ${m.max}) — ` + m.desc(m.max)).classList.add("hecha"); continue; }
-        const f = fila(`${m.nombre} · nivel ${n}/${m.max}`, m.desc(n + 1), () => { if (comprarDef(api.estado(), m.id)) { api.guardar(); reabrir(); } }, ed.color);
+        const f = fila(`${m.nombre} · nivel ${n}/${m.max}`, m.desc(n + 1) + (m.torres && !api.estado().torres.length ? " (necesita al menos una torre)" : ""), () => { if (comprarDef(api.estado(), m.id)) { api.guardar(); reabrir(); } }, ed.color);
         const pips = document.createElement("div");
         pips.className = "pips";
         for (let k = 0; k < m.max; k++) { const q = document.createElement("i"); if (k < n) q.className = k === n - 1 && f.el.classList.contains("flash") ? "on nuevo" : "on"; pips.append(q); }
         f.el.querySelector(".fila-info").append(pips);
-        f.refresh = (st) => { const c = costoDef(st, m); f.btn.textContent = fmt(c); f.btn.disabled = st.esporas.lt(c); };
+        f.refresh = (st) => { const c = costoDef(st, m); f.btn.textContent = fmt(c); f.btn.disabled = st.esporas.lt(c) || (m.torres && !st.torres.length); };
         filas.push(f);
       }
     }, ancla, ed.color);
+  }
+
+  // ---- Torre de defensa: evolución a torre especial y soldados adentro ----
+  const dec1 = (x) => (Math.round(x * 10) / 10).toString().replace(".", ",");
+  function abrirTorre(i) {
+    const reabrir = () => abrirTorre(i);
+    const t0 = api.estado().torres[i];
+    if (!t0) return;
+    const T = TIPOS_TORRE[t0.tipo];
+    abrir("casa", `Torre ${i + 1}: ${T.nombre}`, () => {
+      const info = nota("");
+      filas.push({ refresh: (st) => {
+        const t = st.torres[i];
+        if (!t) return;
+        const S = statsTorre(st, t);
+        info.textContent = `Daño ${Math.round(S.dano)} × ${S.canones} ${S.canones === 1 ? "cañón" : "cañones"} · cada ${dec1(S.cd)} s · alcance ${Math.round(S.rango)} · ${Math.round(dpsTorre(st, t))} de daño/s` + (S.radio ? ` · explosión ${Math.round(S.radio)}` : "") + (S.cadena ? ` · salta a ${S.cadena} más` : "") + (S.aire ? "" : " · solo tierra");
+      } });
+      nota(T.desc);
+      seccion(`Soldados dentro (${t0.sold}/${SOLD_MAX})`);
+      nota("Cada soldado que entra mejora la torre (+12% daño, +6% cadencia, +3,5% alcance) y cada 3 le suman un cañón extra. Una vez adentro no vuelve a caminar ni a defender por su cuenta.");
+      for (const [n, txt] of [[1, "Sumar 1 soldado"], [10, "Sumar hasta 10"]]) {
+        if (t0.sold >= SOLD_MAX) break;
+        const f = fila(txt, n === 1 ? "Consume 1 soldado de la Barraca." : "Consume todos los soldados que haga falta hasta llenar la torre.", () => { if (sumarSoldados(api.estado(), i, n)) { api.guardar(); reabrir(); } }, "#8f9a5a");
+        f.refresh = (st) => { f.btn.textContent = `Hay ${Math.round(st.honguitos.soldado || 0)}`; f.btn.disabled = !(st.honguitos.soldado >= 1) || st.torres[i].sold >= SOLD_MAX; };
+        filas.push(f);
+      }
+      if (t0.tipo === "basica") {
+        seccion("Evolucionar");
+        nota("La torre básica puede convertirse en una torre especial (una sola vez, no se puede revertir).");
+        for (const k of EVOLUCIONES) {
+          const E = TIPOS_TORRE[k];
+          const f = fila(E.nombre, `${E.desc} Alcance ${E.rango}.`, () => { if (evolucionarTorre(api.estado(), i, k)) { api.guardar(); reabrir(); } }, E.color);
+          f.refresh = (st) => { const c = costoEvolucion(st); f.btn.textContent = fmt(c); f.btn.disabled = st.esporas.lt(c); };
+          filas.push(f);
+        }
+      }
+    }, () => true, T.color);
   }
 
   // ---- Cofre: colección de los 50 artefactos del Mercader (a oscuras hasta comprarlos) ----
@@ -558,9 +593,9 @@ export function crearUI(api) {
     if (!ev) { elEvento.hidden = true; return; }
     let txt = "";
     if (ev.tipo === "tormenta") txt = `Tormenta de esporas: producción ×${ev.mult.toFixed(1).replace(".", ",")} · ${Math.max(0, Math.ceil(ev.dur - ev.t))} s`;
-    else if (ev.tipo === "meteoros") txt = "¡Lluvia de meteoritos!" + (st.edificios.torre_defensa ? " La torre intenta derribarlos." : "");
+    else if (ev.tipo === "meteoros") txt = "¡Lluvia de meteoritos!" + (st.torres.length ? " Las torres intentan derribarlos." : "");
     else if (ev.tipo === "mercader") txt = ev.estado === "espera" ? "Llegó el Mercader hongil: ¡tocalo!" : ev.estado === "llega" ? "Se acerca un Mercader hongil…" : "El mercader se va…";
-    else if (ev.tipo === "invasion") txt = `¡Invasión de ladrones de esporas! Tocalos · ${ev.criaturas.filter((c) => c.vivo).length} restantes · ${Math.max(0, Math.ceil(ev.dur - ev.t))} s`;
+    else if (ev.tipo === "invasion") txt = `¡INVASIÓN! ${quedan(ev)} enemigos en el campo · derribados ${ev.derribadas}/${ev.criaturas.length} · tocalos para pegarles`;
     elEvento.textContent = txt;
     elEvento.className = "ev-" + ev.tipo;
     elEvento.hidden = false;
@@ -941,6 +976,7 @@ export function crearUI(api) {
     actualizar,
     abrirMadre,
     abrirCasa,
+    abrirTorre,
     mostrarColocar(texto) {
       const el = $("colocar");
       if (texto) $("colocar-texto").textContent = texto;
