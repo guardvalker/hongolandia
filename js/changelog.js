@@ -1,5 +1,12 @@
 export const CHANGELOG = [
   {
+    v: "0.43.0",
+    fecha: "2026-10-05",
+    cambios: [
+      "Los artefactos del Mercader ahora tienen tier y peso de aparición (idea tomada de la wiki de Dwarf Eats Mountain): Común (peso 80), Raro (50), Épico (25) y Legendario (8). Las 5 ofertas se sortean con ese peso, nunca repiten uno que ya tenés, y cuantos más niveles de prestigio tengas más seguido salen los tiers altos (hasta ×3 a nivel 100). Cuatro artefactos fuertes pasaron a Legendario (Pluma de fénix, Mapa de los edificios, Cristal de resonancia, Ábaco de espinas, que ahora cuestan más). El tier se ve en el nombre y en el color de cada oferta y en el Cofre.",
+    ],
+  },
+  {
     v: "0.42.0",
     fecha: "2026-10-05",
     cambios: [

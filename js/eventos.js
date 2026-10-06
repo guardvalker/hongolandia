@@ -5,7 +5,7 @@
 import { D } from './decimal.js';
 import { prestigio, meteoros, produccionPorSeg } from './engine.js';
 import { HONGUITOS } from './data.js';
-import { ARTEFACTOS, ARTE_POR_ID, arteA } from './artefactos.js';
+import { ARTEFACTOS, ARTE_POR_ID, arteA, sortearOfertas } from './artefactos.js';
 import { crearInvasion, pasoInvasion, terminada, cerrarInvasion, danar, danoClick } from './invasion.js';
 
 export const MAGOS_MIN = 10;
@@ -58,11 +58,7 @@ export const probInterceptar = (state) => Math.min(0.95, arteA(state, "arc_meteo
 // ---- Artefactos del mercader ----
 export function ofertasMercader(state) {
   if (!state.arte.ofertas) {
-    const libres = ARTEFACTOS.filter((a) => !state.arte.tienen[a.id]);
-    const pool = [...libres];
-    const sel = [];
-    while (sel.length < 5 && pool.length) sel.push(pool.splice(Math.floor(Math.random() * pool.length), 1)[0].id);
-    state.arte.ofertas = sel;
+    state.arte.ofertas = sortearOfertas(state, prestigio(state.total).puntos);
   }
   return state.arte.ofertas;
 }

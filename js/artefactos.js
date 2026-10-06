@@ -63,7 +63,31 @@ const T = [
   ["pluma", "Pluma de fénix", "Toda la producción ×1,3.", "prod_all", 1.3, 3],
 ];
 
-export const ARTEFACTOS = T.map(([id, nombre, desc, k, v, cat]) => ({ id, nombre, desc, k, v, cat }));
+// Tiers como en la wiki de Dwarf Eats Mountain: cada tier tiene un peso de aparición (más común = más peso).
+// Los de categoría 3 más fuertes pasan a tier 4 (legendarios); `cat` también es el factor de precio.
+export const TIERS = [
+  { n: 1, nombre: "Común", peso: 80, color: "#b8c0cc" },
+  { n: 2, nombre: "Raro", peso: 50, color: "#7fe9ff" },
+  { n: 3, nombre: "Épico", peso: 25, color: "#c58aff" },
+  { n: 4, nombre: "Legendario", peso: 8, color: "#ffd23f" },
+];
+const LEGENDARIOS = new Set(["pluma", "mapa_edif", "resonancia", "abaco"]);
+export const ARTEFACTOS = T.map(([id, nombre, desc, k, v, cat]) => {
+  const tier = LEGENDARIOS.has(id) ? 4 : cat;
+  return { id, nombre, desc, k, v, cat: tier, tier, peso: TIERS[tier - 1].peso };
+});
+// Peso real de una oferta: con más niveles de prestigio los tiers altos pesan más (hasta ×3 a nivel 100)
+export const pesoOferta = (a, nivelPrestigio) => a.peso * (1 + (a.tier - 1) * Math.min(2, nivelPrestigio / 50));
+export function sortearOfertas(state, nivelPrestigio, n = 5) {
+  const pool = ARTEFACTOS.filter((a) => !state.arte.tienen[a.id]);
+  const sel = [];
+  while (sel.length < n && pool.length) {
+    let r = Math.random() * pool.reduce((t, a) => t + pesoOferta(a, nivelPrestigio), 0), i = 0;
+    for (; i < pool.length - 1; i++) { r -= pesoOferta(pool[i], nivelPrestigio); if (r < 0) break; }
+    sel.push(pool.splice(i, 1)[0].id);
+  }
+  return sel;
+}
 export const ARTE_POR_ID = Object.fromEntries(ARTEFACTOS.map((a) => [a.id, a]));
 
 const tiene = (state) => (state.arte && state.arte.tienen) || {};

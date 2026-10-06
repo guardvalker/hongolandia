@@ -1,7 +1,7 @@
 import { iconoObjeto } from './dungeonVista.js';
 import { getEvento, DEF_MEJ, nivelDef, costoDef, comprarDef, ofertasMercader, precioArtefacto, comprarArtefacto, probInterceptar, MAGOS_MIN } from './eventos.js';
 import { TIPOS_TORRE, EVOLUCIONES, ENEMIGOS, TORRES_MAX, SOLD_MAX, costoTorre, costoEvolucion, evolucionarTorre, sumarSoldados, statsTorre, dpsTorre, infoDefensa, quedan } from './invasion.js';
-import { ARTEFACTOS, ARTE_POR_ID, iconoArtefacto, cantArte } from './artefactos.js';
+import { ARTEFACTOS, ARTE_POR_ID, TIERS, iconoArtefacto, cantArte } from './artefactos.js';
 import { OBJETOS, escalaJefes, CLASES, TABERNA_MEJ, costoMerc, contratar, comprarTab, nivelTab, costoTab, sanos, iniciar as iniciarExploracion, getRun, PARTY_MAX, mercStats, CRISTAL_MULT } from './dungeon.js';
 import { EVENTOS, HONGUITOS, MEJORAS, EDIFICIOS, TECNOLOGIAS, MEJ_EDIF, MEJ_CLICK, TEC_POR_ID, HITOS, NIVELES_TEC } from './data.js';
 import { fmt, fmtRate } from './format.js';
@@ -555,7 +555,8 @@ export function crearUI(api) {
         const c = document.createElement("div");
         c.className = "obj" + (tengo ? "" : " bloq");
         c.innerHTML = '<img src="' + iconoArtefacto(a.id, 3) + '" alt=""><small>' + (tengo ? a.nombre : "???") + "</small>";
-        c.addEventListener("click", () => { detalle.textContent = tengo ? a.nombre + ": " + a.desc : "Todavía no lo conseguiste en el Mercader."; });
+        if (tengo) c.style.boxShadow = "0 0 0 2px " + TIERS[a.tier - 1].color;
+        c.addEventListener("click", () => { detalle.textContent = tengo ? a.nombre + " (" + TIERS[a.tier - 1].nombre + "): " + a.desc : "Todavía no lo conseguiste en el Mercader."; });
         grid.append(c);
       }
       hojaCuerpo.append(grid, detalle);
@@ -566,15 +567,16 @@ export function crearUI(api) {
   function mostrarMercader() {
     abrir("mercader", "Mercader hongil", () => {
       const st0 = api.estado();
-      nota("«Artefactos únicos, directos del fondo de la mina de los sueños.» Podés quedarte con uno solo de los cinco; los efectos duran hasta el próximo prestigio.").classList.add("hecha");
+      nota("«Artefactos únicos, directos del fondo de la mina de los sueños.» Podés quedarte con uno solo de los cinco; los efectos duran hasta el próximo prestigio. Los legendarios son raros, pero con más prestigio aparecen más seguido.").classList.add("hecha");
       seccion("Ofertas");
       const ids = ofertasMercader(st0);
       for (const id of ids) {
         const a = ARTE_POR_ID[id];
-        const f = fila(a.nombre, a.desc, () => {
+        const t = TIERS[a.tier - 1];
+        const f = fila(`${a.nombre} · ${t.nombre}`, a.desc, () => {
           const st = api.estado();
           if (comprarArtefacto(st, id)) { api.guardar(); toast("Compraste: " + a.nombre); cerrar(); }
-        }, "#c58aff");
+        }, t.color);
         const img = document.createElement("img");
         img.className = "arte-ico";
         img.src = iconoArtefacto(id, 3);
