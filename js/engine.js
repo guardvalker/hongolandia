@@ -362,6 +362,13 @@ export function comprarDron(state) {
   state.prisma.drones = (state.prisma.drones || 0) + 1;
   return true;
 }
+export function venderDron(state) {
+  const n = state.prisma.drones || 0;
+  if (n < 1) return false;
+  state.prisma.drones = n - 1;
+  state.prisma.n += costoDron(state);
+  return true;
+}
 export function comprarPrisma(state, id) {
   const p = PRISMA_POR_ID[id];
   if (!p || state.prisma.comprados[id] || state.prisma.n < p.costo) return false;

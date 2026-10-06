@@ -12,7 +12,7 @@ import { EVENTOS, HONGUITOS, MEJORAS, EDIFICIOS, TECNOLOGIAS, MEJ_EDIF, MEJ_CLIC
 import { PU, TIERS_PU, nombreTier, umbralDeTier, costoPU, puRango, tierAbierto, comprarPU } from './puData.js';
 import { ppAlPrestigiar } from './reinicio.js';
 import { fmt, fmtRate } from './format.js';
-import { factorAcido, factorMeteoro, produccionPorSeg, produccionPorTipo, prestigio, costoHonguito, costoHonguitos, maxHonguitos, comprarHonguitos, venderHonguitos, reembolsoHonguitos, vendibles, comprarMejora, tecDisponible, pctTec, invPorSeg, proximoHito, costoEdificio, elegirInvestigacion, comprarMejoraEdificio, activarHabilidad, buffActivo, nivelMej, costoMej, valorToque, autoPorSeg, autoFraccion, comprarMejoraClick, logiInfo, costoLogi, comprarMejoraLogi, comprarPrisma, comprarDron, costoDron, durBuff, cdHabilidad, alternarSobrecarga, trabajoEf } from './engine.js';
+import { factorAcido, factorMeteoro, produccionPorSeg, produccionPorTipo, prestigio, costoHonguito, costoHonguitos, maxHonguitos, comprarHonguitos, venderHonguitos, reembolsoHonguitos, vendibles, comprarMejora, tecDisponible, pctTec, invPorSeg, proximoHito, costoEdificio, elegirInvestigacion, comprarMejoraEdificio, activarHabilidad, buffActivo, nivelMej, costoMej, valorToque, autoPorSeg, autoFraccion, comprarMejoraClick, logiInfo, costoLogi, comprarMejoraLogi, comprarPrisma, comprarDron, venderDron, costoDron, durBuff, cdHabilidad, alternarSobrecarga, trabajoEf } from './engine.js';
 import { exportar, importar, borrarGuardado } from './state.js';
 import { CHANGELOG } from './changelog.js';
 
@@ -563,8 +563,8 @@ export function crearUI(api) {
   // ---- Prismas: moneda rara de la corrida, salen de cristalizar montañas compactadas ----
   function seccionPrismas(ancla) {
     const s = api.estado();
-    if (!nivelMej(s, "logi_prensa") && !s.prisma.tot) return;
     seccion("Prismas");
+    if (!nivelMej(s, "logi_prensa") && !s.prisma.tot) nota("Los Prismas salen de cristalizar montañas de esporas: comprá la «Prensa de micelio» en Logística (más arriba), tocá una montaña para compactarla y volvé a tocarla para cristalizarla. Con Prismas comprás drones y mejoras únicas.");
     const info = nota("");
     filas.push({ refresh: (st) => {
       info.textContent = `Tenés ${st.prisma.n} ${st.prisma.n === 1 ? "Prisma" : "Prismas"} (ganaste ${st.prisma.tot} en la corrida). Nivel de compactación: ${st.prisma.nivel}/10 (cada cristalización de una montaña al 50% o más lo sube y mejora el bono). Los Prismas no alcanzan para todo: elegí un estilo. Se reinician al prestigiar.`;
@@ -577,6 +577,9 @@ export function crearUI(api) {
       fd.btn.textContent = costoDron(st) + " ✦"; fd.btn.disabled = st.prisma.n < costoDron(st);
     };
     filas.push(fd);
+    const fv = fila("Vender un dron", "Te devuelve los Prismas del último dron comprado (reembolso completo).", () => { if (venderDron(api.estado())) { api.guardar(); abrirMadre(ancla); } }, "#5ef2ff");
+    fv.refresh = (st) => { const n = st.prisma.drones || 0; fv.btn.textContent = "+" + (n ? costoDron({ prisma: { drones: n - 1 } }) : 0) + " ✦"; fv.btn.disabled = n < 1; };
+    filas.push(fv);
     for (const p of PRISMAS) {
       if (s.prisma.comprados[p.id]) { nota("✓ " + p.nombre + " — " + p.desc).classList.add("hecha"); continue; }
       const f = fila(p.nombre, p.desc, () => { if (comprarPrisma(api.estado(), p.id)) { api.guardar(); abrirMadre(ancla); } }, p.color || "#5ef2ff");

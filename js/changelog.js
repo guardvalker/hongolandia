@@ -1,5 +1,12 @@
 export const CHANGELOG = [
   {
+    v: "0.63.1",
+    fecha: "2026-10-06",
+    cambios: [
+      "La sección «Prismas» del hongo madre (donde se compran los drones) ahora se ve siempre, con una nota que explica cómo conseguir Prismas (comprar la Prensa de micelio en Logística y cristalizar una montaña). Antes estaba oculta hasta tener la Prensa y no se encontraba. Se pueden vender drones con reembolso completo de Prismas.",
+    ],
+  },
+  {
     v: "0.63.0",
     fecha: "2026-10-06",
     cambios: [
