@@ -1042,6 +1042,26 @@ export function crearUI(api) {
     dpsFilas[id] = { el, val, bar };
   }
 
+  // fila de los toques en el ranking de esporas/s
+  const filaToques = (() => {
+    const el = document.createElement("div");
+    el.className = "dps-fila";
+    el.hidden = true;
+    const bar = document.createElement("i");
+    bar.className = "dps-bar";
+    bar.style.background = "#ffe14d";
+    const sw = document.createElement("span");
+    sw.className = "dps-tipo";
+    sw.style.background = "#ffe14d";
+    const nombre = document.createElement("span");
+    nombre.textContent = "Toques";
+    const val = document.createElement("b");
+    el.append(bar, sw, nombre, val);
+    $("dps-filas").append(el);
+    return { el, val, bar };
+  })();
+  dpsFilas.toques = filaToques;
+
   function actualizar(forzar) {
     avisoEvento(api.estado());
     const s = api.estado();
@@ -1064,6 +1084,7 @@ export function crearUI(api) {
     // rankings: esporas/s por tipo (de mayor a menor, con barras) y, aparte, investigación/s
     const esp = [], inv = [];
     for (const id in dpsFilas) {
+      if (id === "toques") continue; // su fila se arma aparte
       const tiene = (s.honguitos[id] || 0) > 0;
       dpsFilas[id].el.hidden = !tiene;
       if (!tiene) continue;
@@ -1095,10 +1116,13 @@ export function crearUI(api) {
         dpsFilas[e.id].bar.style.width = Math.max(2, Math.min(100, frac * 100)) + "%";
       });
     };
+    const vT = s.logi.tasaV || D(0), hayToques = vT.gte(0.05);
+    filaToques.el.hidden = !hayToques;
+    if (hayToques) { filaToques.val.textContent = fmtRate(vT); esp.push({ id: "toques", v: vT }); }
     ordenar(esp, false);
     ordenar(inv, true);
     $("dps-inv-titulo").hidden = inv.length === 0;
-    elDpsTotal.textContent = fmtRate(produccionPorSeg(s));
+    elDpsTotal.textContent = fmtRate(produccionPorSeg(s).add(vT)); // el total incluye lo que aportan los toques
     const LG = logiInfo(s);
     $("dps-logi-v").textContent = Math.round(LG.razon * 100) + "%";
     $("dps-logi").classList.toggle("cuello", LG.razon < 0.995);

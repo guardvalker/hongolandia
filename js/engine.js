@@ -230,6 +230,10 @@ export function logistica(state, dt, valor, llegadas, toques = 0) {
   // ritmo de toques (manuales y automáticos): promedio móvil, para que el panel de transporte también cuente las esporas de los clicks
   L.tasaClick = (L.tasaClick || 0) * (1 - Math.min(1, dt / 5)) + ((toques + (L.clk || 0)) / Math.max(dt, 1e-3)) * Math.min(1, dt / 5);
   L.clk = 0;
+  // valor por segundo que aportan los toques (promedio móvil), para mostrarlo en el contador de esporas/s
+  const a = Math.min(1, dt / 5);
+  L.tasaV = (L.tasaV || D(0)).mul(1 - a).add((L.clkV || D(0)).div(Math.max(dt, 1e-3)).mul(a));
+  L.clkV = D(0);
   L.valor = L.valor.add(valor);
   let cuenta = 0;
   for (const id in llegadas) { L.sitios[id] = (L.sitios[id] || 0) + llegadas[id]; cuenta += llegadas[id]; }
@@ -278,6 +282,7 @@ export const autoFraccion = (state) => 0.5 + 0.1 * nivelClick(state, "autoFuerza
 export function tocarMadre(state) {
   const v = valorToque(state);
   sumarAlPiso(state, "madre", v, 1); // el toque suelta una espora en el piso: un básico la lleva
+  state.logi.clkV = (state.logi.clkV || D(0)).add(v);
   state.logi.clk = (state.logi.clk || 0) + 1;
   state.flags.toco = true;
   return v;
@@ -442,6 +447,7 @@ export function tick(state, dt) {
       const v = valorToque(state).mul(autoFraccion(state));
       ganancia = ganancia.add(v.mul(n));
       cuentaExtra += n;
+      state.logi.clkV = (state.logi.clkV || D(0)).add(v.mul(n));
       autoToques.n = Math.min(autoToques.n + n, 50);
       autoToques.valor = v;
     }

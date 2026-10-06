@@ -1,5 +1,12 @@
 export const CHANGELOG = [
   {
+    v: "0.55.1",
+    fecha: "2026-10-06",
+    cambios: [
+      "El contador de esporas/s de la esquina ahora tiene una fila «Toques» (amarilla) que muestra cuántas esporas por segundo estás generando con los clicks (manuales y del autoclick, promedio de los últimos segundos) y se ordena con los demás por tamaño. El total también las suma. La fila desaparece sola cuando dejás de tocar.",
+    ],
+  },
+  {
     v: "0.55.0",
     fecha: "2026-10-06",
     cambios: [
