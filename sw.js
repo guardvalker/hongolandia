@@ -1,8 +1,8 @@
-const CACHE = "hongolandia-v110";
+const CACHE = "hongolandia-v111";
 const ASSETS = [
   "./", "./index.html", "./style.css", "./manifest.json", "./vendor/break_eternity.min.js",
   "./js/main.js", "./js/decimal.js", "./js/format.js", "./js/data.js", "./js/state.js",
-  "./js/engine.js", "./js/scene.js", "./js/ui.js", "./js/changelog.js", "./js/dungeon.js", "./js/dungeonVista.js", "./js/artefactos.js", "./js/eventos.js", "./js/invasion.js", "./js/puData.js", "./js/glvista.js", "./js/reinicio.js", "./js/prismas.js", "./js/altar.js", "./js/logros.js", "./js/musica.js",
+  "./js/engine.js", "./js/scene.js", "./js/ui.js", "./js/changelog.js", "./js/dungeon.js", "./js/dungeonVista.js", "./js/artefactos.js", "./js/eventos.js", "./js/invasion.js", "./js/puData.js", "./js/glvista.js", "./js/reinicio.js", "./js/prismas.js", "./js/altar.js", "./js/logros.js", "./js/musica.js", "./js/constelacion.js",
   "./vendor/fonts/pixelify-sans.woff2", "./vendor/fonts/press-start-2p.woff2", "./vendor/fonts/vt323.woff2",
 ];
 

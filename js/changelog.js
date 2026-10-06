@@ -1,5 +1,12 @@
 export const CHANGELOG = [
   {
+    v: "0.67.0",
+    fecha: "2026-10-06",
+    cambios: [
+      "Constelación del micelio: las mejoras de prestigio ahora están en una pantalla negra a pantalla completa con forma de mapa de estrellas, que se abre sola apenas prestigiás (y desde el botón «Abrir» de la ventana de Prestigio). El hongo madre está en el centro y cada mejora es una estrella con su iconito pixelado, en brazos por categoría (Producción, Linajes, Toques, Logística, Arranque, Ahorro, Eventos, Dungeon y mina, Defensa, Mercader y reliquias, Tiempo y herencia). Los tiers son anillos que se alejan del centro: los que todavía no destrabaste se ven apagados con un candado y los PP que hay que gastar. Las estrellas se unen con líneas que se encienden en dorado cuando las comprás. Tocá una estrella para ver qué hace (efecto actual, siguiente rango, cuántos PP faltan) y el botón + la compra; las que podés comprar ahora laten. Se mueve arrastrando, se acerca con pellizco o la rueda (y botones +/−/◎ para ver todo) y se cierra con la ✕ o Escape. La ventana de Prestigio quedó mucho más corta: solo la info, el botón de mantener apretado y la entrada a la constelación.",
+    ],
+  },
+  {
     v: "0.66.0",
     fecha: "2026-10-06",
     cambios: [

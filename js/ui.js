@@ -4,6 +4,7 @@ import { getEvento, DEF_MEJ, nivelDef, costoDef, comprarDef, ofertasMercader, pr
 import { TIPOS_TORRE, EVOLUCIONES, ENEMIGOS, TORRES_MAX, SOLD_MAX, costoTorre, costoEvolucion, evolucionarTorre, sumarSoldados, statsTorre, dpsTorre, infoDefensa, quedan } from './invasion.js';
 import { PRISMAS } from './prismas.js';
 import { musica } from './musica.js';
+import { crearConstelacion } from './constelacion.js';
 import { LOGROS, cantLogros, BONO_LOGRO } from './logros.js';
 import { TALENTOS, PACTOS, espaciosAltar, talentoAbierto, UMBRAL_TIER_TALENTO, alternarTalento, elegirPacto, pactoActivo } from './altar.js';
 import { ARTEFACTOS, ARTE_POR_ID, TIERS, iconoArtefacto, cantArte } from './artefactos.js';
@@ -500,6 +501,8 @@ export function crearUI(api) {
   const elBtnAltar = $("btn-altar");
   elBtnAltar.addEventListener("click", abrirAltar);
 
+  const cons = crearConstelacion({ estado: () => api.estado(), guardar: () => api.guardar() });
+
   // ---- Logros ----
   function abrirLogros() {
     abrir("logros", "Logros", () => {
@@ -523,7 +526,7 @@ export function crearUI(api) {
         info.textContent = `PP sin gastar: ${s.pp} · gastados: ${s.ppGastados} · ganados en total: ${s.ppTotal} · prestigios: ${s.prestigios}`;
       } });
       nota("Prestigiar reinicia la corrida (esporas, honguitos, edificios y mejoras) y te da 1 PP por cada nivel de prestigio alcanzado. Se conservan las mejoras de prestigio, la dungeon y el fondo. Los tiers se destraban al gastar PP (12, 45, 120, 180 y 250).");
-      const hecho = () => { api.prestigiar(); cerrar(); toast("¡Nueva corrida! Gastá tus PP en las mejoras de prestigio."); };
+      const hecho = () => { api.prestigiar(); cerrar(); cons.abrir(); }; // tras prestigiar se abre la constelación para gastar los PP
       const f = fila("Prestigiar ahora", "", () => {}, "#ffd23f"); // se prestigia manteniendo apretado (así no pasa por accidente)
       let hold = null;
       // al mantener apretado: todo se oscurece menos el botón (una copia encima), que se va cargando, brillando y temblando
@@ -582,21 +585,9 @@ export function crearUI(api) {
         f.btn.disabled = g < 1;
       };
       filas.push(f);
-      for (const tier of TIERS_PU) {
-        const abierto = tierAbierto(st, tier);
-        const lista = PU.filter((x) => x.tier === tier);
-        const costo = tier === 0 ? "2+" : tier;
-        seccion(`${nombreTier(tier)} · ${costo} PP por rango${tier === 0 ? " (+1 cada 20 rangos)" : ""}` + (abierto ? "" : ` · se destraba al gastar ${umbralDeTier(tier)} PP (te faltan ${Math.max(0, umbralDeTier(tier) - st.ppGastados)})`));
-        if (!abierto) { nota("Contiene: " + lista.map((x) => x.nombre).join(", ") + "."); continue; }
-        for (const p of lista) {
-          const n = puRango(st, p.id);
-          const sinTope = p.max === Infinity;
-          if (!sinTope && n >= p.max) { nota(`✓ ${p.nombre} (${p.max}/${p.max}) — ${p.desc(p.max)}`).classList.add("hecha"); continue; }
-          const g = fila(`${p.nombre} · ${sinTope ? "rango " + n : n + "/" + p.max}`, p.desc(n + 1), () => { if (comprarPU(api.estado(), p.id)) { api.guardar(); abrirPrestigio(); } }, "#ffd23f");
-          g.refresh = (s) => { const c = costoPU(p, puRango(s, p.id)); g.btn.textContent = c + " PP"; g.btn.disabled = s.pp < c; };
-          filas.push(g);
-        }
-      }
+      const fc = fila("Constelación del micelio", "Un mapa de estrellas con todas las mejoras de prestigio (tiers, linajes y eternas). Tocá una estrella para ver qué hace y comprala con el botón +.", () => cons.abrir(), "#ffd23f");
+      fc.refresh = (s) => { fc.btn.textContent = s.pp > 0 ? `Abrir · ${s.pp} PP` : "Abrir"; };
+      filas.push(fc);
     }, null, "#ffd23f");
   }
 

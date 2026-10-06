@@ -363,3 +363,58 @@ body.gl #juego { opacity: 0; }
 .presti-aviso { position: fixed; left: 0; right: 0; top: 18%; z-index: 301; pointer-events: none; text-align: center; color: #ffe9a0; text-shadow: 0 2px 0 #000; display: grid; gap: 6px; }
 .presti-aviso b { font-size: 20px; letter-spacing: .08em; }
 .presti-aviso span { font-size: 13px; color: #c9c0e0; }
+
+/* ---- Constelación del micelio (mejoras de prestigio) ---- */
+#constelacion { position: fixed; inset: 0; z-index: 400; background: radial-gradient(ellipse at center, #0b0b1a 0%, #02020a 70%, #000 100%); overflow: hidden; touch-action: none; user-select: none; -webkit-user-select: none; cursor: grab; }
+#constelacion[hidden] { display: none; }
+#constelacion:active { cursor: grabbing; }
+.cn-estrellas { position: absolute; inset: 0; pointer-events: none; }
+.cn-mundo { position: absolute; left: 0; top: 0; width: 0; height: 0; transform-origin: 0 0; will-change: transform; }
+.cn-anillo { fill: none; stroke: rgba(180, 190, 255, .16); stroke-width: 1.5; stroke-dasharray: 3 7; }
+.cn-anillo.cerrado { stroke: rgba(180, 190, 255, .07); }
+.cn-anillo-txt { fill: rgba(200, 210, 255, .55); font: 13px var(--num, monospace); letter-spacing: .12em; }
+.cn-anillo-txt.cerrado { fill: rgba(200, 210, 255, .3); }
+.cn-linea { stroke: rgba(150, 165, 255, .22); stroke-width: 1.6; }
+.cn-linea.on { stroke: rgba(255, 226, 120, .75); stroke-width: 2.4; filter: drop-shadow(0 0 3px rgba(255, 210, 80, .8)); }
+.cn-linea.cerrado { stroke-dasharray: 3 5; stroke: rgba(150, 165, 255, .1); }
+.cn-origen { position: absolute; left: -30px; top: -30px; width: 60px; height: 60px; display: grid; place-items: center; pointer-events: none; }
+.cn-origen img { width: 48px; height: 48px; image-rendering: pixelated; filter: drop-shadow(0 0 12px rgba(255, 210, 63, .9)); animation: cn-late 2.4s ease-in-out infinite; }
+.cn-origen span { position: absolute; top: 60px; font-size: 11px; color: #ffe9a0; white-space: nowrap; letter-spacing: .1em; }
+@keyframes cn-late { 50% { transform: scale(1.12); filter: drop-shadow(0 0 20px rgba(255, 210, 63, 1)); } }
+.cn-nodo { position: absolute; width: 44px; height: 44px; margin: -22px 0 0 -22px; padding: 0; border: 0; background: radial-gradient(circle, rgba(20, 20, 40, .9) 55%, transparent 72%); border-radius: 50%; cursor: pointer; display: grid; place-items: center; box-shadow: 0 0 0 2px color-mix(in srgb, var(--c) 55%, #000), 0 0 10px color-mix(in srgb, var(--c) 35%, transparent); }
+.cn-nodo img { width: 32px; height: 32px; image-rendering: pixelated; pointer-events: none; }
+.cn-nodo.cerrado { box-shadow: 0 0 0 2px rgba(120, 125, 160, .35); opacity: .75; }
+.cn-nodo.activo { box-shadow: 0 0 0 2px var(--c), 0 0 16px color-mix(in srgb, var(--c) 70%, transparent); }
+.cn-nodo.completo { box-shadow: 0 0 0 3px #fff3b0, 0 0 22px rgba(255, 230, 120, .85); }
+.cn-nodo.puede { animation: cn-puede 1.3s ease-in-out infinite; }
+@keyframes cn-puede { 50% { box-shadow: 0 0 0 3px var(--c), 0 0 24px var(--c); transform: scale(1.1); } }
+.cn-nodo.sel { outline: 3px solid #fff; outline-offset: 3px; }
+.cn-nodo.flash { animation: cn-flash .6s ease-out; }
+@keyframes cn-flash { 0% { transform: scale(1.6); filter: brightness(3); } 100% { transform: scale(1); filter: none; } }
+.cn-rango { position: absolute; right: -6px; bottom: -6px; min-width: 18px; padding: 1px 4px; font: 11px var(--num, monospace); text-align: center; color: #272736; background: var(--c); box-shadow: 0 0 0 2px #000; }
+.cn-rango:empty { display: none; }
+.cn-cand { position: absolute; left: -4px; top: -6px; font-style: normal; font-size: 12px; }
+.cn-cand[hidden] { display: none; }
+.cn-cabecera { position: absolute; left: 0; right: 0; top: 0; display: flex; align-items: center; gap: 12px; padding: calc(env(safe-area-inset-top) + 10px) 12px 10px; background: linear-gradient(#000c, #0000); pointer-events: none; }
+.cn-cabecera > * { pointer-events: auto; }
+.cn-titulo { flex: 1; color: #ffe9a0; font-size: 15px; letter-spacing: .08em; text-transform: uppercase; }
+.cn-titulo small { display: block; margin-top: 3px; font-size: 11px; color: #9aa0c8; text-transform: none; letter-spacing: 0; }
+.cn-pp { color: #ffd23f; font-size: 16px; text-align: right; }
+.cn-pp b { font-family: var(--num, monospace); font-size: 20px; }
+.cn-pp small { display: block; font-size: 10px; color: #9aa0c8; }
+.cn-cerrar { width: 40px; height: 40px; border: 0; font: inherit; font-size: 20px; color: var(--txt, #fff); background: var(--panel, #1d1d2a); box-shadow: 0 0 0 2px var(--borde, #444); cursor: pointer; }
+.cn-zoom { position: absolute; right: 12px; bottom: calc(env(safe-area-inset-bottom) + 12px); display: flex; flex-direction: column; gap: 6px; }
+.cn-zoom button { width: 40px; height: 40px; border: 0; font: inherit; font-size: 22px; color: var(--txt, #fff); background: var(--panel, #1d1d2a); box-shadow: 0 0 0 2px var(--borde, #444); cursor: pointer; }
+.cn-panel { position: absolute; left: 12px; right: 64px; bottom: calc(env(safe-area-inset-bottom) + 12px); max-width: 560px; display: grid; grid-template-columns: auto 1fr auto; gap: 12px; align-items: start; padding: 12px; background: rgba(14, 14, 30, .94); box-shadow: 0 0 0 2px var(--c, #ffd23f), 0 0 24px color-mix(in srgb, var(--c, #ffd23f) 35%, transparent); cursor: default; }
+.cn-panel[hidden] { display: none; }
+.cn-p-ico { width: 48px; height: 48px; image-rendering: pixelated; }
+.cn-p-info b { display: block; color: var(--c, #ffd23f); font-size: 16px; margin-bottom: 2px; }
+.cn-p-info small { display: block; color: #9aa0c8; font-size: 11px; margin-bottom: 6px; }
+.cn-p-info p { margin: 4px 0 0; font-size: 13px; color: #d6d8ee; }
+.cn-p-info .ahora { color: #9aa0c8; }
+.cn-p-info .falta { color: #ff9a7a; }
+.cn-comprar { align-self: center; width: 64px; height: 64px; border: 0; font: inherit; font-size: 30px; line-height: 1; color: #272736; background: var(--c, #ffd23f); cursor: pointer; display: grid; place-items: center; align-content: center; box-shadow: 0 3px 0 rgba(0, 0, 0, .5); }
+.cn-comprar small { font-size: 11px; display: block; margin-top: -2px; }
+.cn-comprar:active { transform: translateY(2px); }
+.cn-comprar:disabled { background: #3a3a52; color: #7c7c98; cursor: not-allowed; }
+body.cn-abierta #hud, body.cn-abierta #btn-madre, body.cn-abierta #btn-prestigio, body.cn-abierta #btn-altar, body.cn-abierta #zoom { visibility: hidden; }
