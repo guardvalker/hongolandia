@@ -144,6 +144,13 @@ const EDIF_DEF = [
     desc: "Un hongo con un cohete-hongo estacionado. Habilita a los astronautas, que viajan a la luna y la van llenando de bases hongiles.",
     color: "#4fb4ff",
   },
+  {
+    id: "cristaleria",
+    tier: 10,
+    nombre: "Cristalería hongil",
+    desc: "Un hongo con un enorme cristal brillando en la copa. Habilita a los cristaleros, que tallan y pulen hongo-cristales.",
+    color: "#5ef2ff",
+  },
 ];
 // Requisito de cantidad (como «The Great Maw pide 6 mineros» en la wiki de Dwarf Eats Mountain): para
 // construir un edificio hay que tener antes cierta cantidad de honguitos del edificio anterior de la cadena.
@@ -157,6 +164,7 @@ export const REQ_EDIF = {
   gimnasio: { tipo: "mago", n: 10 },
   trade: { tipo: "atleta", n: 10 },
   astropuerto: { tipo: "trader", n: 10 },
+  cristaleria: { tipo: "astronauta", n: 10 },
 };
 export const EDIFICIOS = Object.fromEntries(EDIF_DEF.map((e) => {
   const v = valoresTier(e.tier);
@@ -192,6 +200,7 @@ const HONG_DEF = [
   { id: "mago", tier: 6, nombre: "Mago", sprite: "mago", desc: "Prepara pociones de hongos en su caldero (esporas) y purifica las nubes de contaminación: cada nube purificada se vuelve esporas.", color: "#d12bff", casa: "torre" },
   { id: "atleta", tier: 7, nombre: "Atleta", sprite: "atleta", desc: "Entrena con mancuernas al lado del gym y transpira esporas.", color: "#ff8a1f", casa: "gimnasio" },
   { id: "trader", tier: 8, nombre: "Trader", sprite: "trader", desc: "Hace llamados y mueve acciones en el trade center. Cada ciclo de bolsa cobra todo junto.", color: "#f5c518", casa: "trade" },
+  { id: "cristalero", tier: 10, nombre: "Cristalero", sprite: "cristalero", desc: "Talla hongo-cristales en la cristalería y los pule hasta que brillan: cada cristal pulido suelta una lluvia de esporas luminosas.", color: "#5ef2ff", casa: "cristaleria" },
   { id: "astronauta", tier: 9, nombre: "Astronauta", sprite: "astronauta", desc: "Se sube al cohete, viaja a la luna y vuelve con esporas. Cada expedición suma una base hongil lunar.", color: "#4fb4ff", casa: "astropuerto" },
 ];
 export const HONGUITOS = Object.fromEntries(HONG_DEF.map((h) => {
@@ -276,6 +285,7 @@ const TEC_NOMBRES = {
   obrero: ["Herramientas de precisión hongil", "Líneas de montaje", "Cascos reforzados", "Automatización básica", "Control de calidad"],
   atleta: ["Proteína de micelio", "Entrenamiento de élite", "Ropa deportiva técnica", "Fisioterapia hongil", "Dieta balanceada"],
   trader: ["Algoritmo de trading hongil", "Análisis de mercado", "Terminal de cotizaciones", "Cobertura de riesgo", "Información al instante"],
+  cristalero: ["Cinceles de diamante", "Facetas perfectas", "Pulido a espejo", "Resonancia armónica", "Gran geoda"],
   astronauta: ["Trajes presurizados", "Propulsores de espora", "Navegación estelar", "Escudo térmico", "Observatorio lunar"],
   minero: ["Picos de cristal", "Vagonetas reforzadas", "Lámparas de espora", "Entibado de micelio", "Perforadora hongil"],
   mago: ["Recetario de hongos", "Varitas de hongo mágico", "Grimorio ilustrado", "Caldero de cobre", "Gran hechizo de purga"],
@@ -382,6 +392,12 @@ export const MEJ_EDIF = [
   M("astronauta", "colonia", "Colonia lunar", 60, 10, 2.2, 5, { ef: "luna", a: 0.001 }),
   M("astronauta", "satelites", "Satélites de comunicación", 40, 15, 2, 6, { ef: "offline", a: 1800 }),
   M("astronauta", "observatorio", "Observatorio orbital", 90, 20, 1, 1, { ef: "sinergia", fuente: "astronauta", cada: 10, bono: 0.03, objetivo: "investigacion" }),
+
+  // Cristalería: talla, facetas, resonancia y cosecha de brillo
+  M("cristalero", "tallado", "Tallado fino", 4, 5, 1.7, 10, { ef: "prod", a: 0.1 }),
+  M("cristalero", "facetas", "Facetas veloces", 25, 10, 2, 6, { ef: "vel", a: 0.08 }),
+  M("cristalero", "brillo", "Cosecha de brillo", 60, 15, 2.2, 5, { ef: "autoevento", a: 0.1 }),
+  M("cristalero", "resonancia", "Resonancia de cristal", 90, 20, 1, 1, { ef: "sinergia", fuente: "cristalero", cada: 10, bono: 0.03, objetivo: "todos" }),
 
   // Universidad: laboratorio, becas (investigar sale más barato), eureka y premios
   M("cientifico", "laboratorio", "Laboratorio equipado", 4, 5, 1.7, 10, { ef: "prod", a: 0.1 }),

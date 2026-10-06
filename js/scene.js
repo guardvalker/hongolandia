@@ -3,7 +3,7 @@
 // del arte) y se escala con un factor entero sin suavizado. No hay sprites ni fotogramas:
 // los honguitos son un bitmap diminuto que se mueve con rebotes y estiramientos por código.
 
-const TIPOS_VISUALES = ['basico', 'musico', 'jardinero', 'atleta', 'trader', 'astronauta', 'maestro', 'obrero', 'cientifico', 'mago', 'minero', 'soldado']; // el número dibujado por tipo lo da el ajuste "honguitos visibles" (el real puede ser enorme)
+const TIPOS_VISUALES = ['basico', 'musico', 'jardinero', 'atleta', 'trader', 'astronauta', 'cristalero', 'maestro', 'obrero', 'cientifico', 'mago', 'minero', 'soldado']; // el número dibujado por tipo lo da el ajuste "honguitos visibles" (el real puede ser enorme)
 let limiteVisibles = 20; // honguitos dibujados por tipo (Ajustes)
 const maxParticulas = () => 150 + limiteVisibles * 8;
 const maxBrotes = () => Math.max(6, limiteVisibles * 2); // honguitos pasajeros que dejan los jardineros
@@ -66,6 +66,7 @@ const TAM_BASE = {
   gimnasio: { w: 42, ch: 20, sw: 18, sh: 14 },
   trade: { w: 42, ch: 20, sw: 18, sh: 15 },
   astropuerto: { w: 44, ch: 21, sw: 18, sh: 15 },
+  cristaleria: { w: 46, ch: 22, sw: 18, sh: 16 },
   escuela: { w: 40, ch: 19, sw: 17, sh: 14 },
   fabrica: { w: 46, ch: 21, sw: 20, sh: 15 },
   universidad: { w: 44, ch: 21, sw: 20, sh: 16 },
@@ -207,6 +208,7 @@ export function crearEscena(canvas, opciones = {}) {
   const spritesMusico = [hacerSprite(VIOLETA, PATAS[0], false), hacerSprite(VIOLETA, PATAS[1], false), hacerSprite(VIOLETA, PATAS[0], 1), hacerSprite(VIOLETA, PATAS[0], 2)];
   const spritesJard = [0, 1].map((pose) => hacerSprite(VERDE, PATAS[pose], 0));
   const spritesAtl = [0, 1].map((pose) => hacerSprite(NARANJA, PATAS[pose], 0));
+  const spritesCristalero = [0, 1].map((pose) => hacerSprite("#5ef2ff", PATAS[pose], 0));
   // trader: sombrero dorado y corbata roja que cuelga entre las patitas; con boca para hablar por teléfono
   const spritesTrader = [[0, false], [1, false], [0, 1], [0, 2]].map(([pose, boca]) => {
     const c = hacerSprite(DORADO, PATAS[pose], boca);
@@ -688,6 +690,40 @@ export function crearEscena(canvas, opciones = {}) {
   }
 
   // Atleta: camina cerca del gym, saca las mancuernas, hace series transpirando y suelta una espora.
+  // Cristalero: camina junto a la cristalería, se planta a pulir un cristal (destellos) y suelta esporas luminosas
+  function actualizarCristalero(v, dt) {
+    v.alfa = Math.min(1, v.alfa + dt * 2.5);
+    v.animT += dt;
+    v.hop = 0;
+    v.estira = 0;
+    const ed = edif.cristaleria;
+    if (!ed) { v.modo = "idle"; return; }
+    if (v.modo === "idle") {
+      v.estira = Math.sin(v.animT * 3 + v.i) * 0.5;
+      v.espera -= dt;
+      if (v.espera <= 0) {
+        const mw = tam("cristaleria").w / 2;
+        v.meta = clamp(ed.x + (Math.random() < 0.5 ? -1 : 1) * (mw + 5 + Math.random() * 26), LIM0() + 12, LIM1() - 12);
+        v.dir = Math.sign(v.meta - v.x) || 1;
+        v.modo = "walk";
+      }
+    } else if (v.modo === "walk") {
+      v.hop = Math.abs(Math.sin(v.animT * 11)) * 1.5;
+      const d = v.meta - v.x, paso = VEL * 0.7 * dt;
+      if (Math.abs(d) <= paso) { v.x = v.meta; v.modo = "pule"; v.tPule = 0; v.dir = Math.sign(ed.x - v.x) || 1; }
+      else v.x += Math.sign(d) * paso;
+    } else if (v.modo === "pule") {
+      v.tPule += dt;
+      v.estira = -Math.abs(Math.sin(v.tPule * 9)) * 1.2; // frota el cristal
+      if (Math.random() < dt * 9) part(v.x + v.dir * 5 + (Math.random() - 0.5) * 3, groundY - HH - 2 - Math.random() * 3, 0, -10, { tipo: "mota", dur: 0.45, col: Math.random() < 0.5 ? "#5ef2ff" : "#ffffff", r: 1 });
+      if (v.tPule > 2.6) {
+        for (let k = 0; k < 3; k++) cola.push({ t: k * 0.1, fn: () => lanzarEspora(v.x, groundY - HH - 4, "#5ef2ff") }); // lluvia de esporas luminosas
+        brillos.cristaleria = 1;
+        motas(v.x, groundY - HH - 4, 8, 0.8, "#5ef2ff");
+        v.modo = "idle"; v.espera = 0.5 + Math.random() * 2;
+      }
+    }
+  }
   function actualizarAtleta(v, dt) {
     v.alfa = Math.min(1, v.alfa + dt * 2.5);
     v.animT += dt;
@@ -2168,6 +2204,7 @@ export function crearEscena(canvas, opciones = {}) {
       if (v.tipo === "atleta") { actualizarAtleta(v, dt); continue; }
       if (v.tipo === "trader") { actualizarTrader(v, dt); continue; }
       if (v.tipo === "astronauta") { actualizarAstronauta(v, dt); continue; }
+      if (v.tipo === "cristalero") { actualizarCristalero(v, dt); continue; }
       if (v.tipo === "maestro") { actualizarMaestro(v, dt); continue; }
       if (v.tipo === "obrero") { actualizarObrero(v, dt); continue; }
       if (v.tipo === "cientifico") { actualizarCientifico(v, dt); continue; }
@@ -2750,6 +2787,19 @@ export function crearEscena(canvas, opciones = {}) {
         if (prev !== null && Math.abs(prev - yy) > 1) g.fillRect(sx0 + i, Math.min(prev, yy), 1, Math.abs(prev - yy));
         prev = yy;
       }
+    } else if (id === "cristaleria") {
+      // un gran hongo-cristal en la copa con un halo que respira, y facetas claras en el sombrero
+      const pulso = 0.5 + 0.5 * Math.sin(t * 2.2);
+      g.globalAlpha = 0.14 + 0.1 * pulso; disco(cx, capBase - ch - 4, 14, "#5ef2ff"); g.globalAlpha = 1;
+      g.drawImage(spritesCristal[0], cx - 7, capBase - ch - 17, 14, 17);
+      g.drawImage(spritesCristal[1], cx - 15, capBase - ch - 9, 8, 10);
+      g.drawImage(spritesCristal[4], cx + 8, capBase - ch - 8, 7, 9);
+      g.fillStyle = "#bff7f0";
+      for (const [a, b] of [[-0.6, 0.45], [0.1, 0.7], [0.55, 0.35]]) { const px = cx + Math.round(a * rx), py = capBase - 2 - Math.round(b * ch); g.fillRect(px, py - 1, 1, 3); g.fillRect(px - 1, py, 3, 1); }
+      // portón en arco con luz fría y un banco de talla al costado
+      g.fillStyle = "#14243a"; g.fillRect(cx - 3, groundY - 8, 7, 7); g.fillRect(cx - 2, groundY - 9, 5, 1);
+      g.fillStyle = col; g.fillRect(cx - 3, groundY - 8, 1, 7); g.fillRect(cx + 3, groundY - 8, 1, 7); g.fillRect(cx - 2, groundY - 9, 5, 1);
+      g.fillStyle = "#5a6a8a"; g.fillRect(cx + mitad + 3, groundY - 4, 8, 3); g.fillRect(cx + mitad + 4, groundY - 6, 3, 2);
     } else if (id === "astropuerto") {
       // antena parabólica arriba, estrellitas en el sombrero y ventanilla redonda en el tallo
       g.fillStyle = BLANCO;
@@ -3194,7 +3244,7 @@ export function crearEscena(canvas, opciones = {}) {
     const base = Math.round(groundY + (v.yOff || 0) - v.hop);
     const pose = v.modo === "walk" ? (Math.floor(v.animT * 11) % 2) : 0;
     const spr = v.tipo === "musico" ? spritesMusico[v.modo === "canta" ? [0, 2, 3, 2][Math.floor(v.tCanta * 8) % 4] : pose]
-      : v.tipo === "jardinero" ? spritesJard[pose] : v.tipo === "atleta" ? spritesAtl[pose] : v.tipo === "mago" ? spritesMago[pose] : v.tipo === "minero" ? spritesMinero[pose] : v.tipo === "soldado" ? spritesSoldado[v.modo === "corre" ? (Math.floor(v.animT * 10) % 2) : pose] : v.tipo === "cientifico" ? spritesCient[pose] : v.tipo === "obrero" ? spritesObrero[pose] : v.tipo === "maestro" ? spritesMaestro[v.modo === "clase" ? (Math.floor(v.animT * 5) % 2 ? 2 : 3) : pose] : v.tipo === "astronauta" ? spritesAstro[pose] : v.tipo === "trader" ? spritesTrader[v.modo === "llama" ? (Math.floor(v.tLlama * 6) % 2 ? 2 : 3) : pose] : spritesHongo[pose];
+      : v.tipo === "jardinero" ? spritesJard[pose] : v.tipo === "atleta" ? spritesAtl[pose] : v.tipo === "cristalero" ? spritesCristalero[pose] : v.tipo === "mago" ? spritesMago[pose] : v.tipo === "minero" ? spritesMinero[pose] : v.tipo === "soldado" ? spritesSoldado[v.modo === "corre" ? (Math.floor(v.animT * 10) % 2) : pose] : v.tipo === "cientifico" ? spritesCient[pose] : v.tipo === "obrero" ? spritesObrero[pose] : v.tipo === "maestro" ? spritesMaestro[v.modo === "clase" ? (Math.floor(v.animT * 5) % 2 ? 2 : 3) : pose] : v.tipo === "astronauta" ? spritesAstro[pose] : v.tipo === "trader" ? spritesTrader[v.modo === "llama" ? (Math.floor(v.tLlama * 6) % 2 ? 2 : 3) : pose] : spritesHongo[pose];
     const alto = HH + Math.round(v.estira);
     const x = Math.round(v.x);
     g.globalAlpha = v.alfa;
@@ -3264,6 +3314,7 @@ export function crearEscena(canvas, opciones = {}) {
       g.fillStyle = BLANCO; g.fillRect(bx - 3, by, 3, 3); g.fillRect(bx + 1, by + (pg ? -1 : 0), 3, 3);
       g.fillStyle = "#14141d"; g.fillRect(bx - 1, by, 1, 3);
     }
+    if (v.tipo === "cristalero") g.drawImage(spritesCristal[0], x - 2, base - alto - 7);
     if (v.tipo === "astronauta") {
       // antena del casco con luz
       g.fillStyle = BLANCO;

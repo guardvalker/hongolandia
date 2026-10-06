@@ -1,5 +1,13 @@
 export const CHANGELOG = [
   {
+    v: "0.52.0",
+    fecha: "2026-10-06",
+    cambios: [
+      "Contenido para el final del juego: nuevo edificio, la Cristalería hongil (décimo tier, después del Astropuerto; pide 10 traders), y un honguito nuevo, el Cristalero, que talla hongo-cristales junto a la cristalería, los frota con destellos y suelta lluvias de esporas luminosas. Es el honguito más productivo de todos.",
+      "La Cristalería tiene su propio dibujo (un gran hongo-cristal en la copa con un halo que respira), 10 niveles de investigación en la Universidad y 4 mejoras: Tallado fino, Facetas veloces, Cosecha de brillo y Resonancia de cristal.",
+    ],
+  },
+  {
     v: "0.51.0",
     fecha: "2026-10-06",
     cambios: [
