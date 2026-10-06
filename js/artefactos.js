@@ -1,6 +1,6 @@
 import { puA, puM } from './puData.js';
 
-// Artefactos del Mercader hongil: 50 objetos permanentes (hasta el próximo prestigio). Cada vez que viene
+// Artefactos del Mercader hongil: 53 objetos permanentes (hasta el próximo prestigio). Cada vez que viene
 // el mercader ofrece 5 al azar y se puede quedar con uno solo. No todos suben la producción: abaratan,
 // aceleran la dungeon, protegen de meteoritos, alargan las invasiones, etc.
 //
@@ -8,7 +8,7 @@ import { puA, puM } from './puData.js';
 
 const MULT = new Set([
   "prod_all", "prod_basico", "prod_maestro", "prod_musico", "prod_jardinero", "prod_obrero", "prod_minero", "prod_mago",
-  "prod_atleta", "prod_trader", "prod_astronauta", "inv_vel", "mina_vel", "mina_regrow", "dorada_val", "cometa_val", "dung_rec",
+  "prod_atleta", "prod_trader", "prod_astronauta", "inv_vel", "logi_carga", "mina_vel", "mina_regrow", "dorada_val", "cometa_val", "dung_rec",
 ]);
 
 // [id, nombre, descripción, clave, valor, categoría (1-3: cuánto cuesta)]
@@ -62,6 +62,9 @@ const T = [
   ["saco", "Saco sin fondo", "Cada criatura derrotada deja el doble de esporas.", "inv_botin", 1, 1],
   ["mapa_edif", "Mapa de los edificios", "+1,5% de producción total por cada edificio construido.", "syn_edif", 0.015, 3],
   ["rueda", "Rueda de hámster hongil", "+1% de producción total por cada 25 honguitos básicos.", "syn_basico", 0.01, 3],
+  ["cesta", "Cesta de mimbre", "Los honguitos básicos llevan manojos ×1,3 más grandes.", "logi_carga", 1.3, 1],
+  ["botas_raiz", "Botas de raíz", "Los básicos caminan un 15% más rápido al llevar esporas.", "logi_vel", 0.15, 2],
+  ["sendero_musgo", "Sendero de musgo", "Los caminos de las esporas al hongo madre son un 12% más cortos.", "logi_dist", 0.12, 2],
   ["pluma", "Pluma de fénix", "Toda la producción ×1,3.", "prod_all", 1.3, 3],
 ];
 

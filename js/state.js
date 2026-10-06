@@ -40,6 +40,7 @@ export function nuevoEstado() {
     v: SAVE_VERSION,
     esporas: D(0),
     total: D(0), // esporas ganadas en toda la partida (define la etapa)
+    logi: { valor: D(0), n: 0 }, // esporas sueltas esperando que los básicos las lleven al hongo madre: valor total y cantidad
     pp: 0, // puntos de prestigio sin gastar
     ppExtra: 0, // PP extra ganados en la corrida (Periódico de herencias)
     nivelVisto: 0, // último nivel de prestigio de la corrida ya procesado por las mejoras de prestigio
@@ -76,7 +77,7 @@ export function etapaDe(state) {
 
 // ---- Serialización: los Decimal viajan como string ----
 function serializar(state) {
-  return { ...state, esporas: state.esporas.toString(), total: state.total.toString() };
+  return { ...state, esporas: state.esporas.toString(), total: state.total.toString(), logi: { valor: state.logi.valor.toString(), n: state.logi.n } };
 }
 
 // Migraciones del save: una por cada cambio de SAVE_VERSION.
@@ -100,6 +101,7 @@ function deserializar(raw) {
     v: SAVE_VERSION,
     esporas: new Dec(raw.esporas ?? 0),
     total: new Dec(raw.total ?? 0),
+    logi: { valor: new Dec(raw.logi?.valor ?? 0), n: raw.logi?.n ?? 0 },
     honguitos: { ...base.honguitos, ...raw.honguitos },
     mejoras: { ...raw.mejoras },
     pu: { ...raw.pu },

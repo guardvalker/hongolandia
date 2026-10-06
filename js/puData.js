@@ -48,6 +48,8 @@ export const PU = [
   { id: "telescopio", tier: 2, max: 3, nombre: "Telescopio de observatorio", k: "evt_dur", v: 3, desc: (n) => `Los eventos del cielo duran ${3 * n} s más.` },
   { id: "cimientos", tier: 2, max: 3, nombre: "Cimientos minados", k: "inv_vida", v: 0.08, desc: (n) => `Los enemigos de las invasiones tienen un ${pct(0.08 * n)}% menos de vida.` },
   { id: "cupulas", tier: 2, max: 3, nombre: "Cúpulas rúnicas", k: "arc_meteoro", v: 0.1, desc: (n) => `Un ${pct(0.1 * n)}% más de los meteoritos se desintegra en el aire.` },
+  { id: "manojos_anc", tier: 2, max: 5, nombre: "Manojos ancestrales", k: "logi_carga", v: 1.12, m: true, desc: (n) => `Los básicos llevan manojos ${mult(1.12 ** n)} más grandes.` },
+  { id: "piernas_raiz", tier: 2, max: 5, nombre: "Piernas de raíz", k: "logi_vel", v: 0.08, desc: (n) => `Los básicos caminan un ${pct(0.08 * n)}% más rápido al llevar esporas.` },
   { id: "picos_prof", tier: 2, max: 3, nombre: "Picos profundos", k: "mina_vel", v: 1.25, m: true, desc: (n) => `La mina se cava ${mult(1.25 ** n)} más rápido.` },
 
   // ── Tier 3 (45 PP gastados) ──
@@ -63,6 +65,7 @@ export const PU = [
   { id: "red_cielo", tier: 3, max: 3, nombre: "Redes del cielo", k: "autoevento", v: 0.1, desc: (n) => `Un ${pct(0.1 * n)}% más de chance de que los eventos del cielo se recojan solos.` },
   { id: "urbanismo", tier: 3, max: 3, nombre: "Urbanismo hongil", k: "syn_edif", v: 0.01, desc: (n) => `+${pct(0.01 * n)}% de producción total por cada edificio construido.` },
   { id: "prado_vivo", tier: 3, max: 3, nombre: "Prado vivo", k: "syn_basico", v: 0.005, desc: (n) => `+${pct(0.005 * n)}% de producción total por cada 25 honguitos básicos.` },
+  { id: "veredas", tier: 3, max: 4, nombre: "Veredas de micelio", k: "logi_dist", v: 0.04, desc: (n) => `Los caminos de las esporas al hongo madre son un ${pct(0.04 * n)}% más cortos.` },
   { id: "rebrote", tier: 3, max: 3, nombre: "Rebrote fértil", k: "mina_regrow", v: 1.3, m: true, desc: (n) => `Los yacimientos rebrotan ${mult(1.3 ** n)} más rápido.` },
   { id: "alerta_pu", tier: 3, max: 3, nombre: "Vigías de la pradera", k: "inv_tiempo", v: 5, desc: (n) => `Las invasiones duran ${5 * n} s más antes de que roben.` },
   { id: "saqueo", tier: 3, max: 2, nombre: "Botín de guerra", k: "inv_botin", v: 0.5, desc: (n) => `Cada criatura derrotada deja un ${pct(0.5 * n)}% más de esporas.` },
@@ -98,6 +101,7 @@ export const PU = [
 
   // ── Eternas (se destraban con el primer PP gastado, rangos sin tope, 2 PP por rango) ──
   { id: "et_conquista", tier: 0, max: Infinity, nombre: "Conquista eterna", k: "prod_all", v: 1.01, m: true, desc: (n) => `Toda la producción ${mult(1.01 ** n)}.` },
+  { id: "et_manojo", tier: 0, max: Infinity, nombre: "Manojo eterno", k: "logi_carga", v: 1.01, m: true, desc: (n) => `Los manojos de los básicos son ${mult(1.01 ** n)} más grandes.` },
   { id: "et_toque", tier: 0, max: Infinity, nombre: "Dedos eternos", k: "toque_mult", v: 0.05, lin: true, desc: (n) => `Los toques al hongo madre valen +${pct(0.05 * n)}%.` },
   { id: "et_invocacion", tier: 0, max: Infinity, nombre: "Invocaciones eternas", k: "evt_freq", v: 0.03, desc: (n) => `Los eventos del cielo aparecen un ${pct(0.03 * n)}% más seguido.` },
   { id: "et_dorada", tier: 0, max: Infinity, nombre: "Pepita eterna", k: "dorada_val", v: 0.05, lin: true, desc: (n) => `Las esporas doradas valen +${pct(0.05 * n)}%.` },

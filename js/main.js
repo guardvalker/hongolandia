@@ -1,5 +1,5 @@
 import { cargar, guardar, nuevoEstado, etapaDe } from './state.js';
-import { tick, colocarEdificio, revisarHitos, cobrarEvento, maxAusencia, tocarMadre, autoToques } from './engine.js';
+import { tick, colocarEdificio, revisarHitos, cobrarEvento, maxAusencia, tocarMadre, autoToques, migrarLogistica } from './engine.js';
 import { fmt } from './format.js';
 import { crearEscena } from './scene.js';
 import { crearUI, ajustes } from './ui.js';
@@ -13,6 +13,7 @@ import { avisosPU } from './puData.js';
 import { construirTorre } from './invasion.js';
 
 let state = cargar();
+migrarLogistica(state);
 let colocando = null; // id del edificio que se está ubicando (comprado)
 let moviendo = null; // id del edificio que se está moviendo (ya construido)
 

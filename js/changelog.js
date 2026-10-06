@@ -1,5 +1,16 @@
 export const CHANGELOG = [
   {
+    v: "0.50.0",
+    fecha: "2026-10-05",
+    cambios: [
+      "NUEVA MECÁNICA: logística de esporas. Las esporas ya no llegan solas al hongo madre: cada honguito suelta esporas al piso (se amontonan en pilas junto a su edificio) y tus toques también sueltan una. Los honguitos básicos son los cargadores: van a una pila, juntan un manojo que crece sobre su cabeza, lo llevan al hongo madre y lo entregan. Solo cuentan para tu total las esporas que llegan.",
+      "Si hay más esporas que las que los básicos alcanzan a llevar, se acumulan en el piso (el panel de esporas/s muestra «Transporte» en rojo con el porcentaje que llega y «En el piso» con las que esperan). Más básicos, manojos más grandes o caminar más rápido destraban el cuello de botella.",
+      "Nueva sección «Logística de esporas» en el hongo madre con mejoras por niveles: Manojos más grandes (cada nivel ×1,35 esporas por viaje, el manojo se ve más alto), Zancadas largas (+10% velocidad), Senderos de micelio (caminos 5% más cortos) y Recolección ágil (juntar tarda 7% menos). Cuestan unos segundos de tu producción, así que siempre son alcanzables.",
+      "Más cosas relacionadas: 3 artefactos nuevos (Cesta de mimbre, Botas de raíz, Sendero de musgo) y 4 mejoras de prestigio (Manojos ancestrales, Piernas de raíz, Veredas de micelio y Manojo eterno). Los edificios lejanos alargan el viaje.",
+      "Las partidas anteriores reciben automáticamente los niveles de logística necesarios para que todo siga llegando.",
+    ],
+  },
+  {
     v: "0.49.1",
     fecha: "2026-10-05",
     cambios: [

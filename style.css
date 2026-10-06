@@ -324,3 +324,6 @@ body.transp #hoja-cerrar { background: rgba(45, 45, 64, .6); }
 /* modo WebGL: el lienzo del juego se dibuja con WebGL; el de siempre queda encima, invisible, solo para recibir toques y gestos */
 #juego-gl { position: fixed; inset: 0; width: 100%; height: 100%; display: block; image-rendering: pixelated; pointer-events: none; }
 body.gl #juego { opacity: 0; }
+
+#dps.plegado #dps-logi, #dps.plegado #dps-piso { display: none; }
+#dps-logi.cuello b { color: #ff7a7a; }

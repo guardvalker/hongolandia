@@ -86,7 +86,7 @@ const MADRE = [
 ];
 
 import { EDIFICIOS, HONGUITOS, ACIDO, EVENTOS, EVENTO_CFG } from './data.js';
-import { meteoros as danoMeteoro, improd, velocidad, eventos, buffTipoActivo, efectos, prestigio } from './engine.js';
+import { meteoros as danoMeteoro, improd, velocidad, eventos, buffTipoActivo, efectos, prestigio, logiInfo } from './engine.js';
 import { getRun } from './dungeon.js';
 import { getEvento, consumirFx, setAlcance, nivelDef } from './eventos.js';
 import { TIPOS_TORRE, statsTorre } from './invasion.js';
@@ -596,7 +596,13 @@ export function crearEscena(canvas, opciones = {}) {
   }
   const colHongo = (v) => (v.tipo === "basico" ? ROJO : PALETA[v.col]);
   const emitirEspora = (v) => lanzarEspora(v.x, groundY - 14, colHongo(v));
+  // Las esporas que sueltan los productores (y los toques) caen al piso y esperan ahí a que un básico las lleve
   function lanzarEspora(x, y, col, lento = 0) {
+    const x1 = x + (Math.random() - 0.5) * 14;
+    part(x, y, 0, 0, { tipo: "viaje", col, x0: x, y0: y, x1, y1: groundY - 2, dur: 0.4 + Math.random() * 0.3 + lento * 0.3, arco: 5 + Math.random() * 9, estela: 0, local: true });
+  }
+  // Entrega: una espora de un manojo vuela hasta el sombrero del hongo madre (lo hacen los básicos al llegar)
+  function volarAMadre(x, y, col, lento = 0) {
     const m = medidas();
     // destino al azar dentro del sombrero (media elipse), no en una línea fija
     const dx = (Math.random() - 0.5) * m.w * 0.8;
@@ -2117,6 +2123,12 @@ export function crearEscena(canvas, opciones = {}) {
     sincronizarVisuales(state);
     actualizarCohete(dt);
     const mHalf = medidas().w / 2;
+    const LI = logiInfo(state);
+    const sitiosPila = sitiosDePila();
+    // hay trabajo si hay esporas en el piso o si se están soltando (aunque los básicos las lleven al instante): trabaja la fracción de cargadores que hace falta
+    const hayPila = state.logi.n >= 0.5 || LI.em >= 0.05;
+    const util = clamp(LI.em / Math.max(LI.cap, 1e-9), 0.12, 1);
+    nPila = state.logi.n + 2 * LI.em; // lo del piso más ~2 s de lo que se está soltando
     const dtG = dt;
     for (const tp of TIPOS_VISUALES) { velTipo[tp] = velocidad(state, tp); buffTipos[tp] = buffTipoActivo(state, tp); }
     cicloBolsa = CICLO_BOLSA / velTipo.trader;
@@ -2154,15 +2166,18 @@ export function crearEscena(canvas, opciones = {}) {
       v.animT += dt;
       v.hop = 0;
       v.estira = 0;
+      // Honguito básico = cargador: va a una pila de esporas sueltas, junta un manojo (que crece sobre su cabeza)
+      // y lo lleva al hongo madre. El modelo de la economía es agregado (ver engine.js); esto lo representa.
       if (v.modo === "idle") {
         v.estira = Math.sin(v.animT * 3 + v.i) * 0.5;
         v.espera -= dt;
         if (v.espera <= 0) {
-          if (v.entrega <= 0) {
-            v.llevando = true;
-            v.meta = madre.x + (v.i % 2 ? -1 : 1) * (mHalf * 0.2 + (v.i % 5) * 3);
+          if (hayPila && Math.random() < 0.9 * util) {
+            const site = sitiosPila[Math.floor(Math.random() * sitiosPila.length)];
+            v.meta = site + (Math.random() - 0.5) * 8;
             v.dir = Math.sign(v.meta - v.x) || 1;
-            v.modo = "walk";
+            v.carga = 0;
+            v.modo = "ir";
           } else if (Math.random() < 0.2) {
             v.modo = "salto"; v.animT = 0;
           } else {
@@ -2172,24 +2187,37 @@ export function crearEscena(canvas, opciones = {}) {
             v.modo = "walk";
           }
         }
-      } else if (v.modo === "walk") {
-        v.hop = Math.abs(Math.sin(v.animT * 11)) * 1.5;
+      } else if (v.modo === "walk" || v.modo === "ir" || v.modo === "vuelve") {
+        const rapido = v.modo === "walk" ? 1 : LI.vel / VEL * 1.6; // los cargadores caminan al ritmo del modelo (con mejoras de zancada)
+        v.hop = Math.abs(Math.sin(v.animT * 11)) * (v.carga > 0 ? 1 : 1.5);
         const d = v.meta - v.x;
-        const paso = VEL * dt;
+        const paso = VEL * dt * rapido;
         if (Math.abs(d) <= paso) {
           v.x = v.meta;
-          if (v.llevando) { v.modo = "dar"; v.tDar = 0; }
+          if (v.modo === "ir") { v.modo = "juntar"; v.tJuntar = 0; }
+          else if (v.modo === "vuelve") { v.modo = "dar"; v.tDar = 0; }
           else { v.modo = "idle"; v.espera = Math.random() < 0.3 ? 0.4 : 1 + Math.random() * 3; }
         } else v.x += Math.sign(d) * paso;
+      } else if (v.modo === "juntar") {
+        v.tJuntar += dt;
+        const dur = Math.max(0.3, LI.recoger * 0.7);
+        const u = clamp(v.tJuntar / dur, 0, 1);
+        v.estira = -Math.abs(Math.sin(v.tJuntar * 14)) * 1.5; // se agacha a juntar
+        v.carga = Math.max(1, Math.round(manojoVisual(LI.carga) * u));
+        if (u >= 1) {
+          v.meta = madre.x + (v.i % 2 ? -1 : 1) * (mHalf * 0.2 + (v.i % 5) * 3);
+          v.dir = Math.sign(v.meta - v.x) || 1;
+          v.modo = "vuelve";
+        }
       } else if (v.modo === "dar") {
         v.tDar += dt;
         v.hop = Math.abs(Math.sin(v.tDar * 8)) * 2;
-        if (v.tDar > 0.7) {
-          v.llevando = false;
-          v.entrega = 7 + Math.random() * 6;
-          emitirEspora(v);
+        if (v.tDar > 0.6) {
+          const k = Math.min(v.carga, 5); // del manojo salen volando varias esporas al sombrero
+          for (let j = 0; j < k; j++) cola.push({ t: j * 0.07, fn: () => volarAMadre(v.x, groundY - 14 - HH, PALETA[(v.i + j) % PALETA.length]) });
+          v.carga = 0;
           v.modo = "idle";
-          v.espera = 0.5;
+          v.espera = hayPila ? 0.15 + Math.random() * 0.6 : 0.5;
         }
       } else if (v.modo === "salto") {
         const u = clamp(v.animT / 0.5, 0, 1);
@@ -2253,7 +2281,7 @@ export function crearEscena(canvas, opciones = {}) {
       p.t += dt;
       if (p.t >= p.dur) {
         if (p.tipo === "viaje" && p.local) {
-          motas(p.x1, p.y1, 3, 0.5, p.col);
+          motas(p.x1, p.y1, 1, 0.3, p.col);
         } else if (p.tipo === "viaje") {
           madre.pulso = Math.min(1, madre.pulso + 0.5);
           madre.brillo = 1;
@@ -3061,6 +3089,54 @@ export function crearEscena(canvas, opciones = {}) {
     g.restore();
   }
 
+  // ---- Logística: pilas de esporas sueltas y manojos que cargan los básicos ----
+  let nPila = 0; // esporas sueltas en el piso (las informa el motor)
+  const manojoVisual = (carga) => clamp(Math.round(1.8 * Math.log2(Math.max(1, carga)) + 0.5), 1, 14); // cuántas esporas se ven en el manojo
+  // lugares donde se amontonan las esporas: al lado del hongo madre (las de los toques) y junto a cada edificio
+  function sitiosDePila() {
+    const out = [madre.x + medidas().w * 0.5 * 0.35 + 14];
+    for (const id in edif) out.push(edif[id].x + tam(id).w / 2 + 6);
+    return out;
+  }
+  const colorDeDot = (i) => PALETA[(i * 5 + 2) % (PALETA.length - 1)]; // sin el blanco
+  const NIVELES_PILA = [0, 2, 4, 7, 11, 16, 23, 32, 44];
+  const UMBRAL_PILA = [0.5, 2, 5, 12, 30, 80, 250, 800];
+  const spritesPila = NIVELES_PILA.map((n) => {
+    if (!n) return null;
+    const base = Math.ceil(Math.sqrt(2 * n)), cv = document.createElement("canvas");
+    cv.width = base * 2 + 2; cv.height = Math.ceil(n / base) * 2 + 3;
+    const x = cv.getContext("2d");
+    let k = 0;
+    for (let r = 0; k < n; r++) {
+      const w = Math.max(1, base - r);
+      for (let c = 0; c < w && k < n; c++, k++) { x.fillStyle = colorDeDot(k); x.fillRect(1 + (base - w) + c * 2, cv.height - 2 - (r + 1) * 2 + 1, 2, 2); }
+    }
+    return cv;
+  });
+  const spritesManojo = Array.from({ length: 15 }, (_, k) => {
+    if (!k) return null;
+    const caps = [4, 4, 3, 2, 1], cv = document.createElement("canvas");
+    let filas = 0, resto = k;
+    for (const c of caps) { if (resto <= 0) break; resto -= c; filas++; }
+    cv.width = 10; cv.height = filas * 2 + 1;
+    const x = cv.getContext("2d");
+    let i = 0;
+    for (let r = 0; r < filas && i < k; r++) {
+      const w = Math.min(caps[r], k - i);
+      for (let c = 0; c < w; c++, i++) { x.fillStyle = colorDeDot(i + 1); x.fillRect(5 - w + c * 2, cv.height - (r + 1) * 2, 2, 2); x.fillStyle = "#ffffff55"; x.fillRect(5 - w + c * 2, cv.height - (r + 1) * 2, 1, 1); }
+    }
+    return cv;
+  });
+  function dibujarPilas() {
+    if (nPila < UMBRAL_PILA[0]) return;
+    const sitios = sitiosDePila(), parte = nPila / sitios.length;
+    let nivel = 0;
+    while (nivel < UMBRAL_PILA.length && parte >= UMBRAL_PILA[nivel]) nivel++;
+    const sp = spritesPila[nivel];
+    if (!sp) return;
+    for (const x of sitios) g.drawImage(sp, Math.round(x - sp.width / 2), groundY - sp.height + 1);
+  }
+
   const cacheCuerpo = new Map(); // sprite -> (variante -> lienzo)
   function cuerpoHonguito(spr, lun, alto, espejo) {
     let porSprite = cacheCuerpo.get(spr);
@@ -3113,6 +3189,7 @@ export function crearEscena(canvas, opciones = {}) {
     // el cuerpo (sprite + lunares, espejado si mira a la izquierda) se arma una vez por variante y se copia con una sola llamada
     g.drawImage(cuerpoHonguito(v.acidoT > 0 ? verde(spr) : spr, v.lunares, alto, v.dir < 0), v.dir < 0 ? x - HW + 4 : x - 4, base - alto);
     g.globalAlpha = 1;
+    if (v.carga > 0) { const mj = spritesManojo[Math.min(14, v.carga)]; if (mj) g.drawImage(mj, x - 5, base - alto - mj.height + 1); } // el manojo de esporas sobre la cabeza
     if (v.tipo === "soldado") {
       // lanza al hombro y escudo redondo; al atacar embiste con la lanza
       const lx = x + v.dir * 5 + (v.modo === "ataca" ? v.dir * Math.round(Math.abs(Math.sin(v.animT * 14)) * 3) : 0);
@@ -3323,6 +3400,7 @@ export function crearEscena(canvas, opciones = {}) {
       else if (b.t < 0.5) { g.fillStyle = BLANCO; g.fillRect(b.x, groundY - 2, 1, 2); }
       else g.drawImage(spritesBrote[b.col], b.x - 2, groundY - 4);
     }
+    dibujarPilas();
     if (!OFF.has("hong")) for (const v of visuales) dibujarHonguito(v);
     dibujarMercs();
     dibujarArcano();
@@ -3420,6 +3498,7 @@ export function crearEscena(canvas, opciones = {}) {
   function pulsoMadre() {
     madre.pulso = 1;
     madre.brillo = 1;
+    lanzarEspora(madre.x + (Math.random() - 0.5) * 10, groundY - alturaMadre() * 0.8, PALETA[Math.floor(Math.random() * PALETA.length)], 0.6); // la espora del toque rueda hasta la pila del madre
     motas(madre.x, groundY - alturaMadre(), 12);
     aroPart(madre.x, groundY - alturaMadre() * 0.6, 34, 0.5);
   }

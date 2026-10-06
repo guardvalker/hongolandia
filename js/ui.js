@@ -1,13 +1,14 @@
+import { D } from './decimal.js';
 import { iconoObjeto } from './dungeonVista.js';
 import { getEvento, DEF_MEJ, nivelDef, costoDef, comprarDef, ofertasMercader, precioArtefacto, comprarArtefacto, probInterceptar, MAGOS_MIN } from './eventos.js';
 import { TIPOS_TORRE, EVOLUCIONES, ENEMIGOS, TORRES_MAX, SOLD_MAX, costoTorre, costoEvolucion, evolucionarTorre, sumarSoldados, statsTorre, dpsTorre, infoDefensa, quedan } from './invasion.js';
 import { ARTEFACTOS, ARTE_POR_ID, TIERS, iconoArtefacto, cantArte } from './artefactos.js';
 import { OBJETOS, escalaJefes, CLASES, TABERNA_MEJ, costoMerc, contratar, comprarTab, nivelTab, costoTab, sanos, iniciar as iniciarExploracion, getRun, PARTY_MAX, mercStats, CRISTAL_MULT } from './dungeon.js';
-import { EVENTOS, HONGUITOS, MEJORAS, EDIFICIOS, TECNOLOGIAS, MEJ_EDIF, MEJ_CLICK, TEC_POR_ID, HITOS, NIVELES_TEC } from './data.js';
+import { EVENTOS, HONGUITOS, MEJORAS, EDIFICIOS, TECNOLOGIAS, MEJ_EDIF, MEJ_CLICK, MEJ_LOGI, TEC_POR_ID, HITOS, NIVELES_TEC } from './data.js';
 import { PU, TIERS_PU, nombreTier, umbralDeTier, costoPU, puRango, tierAbierto, comprarPU } from './puData.js';
 import { ppAlPrestigiar } from './reinicio.js';
 import { fmt, fmtRate } from './format.js';
-import { factorAcido, factorMeteoro, produccionPorSeg, produccionPorTipo, prestigio, costoHonguito, costoHonguitos, maxHonguitos, comprarHonguitos, comprarMejora, tecDisponible, pctTec, invPorSeg, proximoHito, costoEdificio, elegirInvestigacion, comprarMejoraEdificio, activarHabilidad, buffActivo, nivelMej, costoMej, valorToque, autoPorSeg, autoFraccion, comprarMejoraClick, durBuff, cdHabilidad, alternarSobrecarga, trabajoEf } from './engine.js';
+import { factorAcido, factorMeteoro, produccionPorSeg, produccionPorTipo, prestigio, costoHonguito, costoHonguitos, maxHonguitos, comprarHonguitos, comprarMejora, tecDisponible, pctTec, invPorSeg, proximoHito, costoEdificio, elegirInvestigacion, comprarMejoraEdificio, activarHabilidad, buffActivo, nivelMej, costoMej, valorToque, autoPorSeg, autoFraccion, comprarMejoraClick, logiInfo, costoLogi, comprarMejoraLogi, durBuff, cdHabilidad, alternarSobrecarga, trabajoEf } from './engine.js';
 import { exportar, importar, borrarGuardado } from './state.js';
 import { CHANGELOG } from './changelog.js';
 
@@ -450,6 +451,31 @@ export function crearUI(api) {
     }, null, "#ffd23f");
   }
 
+  // ---- Logística de esporas: los básicos juntan las esporas sueltas y las llevan al hongo madre ----
+  function seccionLogistica(ancla) {
+    const s = api.estado();
+    seccion("Logística de esporas");
+    const info = nota("");
+    filas.push({ refresh: (st) => {
+      const L = logiInfo(st);
+      info.textContent = `Los honguitos básicos (${L.n}) juntan las esporas que sueltan los demás y tus toques, y las llevan en manojos de ${fmtN(L.carga)} (viaje de ${L.viaje.toFixed(1).replace(".", ",")} s): podés llevar ${fmtN(L.cap)} esporas/s y se sueltan ${fmtN(L.em)}/s. ` + (L.razon < 1 ? `Hoy llegan el ${Math.round(L.razon * 100)}% de lo que se produce: ¡faltan manos!` : "Alcanza para todo lo que se produce.");
+    } });
+    for (const m of MEJ_LOGI) {
+      const n = nivelMej(s, m.id);
+      if (n >= m.max) { nota("✓ " + m.nombre + ` (nivel ${m.max}) — ` + m.desc(m.max)).classList.add("hecha"); continue; }
+      const f = fila(`${m.nombre} · nivel ${n}/${m.max}`, m.desc(n + 1), () => { if (comprarMejoraLogi(api.estado(), m.id)) { api.guardar(); abrirMadre(ancla); } });
+      if (m.max <= 12) {
+        const pips = document.createElement("div");
+        pips.className = "pips";
+        for (let k = 0; k < m.max; k++) { const q = document.createElement("i"); if (k < n) q.className = k === n - 1 && f.el.classList.contains("flash") ? "on nuevo" : "on"; pips.append(q); }
+        f.el.querySelector(".fila-info").append(pips);
+      }
+      f.refresh = (st) => { const c = costoLogi(st, m); f.btn.textContent = fmt(c); f.btn.disabled = st.esporas.lt(c); };
+      filas.push(f);
+    }
+  }
+  const fmtN = (x) => (x >= 1000 ? fmt(D(x)) : x >= 100 ? String(Math.round(x)) : x.toFixed(1).replace(".", ","));
+
   // ---- Toques del hongo madre y autoclick ----
   function seccionToques(ancla) {
     const s = api.estado();
@@ -481,6 +507,7 @@ export function crearUI(api) {
     abrir("madre", "Hongo madre", () => {
       filasHonguitos(undefined);
       seccionToques(ancla);
+      seccionLogistica(ancla);
       const edificios = Object.values(EDIFICIOS).filter((e) => !api.estado().edificios[e.id] && api.estado().total.gte(e.desbloqueo) && (!e.requiereFlag || api.estado().flags[e.requiereFlag]) && !e.desdeCasa);
       if (edificios.length) {
         seccion("Edificios");
@@ -628,7 +655,7 @@ export function crearUI(api) {
         f.refresh = (st) => { const c = precioArtefacto(st, id); f.btn.textContent = fmt(c); f.btn.disabled = st.esporas.lt(c); };
         filas.push(f);
       }
-      seccion(`Tus artefactos (${cantArte(st0)}/50)`);
+      seccion(`Tus artefactos (${cantArte(st0)}/${ARTEFACTOS.length})`);
       const tiene = Object.keys(st0.arte.tienen);
       if (!tiene.length) nota("Todavía no compraste ninguno.");
       else {
@@ -1057,6 +1084,10 @@ export function crearUI(api) {
     ordenar(inv, true);
     $("dps-inv-titulo").hidden = inv.length === 0;
     elDpsTotal.textContent = fmtRate(produccionPorSeg(s));
+    const LG = logiInfo(s);
+    $("dps-logi-v").textContent = Math.round(LG.razon * 100) + "%";
+    $("dps-logi").classList.toggle("cuello", LG.razon < 0.995);
+    $("dps-piso-v").textContent = fmtN(s.logi.n);
 
     const puedeComprar = s.esporas.gte(costoHonguito(s, "basico"));
     elHint.classList.toggle("visible", !s.flags.toco && !abierta);

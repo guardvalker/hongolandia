@@ -243,6 +243,19 @@ export const MEJ_CLICK = [
 ];
 export const MEJ_CLICK_POR_ID = Object.fromEntries(MEJ_CLICK.map((m) => [m.id, m]));
 
+// ---- Logística de esporas ----
+// Las esporas ya no llegan solas al hongo madre: las producen los honguitos (y tus toques) y quedan sueltas;
+// los honguitos básicos las juntan en manojos y las llevan. El modelo es agregado (cuentan las esporas,
+// no los sprites): cada honguito suelta `emision` esporas por segundo y cada básico lleva `carga` por viaje.
+export const LOGI = { vel: 14, distBase: 14, recoger: 1, carga0: 3, emision: 0.35, factorCarga: 1.35 };
+export const MEJ_LOGI = [
+  { id: "logi_manojo", ef: "carga", nombre: "Manojos más grandes", max: 30, base: 40, esc: 1.7, desc: (n) => `Cada honguito básico lleva ×${(LOGI.factorCarga ** n).toFixed(2).replace(".", ",")} esporas por viaje (un manojo más alto sobre la cabeza).` },
+  { id: "logi_zancada", ef: "vel", nombre: "Zancadas largas", max: 20, base: 60, esc: 1.55, desc: (n) => `Los básicos caminan un ${10 * n}% más rápido.` },
+  { id: "logi_senderos", ef: "dist", nombre: "Senderos de micelio", max: 10, base: 150, esc: 2, desc: (n) => `Los caminos entre las esporas y el hongo madre son un ${5 * n}% más cortos.` },
+  { id: "logi_recoger", ef: "recoger", nombre: "Recolección ágil", max: 10, base: 100, esc: 1.9, desc: (n) => `Juntar el manojo lleva un ${7 * n}% menos de tiempo.` },
+];
+export const MEJ_LOGI_POR_ID = Object.fromEntries(MEJ_LOGI.map((m) => [m.id, m]));
+
 // ---- Hitos de cantidad (como en Adventure Capitalist): al tener 25, 50, 100... honguitos de un
 // tipo, ese tipo produce ×2 más. Son automáticos.
 export const HITOS = [25, 50, 100, 200, 400, 800];

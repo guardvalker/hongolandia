@@ -2,7 +2,7 @@ import { D } from './decimal.js';
 import { agregarHongoFondo } from './state.js';
 import { arteM, arteA, ARTEFACTOS, ARTE_POR_ID } from './artefactos.js';
 import { puA, buffCrisis, avisosPU } from './puData.js';
-import { HONGUITOS, MEJORAS, EDIFICIOS, PRESTIGIO, BOLSA, LUNA, ACIDO, TECNOLOGIAS, TEC_POR_ID, MEJ_EDIF, MEJ_EDIF_POR_ID, MEJ_CLICK, MEJ_CLICK_POR_ID, HITOS, MODO_PRUEBA, EVENTOS, EVENTO_CFG } from './data.js';
+import { HONGUITOS, MEJORAS, EDIFICIOS, PRESTIGIO, BOLSA, LUNA, ACIDO, TECNOLOGIAS, TEC_POR_ID, MEJ_EDIF, MEJ_EDIF_POR_ID, MEJ_CLICK, MEJ_CLICK_POR_ID, MEJ_LOGI, MEJ_LOGI_POR_ID, LOGI, HITOS, MODO_PRUEBA, EVENTOS, EVENTO_CFG } from './data.js';
 
 // Lógica pura del juego: nada de DOM ni canvas acá.
 
@@ -135,6 +135,76 @@ export function invPorSeg(state) {
   return n > 0 ? n * HONGUITOS.cientifico.invProd.toNumber() * multiplicador(state, "cientifico").toNumber() * bonoSinergia(state, "investigacion") * arteM(state, "inv_vel") : 0;
 }
 
+// ---- Logística de esporas ----
+// Esporas sueltas que se generan por segundo (cantidad, no valor): cada honguito productor suelta `emision`.
+export function emisionPorSeg(state) {
+  let n = 0;
+  for (const id in HONGUITOS) if (HONGUITOS[id].prod.gt(0)) n += state.honguitos[id] || 0;
+  return n * LOGI.emision;
+}
+// distancia media (celdas) que recorre un básico hasta las esporas: crece con lo lejos que están los edificios
+function distMedia(state) {
+  const ds = Object.values(state.edificios).map((e) => Math.abs(e.dx ?? 0));
+  const media = ds.length ? ds.reduce((a, b) => a + b, 0) / ds.length : 0;
+  return (LOGI.distBase + 0.5 * media) * (1 - Math.min(0.6, 0.05 * nivelMej(state, "logi_senderos") + arteA(state, "logi_dist")));
+}
+export function logiInfo(state) {
+  const carga = LOGI.carga0 * LOGI.factorCarga ** nivelMej(state, "logi_manojo") * arteM(state, "logi_carga");
+  const vel = LOGI.vel * (1 + 0.1 * nivelMej(state, "logi_zancada") + arteA(state, "logi_vel"));
+  const recoger = LOGI.recoger * Math.max(0.2, 1 - 0.07 * nivelMej(state, "logi_recoger"));
+  const viaje = (2 * distMedia(state)) / vel + recoger; // segundos de ida, vuelta y juntar el manojo
+  const n = state.honguitos.basico || 0;
+  const cap = (n * carga) / viaje; // esporas por segundo que se pueden llevar al hongo madre
+  const em = emisionPorSeg(state) + (state.logi.tasaClick || 0);
+  return { carga, viaje, vel, recoger, n, cap, em, razon: em > 0 ? Math.min(1, cap / em) : 1 };
+}
+// Partidas anteriores a la logística: se les regalan los niveles de logística justos para que todo siga llegando al hongo madre
+export function migrarLogistica(state) {
+  if (state.flags.logiInicial) return;
+  state.flags.logiInicial = true;
+  const orden = ["logi_manojo", "logi_zancada", "logi_senderos", "logi_recoger"];
+  for (let i = 0; i < 400 && logiInfo(state).razon < 1; i++) {
+    const m = MEJ_LOGI_POR_ID[orden[i % orden.length]];
+    if (nivelMej(state, m.id) < m.max) state.mejoras[m.id] = nivelMej(state, m.id) + 1;
+  }
+}
+export const costoLogi = (state, m) => {
+  const n = nivelMej(state, m.id);
+  const fijo = D(m.base).mul(D(m.esc).pow(n));
+  const rel = produccionPorSeg(state).mul(22 * (1 + 0.3 * n)); // valen unos segundos de producción: siempre alcanzables y rentables cuando el transporte es el cuello de botella
+  return (fijo.gt(rel) ? fijo : rel).ceil();
+};
+export function comprarMejoraLogi(state, id) {
+  const m = MEJ_LOGI_POR_ID[id];
+  const n = m ? nivelMej(state, id) : 0;
+  if (!m || n >= m.max) return false;
+  const c = costoLogi(state, m);
+  if (state.esporas.lt(c)) return false;
+  state.esporas = state.esporas.sub(c);
+  state.mejoras[id] = n + 1;
+  return true;
+}
+// Entrega al hongo madre lo que los básicos alcanzan a llevar en `dt` s; el resto queda en el piso.
+// `valor` y `cuenta` son lo recién producido (valor en esporas, cuenta en esporas sueltas).
+export function logistica(state, dt, valor, cuenta, toques = 0) {
+  const L = state.logi;
+  // ritmo de toques (manuales y automáticos): promedio móvil, para que el panel de transporte también cuente las esporas de los clicks
+  L.tasaClick = (L.tasaClick || 0) * (1 - Math.min(1, dt / 5)) + ((toques + (L.clk || 0)) / Math.max(dt, 1e-3)) * Math.min(1, dt / 5);
+  L.clk = 0;
+  L.valor = L.valor.add(valor);
+  L.n += cuenta;
+  if (L.n <= 0) { L.valor = D(0); L.n = 0; return D(0); }
+  const mov = Math.min(L.n, logiInfo(state).cap * dt);
+  if (mov <= 0) return D(0);
+  const parte = mov >= L.n ? L.valor : L.valor.mul(mov / L.n);
+  L.valor = L.valor.sub(parte);
+  L.n -= mov;
+  if (L.n < 1e-9) { L.n = 0; L.valor = D(0); }
+  state.esporas = state.esporas.add(parte);
+  state.total = state.total.add(parte);
+  return parte;
+}
+
 // ---- Toques en el hongo madre y autoclick ----
 const nivelClick = (state, ef) => { const m = MEJ_CLICK.find((x) => x.ef === ef); return m ? nivelMej(state, m.id) : 0; };
 // toques automáticos pendientes de mostrar (los consume la escena; no se guarda)
@@ -147,8 +217,9 @@ export const autoPorSeg = (state) => (nivelClick(state, "auto") ? 1 + 0.5 * nive
 export const autoFraccion = (state) => 0.5 + 0.1 * nivelClick(state, "autoFuerza") + arteA(state, "auto_frac");
 export function tocarMadre(state) {
   const v = valorToque(state);
-  state.esporas = state.esporas.add(v);
-  state.total = state.total.add(v);
+  state.logi.valor = state.logi.valor.add(v); // el toque suelta una espora en el piso: un básico la lleva
+  state.logi.n += 1;
+  state.logi.clk = (state.logi.clk || 0) + 1;
   state.flags.toco = true;
   return v;
 }
@@ -302,6 +373,7 @@ export function tick(state, dt) {
   }
   avanzarInvestigacion(state, puntosInv);
   // autoclick: toques automáticos acumulados con el tiempo
+  let cuentaExtra = 0;
   const tasaAuto = autoPorSeg(state);
   if (tasaAuto > 0) {
     state.autoAcc = (state.autoAcc || 0) + dt * tasaAuto;
@@ -310,12 +382,12 @@ export function tick(state, dt) {
       state.autoAcc -= n;
       const v = valorToque(state).mul(autoFraccion(state));
       ganancia = ganancia.add(v.mul(n));
+      cuentaExtra += n;
       autoToques.n = Math.min(autoToques.n + n, 50);
       autoToques.valor = v;
     }
   }
-  state.esporas = state.esporas.add(ganancia);
-  state.total = state.total.add(ganancia);
+  logistica(state, dt, ganancia, emisionPorSeg(state) * dt + cuentaExtra, cuentaExtra); // la producción queda en el piso hasta que los básicos la llevan
 }
 
 // Suma puntos a la investigación en curso; al terminar una, sigue con el nivel siguiente del mismo tema.
