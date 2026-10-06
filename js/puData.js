@@ -30,7 +30,7 @@ export const PU = [
   { id: "reservas", tier: 1, max: 1, nombre: "Reservas brillantes", k: "inicio_esp_tier", v: 1000, desc: () => "Empezás con +1.000 esporas por cada tier de prestigio destrabado." },
   { id: "heirloom", tier: 1, max: 1, nombre: "Reliquia de la abuela", k: "inicio_arte", v: 1, desc: () => "Empezás cada corrida con 1 artefacto común al azar." },
   { id: "recluta", tier: 1, max: 3, nombre: "Reclutas de la pradera", k: "recluta_nivel", v: 1, desc: (n) => `Cada 3 niveles de prestigio de la corrida, ${n === 1 ? "te llega" : "te llegan"} ${n} ${n === 1 ? "honguito básico gratis" : "honguitos básicos gratis"}.` },
-  { id: "micelio_prof", tier: 1, max: 5, nombre: "Micelio profundo", k: "prod_all", v: 1.1, m: true, desc: (n) => `Toda la producción ${mult(1.1 ** n)}.` },
+  { id: "micelio_prof", tier: 1, max: 5, nombre: "Micelio profundo", k: "prod_all", v: 1.06, m: true, desc: (n) => `Toda la producción ${mult(1.06 ** n)}.` },
   { id: "dedos_ant", tier: 1, max: 4, nombre: "Dedos ancestrales", k: "toque_mult", v: 1.25, m: true, desc: (n) => `Los toques al hongo madre valen ${mult(1.25 ** n)}.` },
   { id: "cosecha", tier: 1, max: 3, nombre: "Cosecha dorada", k: "evt_freq", v: 0.2, desc: (n) => `Los eventos del cielo aparecen un ${pct(0.2 * n)}% más seguido.` },
   { id: "pepitas", tier: 1, max: 3, nombre: "Pepitas de oro", k: "dorada_val", v: 1.2, m: true, desc: (n) => `Las esporas doradas valen ${mult(1.2 ** n)}.` },
@@ -38,8 +38,8 @@ export const PU = [
   // ── Tier 2 (12 PP gastados) ──
   { id: "auto_inicio", tier: 2, max: 1, nombre: "Autoclick heredado", k: "auto_inicio", v: 1, desc: () => "Cada corrida empieza con el autoclick ya desbloqueado." },
   { id: "aprendices", tier: 2, max: 3, nombre: "Aprendices gremiales", k: "hong_gratis", v: 1, desc: (n) => `Los primeros ${n} honguitos de cada tipo que comprés cuestan 0 esporas.` },
-  { id: "hitos_pre", tier: 2, max: 3, nombre: "Hitos tempranos", k: "hito_bajo", v: 0.1, desc: (n) => `Los hitos de cantidad se alcanzan con un ${pct(0.1 * n)}% menos de honguitos.` },
-  { id: "regateo", tier: 2, max: 4, nombre: "Regateo", k: "costo_edif", v: 0.05, desc: (n) => `Los edificios cuestan un ${pct(0.05 * n)}% menos.` },
+  { id: "hitos_pre", tier: 2, max: 3, nombre: "Hitos tempranos", k: "hito_bajo", v: 0.05, desc: (n) => `Los hitos de cantidad se alcanzan con un ${pct(0.05 * n)}% menos de honguitos.` },
+  { id: "regateo", tier: 2, max: 4, nombre: "Regateo", k: "costo_edif", v: 0.03, desc: (n) => `Los edificios cuestan un ${pct(0.03 * n)}% menos.` },
   { id: "cuentas", tier: 2, max: 3, nombre: "Cuentas claras", k: "costo_hong", v: 0.04, desc: (n) => `Los honguitos suben un ${pct(0.04 * n)}% menos su precio por unidad.` },
   { id: "savia_anc", tier: 2, max: 3, nombre: "Savia ancestral", k: "toque_savia", v: 0.005, desc: (n) => `Cada toque da además un ${pct(0.005 * n)}% extra de tus esporas/s.` },
   { id: "periodico", tier: 2, max: 4, nombre: "Periódico de herencias", k: "pp_chance", v: 0.05, desc: (n) => `Cada nivel de prestigio que alcanzás tiene ${pct(0.05 * n)}% de chance de dar +1 PP al prestigiar.` },
@@ -52,7 +52,7 @@ export const PU = [
 
   // ── Tier 3 (45 PP gastados) ──
   { id: "reliquia", tier: 3, max: 1, nombre: "Reliquia heredada", k: "reliquia", v: 1, desc: () => "Al prestigiar conservás 1 artefacto al azar (los demás se pierden)." },
-  { id: "memoria", tier: 3, max: 1, nombre: "Memoria del micelio", k: "pp_prod", v: 0.01, desc: () => "Toda la producción +1% por cada PP ganado en toda la partida." },
+  { id: "memoria", tier: 3, max: 1, nombre: "Memoria del micelio", k: "pp_prod", v: 0.003, desc: () => "Toda la producción +0,3% por cada PP ganado en toda la partida." },
   { id: "sueno", tier: 3, max: 4, nombre: "Sueño largo", k: "offline", v: 1800, desc: (n) => `Se cuentan ${30 * n} min más de producción cuando no estás.` },
   { id: "tesoros", tier: 3, max: 3, nombre: "Tesoros enterrados", k: "tesoro_nivel", v: 0.01, desc: (n) => `Cada nivel de prestigio tiene ${pct(0.01 * n)}% de chance de regalarte un artefacto al azar.` },
   { id: "fortuna_merc", tier: 3, max: 4, nombre: "Fortuna del mercader", k: "merc_tier", v: 0.25, desc: (n) => `Los artefactos épicos y legendarios pesan ${pct(0.25 * n)}% más en las ofertas del Mercader.` },
@@ -69,7 +69,7 @@ export const PU = [
   { id: "dedos_eternos", tier: 3, max: 3, nombre: "Dedos infatigables", k: "auto_vel_pu", v: 0.5, desc: (n) => `El autoclick toca ${num(0.5 * n)} veces por segundo más.` },
 
   // ── Tier 4 (120 PP gastados) ──
-  { id: "esporas_anc", tier: 4, max: 3, nombre: "Esporas ancestrales", k: "prod_all", v: 2, m: true, desc: (n) => `Toda la producción ×${2 ** n}.` },
+  { id: "esporas_anc", tier: 4, max: 3, nombre: "Esporas ancestrales", k: "prod_all", v: 1.3, m: true, desc: (n) => `Toda la producción ${mult(1.3 ** n)}.` },
   { id: "mercader_amigo", tier: 4, max: 2, nombre: "Mercader amigo", k: "arc_freq", v: 0.25, desc: (n) => `Los eventos de los magos (y el Mercader) aparecen un ${pct(0.25 * n)}% más seguido.` },
   { id: "sellos", tier: 4, max: 3, nombre: "Sellos viejos", k: "costo_mej", v: 0.1, desc: (n) => `Las mejoras de edificio cuestan un ${pct(0.1 * n)}% menos.` },
   { id: "buscatesoros", tier: 4, max: 2, nombre: "Buscatesoros", k: "merc_ofertas", v: 1, desc: (n) => `El Mercader ofrece ${n} ${n === 1 ? "artefacto" : "artefactos"} más para elegir.` },
@@ -86,27 +86,28 @@ export const PU = [
   // ── Tier 5 (180 PP gastados): conservar artefactos y saltos grandes ──
   { id: "boveda", tier: 5, max: 3, nombre: "Bóveda de reyes", k: "reliquia", v: 1, desc: (n) => `Al prestigiar conservás ${n} ${n === 1 ? "artefacto más" : "artefactos más"} al azar.` },
   { id: "reliquia_divina", tier: 5, max: 1, nombre: "Reliquia divina", k: "reliquia_mejor", v: 1, desc: () => "La reliquia que conservás es siempre la de mayor tier, no una al azar." },
-  { id: "corazon", tier: 5, max: 2, nombre: "Corazón del micelio", k: "prod_all", v: 3, m: true, desc: (n) => `Toda la producción ×${3 ** n}.` },
+  { id: "corazon", tier: 5, max: 2, nombre: "Corazón del micelio", k: "prod_all", v: 1.6, m: true, desc: (n) => `Toda la producción ${mult(1.6 ** n)}.` },
   { id: "tiempo_detenido", tier: 5, max: 3, nombre: "Tiempo detenido", k: "offline", v: 3600, desc: (n) => `Se cuentan ${n} h más de producción cuando no estás.` },
   { id: "toque_divino", tier: 5, max: 3, nombre: "Toque divino", k: "toque_mult", v: 2, m: true, desc: (n) => `Los toques al hongo madre valen ${mult(2 ** n)} más.` },
 
   // ── Tier 6 (250 PP gastados) ──
-  { id: "rey_micelio", tier: 6, max: 2, nombre: "Rey del micelio", k: "prod_all", v: 5, m: true, desc: (n) => `Toda la producción ×${5 ** n}.` },
+  { id: "rey_micelio", tier: 6, max: 2, nombre: "Rey del micelio", k: "prod_all", v: 2, m: true, desc: (n) => `Toda la producción ×${2 ** n}.` },
   { id: "banquete", tier: 6, max: 3, nombre: "Banquete eterno", k: "evt_freq", v: 0.5, desc: (n) => `Los eventos del cielo aparecen un ${pct(0.5 * n)}% más seguido.` },
   { id: "pacto_mercader", tier: 6, max: 3, nombre: "Pacto con el mercader", k: "merc_ofertas", v: 1, desc: (n) => `El Mercader ofrece ${n} ${n === 1 ? "artefacto" : "artefactos"} más para elegir.` },
   { id: "ascension", tier: 6, max: 3, nombre: "Ascensión", k: "costo_hong", v: 0.06, desc: (n) => `Los honguitos suben un ${pct(0.06 * n)}% menos su precio por unidad.` },
 
   // ── Eternas (se destraban con el primer PP gastado, rangos sin tope, 2 PP por rango) ──
-  { id: "et_conquista", tier: 0, max: Infinity, costo: 2, nombre: "Conquista eterna", k: "prod_all", v: 0.01, lin: true, desc: (n) => `Toda la producción +${pct(0.01 * n)}%.` },
-  { id: "et_toque", tier: 0, max: Infinity, costo: 2, nombre: "Dedos eternos", k: "toque_mult", v: 0.05, lin: true, desc: (n) => `Los toques al hongo madre valen +${pct(0.05 * n)}%.` },
-  { id: "et_invocacion", tier: 0, max: Infinity, costo: 2, nombre: "Invocaciones eternas", k: "evt_freq", v: 0.03, desc: (n) => `Los eventos del cielo aparecen un ${pct(0.03 * n)}% más seguido.` },
-  { id: "et_dorada", tier: 0, max: Infinity, costo: 2, nombre: "Pepita eterna", k: "dorada_val", v: 0.05, lin: true, desc: (n) => `Las esporas doradas valen +${pct(0.05 * n)}%.` },
-  ...TIPOS.map(([id, plural]) => ({ id: "et_" + id, tier: 0, max: Infinity, costo: 2, nombre: "Linaje eterno: " + plural, k: "prod_" + id, v: 0.03, lin: true, desc: (n) => `Los ${plural} producen +${pct(0.03 * n)}%.` })),
+  { id: "et_conquista", tier: 0, max: Infinity, nombre: "Conquista eterna", k: "prod_all", v: 1.01, m: true, desc: (n) => `Toda la producción ${mult(1.01 ** n)}.` },
+  { id: "et_toque", tier: 0, max: Infinity, nombre: "Dedos eternos", k: "toque_mult", v: 0.05, lin: true, desc: (n) => `Los toques al hongo madre valen +${pct(0.05 * n)}%.` },
+  { id: "et_invocacion", tier: 0, max: Infinity, nombre: "Invocaciones eternas", k: "evt_freq", v: 0.03, desc: (n) => `Los eventos del cielo aparecen un ${pct(0.03 * n)}% más seguido.` },
+  { id: "et_dorada", tier: 0, max: Infinity, nombre: "Pepita eterna", k: "dorada_val", v: 0.05, lin: true, desc: (n) => `Las esporas doradas valen +${pct(0.05 * n)}%.` },
+  ...TIPOS.map(([id, plural]) => ({ id: "et_" + id, tier: 0, max: Infinity, nombre: "Linaje eterno: " + plural, k: "prod_" + id, v: 1.01, m: true, desc: (n) => `Los ${plural} producen ${mult(1.01 ** n)}.` })),
   // ── Linajes por tipo (como «Ancestor's Picks» de la wiki): +15% por rango para cada tipo de honguito ──
-  ...TIPOS.map(([id, plural, tier]) => ({ id: "li_" + id, tier, max: 4, nombre: "Linaje de " + plural, k: "prod_" + id, v: 0.15, lin: true, desc: (n) => `Los ${plural} producen +${pct(0.15 * n)}%.` })),
+  ...TIPOS.map(([id, plural, tier]) => ({ id: "li_" + id, tier, max: 4, nombre: "Linaje de " + plural, k: "prod_" + id, v: 0.1, lin: true, desc: (n) => `Los ${plural} producen +${pct(0.1 * n)}%.` })),
 ];
 export const PU_POR_ID = Object.fromEntries(PU.map((p) => [p.id, p]));
-export const costoPU = (p) => p.costo ?? p.tier;
+// las eternas encarecen cada 20 rangos para que sean un pozo de PP y no una escalera infinita
+export const costoPU = (p, rango = 0) => (p.max === Infinity ? 2 + Math.floor(rango / 20) : p.costo ?? p.tier);
 
 // Avisos para mostrar como cartelitos (los consume main.js)
 export const avisosPU = [];
@@ -131,9 +132,10 @@ export const tierAbierto = (state, tier) => (state.ppGastados || 0) >= umbralTie
 export const umbralDeTier = umbralTier;
 export function comprarPU(state, id) {
   const p = PU_POR_ID[id];
-  if (!p || puRango(state, id) >= p.max || !tierAbierto(state, p.tier) || (state.pp || 0) < costoPU(p)) return false;
-  state.pp -= costoPU(p);
-  state.ppGastados = (state.ppGastados || 0) + costoPU(p);
+  const c = p ? costoPU(p, puRango(state, id)) : 0;
+  if (!p || puRango(state, id) >= p.max || !tierAbierto(state, p.tier) || (state.pp || 0) < c) return false;
+  state.pp -= c;
+  state.ppGastados = (state.ppGastados || 0) + c;
   state.pu[id] = puRango(state, id) + 1;
   return true;
 }

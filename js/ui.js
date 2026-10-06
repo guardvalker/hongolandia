@@ -436,15 +436,15 @@ export function crearUI(api) {
       for (const tier of TIERS_PU) {
         const abierto = tierAbierto(st, tier);
         const lista = PU.filter((x) => x.tier === tier);
-        const costo = tier === 0 ? 2 : tier;
-        seccion(`${nombreTier(tier)} · ${costo} PP por rango` + (abierto ? "" : ` · se destraba al gastar ${umbralDeTier(tier)} PP (te faltan ${Math.max(0, umbralDeTier(tier) - st.ppGastados)})`));
+        const costo = tier === 0 ? "2+" : tier;
+        seccion(`${nombreTier(tier)} · ${costo} PP por rango${tier === 0 ? " (+1 cada 20 rangos)" : ""}` + (abierto ? "" : ` · se destraba al gastar ${umbralDeTier(tier)} PP (te faltan ${Math.max(0, umbralDeTier(tier) - st.ppGastados)})`));
         if (!abierto) { nota("Contiene: " + lista.map((x) => x.nombre).join(", ") + "."); continue; }
         for (const p of lista) {
           const n = puRango(st, p.id);
           const sinTope = p.max === Infinity;
           if (!sinTope && n >= p.max) { nota(`✓ ${p.nombre} (${p.max}/${p.max}) — ${p.desc(p.max)}`).classList.add("hecha"); continue; }
           const g = fila(`${p.nombre} · ${sinTope ? "rango " + n : n + "/" + p.max}`, p.desc(n + 1), () => { if (comprarPU(api.estado(), p.id)) { api.guardar(); abrirPrestigio(); } }, "#ffd23f");
-          g.refresh = (s) => { g.btn.textContent = costoPU(p) + " PP"; g.btn.disabled = s.pp < costoPU(p); };
+          g.refresh = (s) => { const c = costoPU(p, puRango(s, p.id)); g.btn.textContent = c + " PP"; g.btn.disabled = s.pp < c; };
           filas.push(g);
         }
       }

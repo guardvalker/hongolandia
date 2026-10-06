@@ -1,5 +1,13 @@
 export const CHANGELOG = [
   {
+    v: "0.45.1",
+    fecha: "2026-10-05",
+    cambios: [
+      "Rebalanceo de las mejoras de prestigio tras simular varias corridas seguidas: las mejoras de producción de los tiers altos son más suaves (Micelio profundo ×1,06 por rango, Esporas ancestrales ×1,3, Corazón del micelio ×1,6, Rey del micelio ×2, Linajes +10%), Hitos tempranos 5% por rango, Regateo 3% y Memoria del micelio +0,3% por PP.",
+      "Las mejoras Eternas ahora se multiplican entre sí (×1,01 por rango) y cada 20 rangos suben 1 PP de costo, para que sirvan como pozo de PP en el juego avanzado.",
+    ],
+  },
+  {
     v: "0.45.0",
     fecha: "2026-10-05",
     cambios: [
