@@ -1031,7 +1031,7 @@ export function crearUI(api) {
     nombre.textContent = HONGUITOS[id].nombre;
     const val = document.createElement("b");
     el.append(bar, sw, nombre, val);
-    $(HONGUITOS[id].invProd.gt(0) ? "dps-inv" : "dps-filas").append(el); // los científicos van en su propio ranking
+    $(HONGUITOS[id].invProd.gt(0) ? "dps-inv" : HONGUITOS[id].logistico ? "dps-log" : "dps-filas").append(el); // los científicos y los cargadores van en su propio ranking
     dpsFilas[id] = { el, val, bar };
   }
 
@@ -1057,9 +1057,17 @@ export function crearUI(api) {
     // rankings: esporas/s por tipo (de mayor a menor, con barras) y, aparte, investigación/s
     const esp = [], inv = [];
     for (const id in dpsFilas) {
-      const tiene = (s.honguitos[id] || 0) > 0 && !HONGUITOS[id].logistico; // el básico no produce: no aparece en el ranking de esporas/s
+      const tiene = (s.honguitos[id] || 0) > 0;
       dpsFilas[id].el.hidden = !tiene;
       if (!tiene) continue;
+      if (HONGUITOS[id].logistico) { // el básico no produce: su ranking es cuántas esporas/s alcanza a llevar
+        const LG0 = logiInfo(s);
+        dpsFilas[id].val.textContent = fmtN(LG0.cap) + "/s";
+        dpsFilas[id].bar.style.width = Math.max(2, Math.min(100, LG0.razon * 100)) + "%";
+        dpsFilas[id].el.classList.toggle("debuff", LG0.razon < 0.995);
+        dpsFilas[id].el.style.order = 0;
+        continue;
+      }
       if (HONGUITOS[id].invProd.gt(0)) {
         const v = invPorSeg(s);
         dpsFilas[id].val.textContent = fmt(v) + "/s";

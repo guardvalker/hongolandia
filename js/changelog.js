@@ -1,5 +1,12 @@
 export const CHANGELOG = [
   {
+    v: "0.50.2",
+    fecha: "2026-10-05",
+    cambios: [
+      "El contador de esporas/s tiene una sección «Logística» aparte (como la de Investigación) con el honguito básico, que muestra cuántas esporas por segundo alcanzan a llevar al hongo madre (en rojo si no dan abasto), y debajo el porcentaje de transporte y las esporas que esperan en el piso.",
+    ],
+  },
+  {
     v: "0.50.1",
     fecha: "2026-10-05",
     cambios: [
