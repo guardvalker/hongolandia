@@ -64,11 +64,13 @@ export function crearUI(api) {
   }
 
   const desplegadas = new Set();
+  const seccionesAbiertas = new Set();
+  let destino = hojaCuerpo, contFilas = 0; // destino: donde van las filas y notas (el cuerpo de la última sección)
   let entrar = false, flashIdx = -1, acentoActual = "#b5e61d";
   function abrir(cual, titulo, render, ancla = null, acento = "#b5e61d") {
     // los elementos de la lista aparecen con una animación, salvo al rearmarla tras una compra
     entrar = !(hoja.classList.contains("abierta") && hojaTitulo.textContent === titulo);
-    if (entrar) desplegadas.clear();
+    if (entrar) { desplegadas.clear(); seccionesAbiertas.clear(); }
     acentoActual = acento;
     hoja.style.setProperty("--ac", acento);
     abierta = cual;
@@ -77,8 +79,12 @@ export function crearUI(api) {
     colocar();
     hojaTitulo.textContent = titulo;
     hojaCuerpo.replaceChildren();
+    destino = hojaCuerpo; contFilas = 0;
     filas = [];
     render();
+    const secs = hojaCuerpo.querySelectorAll("h3.sec");
+    if (secs.length === 1 && entrar) secs[0].click(); // una sola sección: ya abierta
+    marcarSecciones();
     hoja.classList.add("abierta");
     actualizar(true);
   }
@@ -87,7 +93,7 @@ export function crearUI(api) {
     const el = document.createElement("div");
     el.className = "fila";
     if (acento) el.style.setProperty("--a", acento);
-    const idx = hojaCuerpo.children.length;
+    const idx = contFilas++;
     if (entrar) { el.classList.add("entra"); el.style.setProperty("--i", Math.min(idx, 12)); }
     else if (idx === flashIdx) { el.classList.add("flash"); flashIdx = -1; }
     const info = document.createElement("div");
@@ -111,14 +117,45 @@ export function crearUI(api) {
       onBuy(e);
     });
     el.append(info, btn);
-    hojaCuerpo.append(el);
+    destino.append(el);
     return { el, titulo: t, desc: d, btn };
   }
 
+  // Las secciones son plegables: solo se ve el título y al tocarlo se abre lo que contiene (todo lo que se agrega después va adentro)
   function seccion(texto) {
+    const clave = hojaTitulo.textContent + "§" + texto;
     const h = document.createElement("h3");
-    h.textContent = texto;
-    hojaCuerpo.append(h);
+    h.className = "sec";
+    const marca = document.createElement("span");
+    marca.className = "sec-marca";
+    const nombre = document.createElement("span");
+    nombre.textContent = texto;
+    const n = document.createElement("small");
+    n.className = "sec-n";
+    h.append(marca, nombre, n);
+    const cuerpo = document.createElement("div");
+    cuerpo.className = "sec-cuerpo";
+    const abre = seccionesAbiertas.has(clave);
+    h.classList.toggle("abierta", abre);
+    cuerpo.hidden = !abre;
+    h.addEventListener("click", () => {
+      const ab = !h.classList.contains("abierta");
+      h.classList.toggle("abierta", ab);
+      cuerpo.hidden = !ab;
+      if (ab) seccionesAbiertas.add(clave); else seccionesAbiertas.delete(clave);
+    });
+    hojaCuerpo.append(h, cuerpo);
+    destino = cuerpo;
+  }
+  // cuántas filas tiene cada sección y cuáles tienen algo comprable (se actualiza con la lista)
+  function marcarSecciones() {
+    for (const h of hojaCuerpo.querySelectorAll("h3.sec")) {
+      const c = h.nextElementSibling;
+      if (!c) continue;
+      const total = c.querySelectorAll(".fila").length;
+      h.querySelector(".sec-n").textContent = total ? String(total) : "";
+      h.classList.toggle("lista", !!c.querySelector(".fila.puede"));
+    }
   }
 
   let modoVender = false; // «+/−»: con el modo en «−» los botones de los honguitos venden en vez de comprar
@@ -148,7 +185,7 @@ export function crearUI(api) {
     bVender.title = "Vender: devuelve lo que costaron";
     bVender.addEventListener("click", () => { modoVender = !modoVender; bVender.classList.toggle("activo", modoVender); actualizar(true); });
     sel.append(bVender);
-    hojaCuerpo.append(sel);
+    destino.append(sel);
     for (const id in HONGUITOS) {
       const tipo = HONGUITOS[id];
       if (tipo.casa !== casa) continue;
@@ -202,7 +239,7 @@ export function crearUI(api) {
     return `+${num(pctTec(s, t))}% ${que}.`;
   }
   const tiempo = (seg) => (!isFinite(seg) ? "sin científicos" : seg < 90 ? Math.ceil(seg) + " s" : seg < 5400 ? Math.round(seg / 60) + " min" : (seg / 3600).toFixed(1).replace(".", ",") + " h");
-  const nota = (texto) => { const p = document.createElement("p"); p.className = "nota"; p.textContent = texto; hojaCuerpo.append(p); return p; };
+  const nota = (texto) => { const p = document.createElement("p"); p.className = "nota"; p.textContent = texto; p.addEventListener("click", () => p.classList.toggle("abierta")); destino.append(p); return p; };
 
   // ---- Hitos de cantidad (info) ----
   function notasHitos(casa) {
@@ -294,7 +331,7 @@ export function crearUI(api) {
     barra.append(relleno);
     info.append(tit, det, barra);
     estado.append(info);
-    hojaCuerpo.append(estado);
+    destino.append(estado);
     const n0 = Object.keys(s.mejoras).length;
     filas.push({ refresh: (st) => {
       if (Object.keys(st.mejoras).length !== n0) { reabrir(); return; } // terminó una: se arma la lista de nuevo
@@ -381,7 +418,7 @@ export function crearUI(api) {
       chk.addEventListener("change", () => { api.estado().dungeon.auto = chk.checked; api.guardar(); });
       lbl.append(chk, " Explorar automáticamente");
       caja.append(bExp, lbl);
-      hojaCuerpo.append(caja);
+      destino.append(caja);
       filas.push({ refresh: (st) => { bExp.disabled = !!getRun() || !sanos(st).length; } });
 
       seccion("Mercenarios");
@@ -743,7 +780,7 @@ export function crearUI(api) {
         c.addEventListener("click", () => { detalle.textContent = tengo ? a.nombre + " (" + TIERS[a.tier - 1].nombre + "): " + a.desc : "Todavía no lo conseguiste en el Mercader."; });
         grid.append(c);
       }
-      hojaCuerpo.append(grid, detalle);
+      destino.append(grid, detalle);
     }, null, "#c58aff");
   }
 
@@ -785,7 +822,7 @@ export function crearUI(api) {
           c.addEventListener("click", () => { detalle.textContent = a.nombre + ": " + a.desc; });
           grid.append(c);
         }
-        hojaCuerpo.insertBefore(grid, detalle);
+        detalle.parentNode.insertBefore(grid, detalle);
       }
       const b = document.createElement("button");
       b.className = "btn";
@@ -794,7 +831,7 @@ export function crearUI(api) {
       const caja = document.createElement("div");
       caja.className = "botones";
       caja.append(b);
-      hojaCuerpo.append(caja);
+      destino.append(caja);
     }, null, "#c58aff");
   }
 
@@ -831,7 +868,7 @@ export function crearUI(api) {
       seccion("Estadísticas");
       const grid = document.createElement("dl");
       grid.className = "stats";
-      hojaCuerpo.append(grid);
+      destino.append(grid);
       const fs = {};
       for (const [k, nombre] of [["estado", "Estado"], ["exp", "Exploraciones"], ["vic", "Victorias / retiradas"], ["jefes", "Rey Moho vencido"], ["etapa", "Mejor etapa"], ["cris", "Cristales radiantes"], ["pelig", "Peligro (enemigos)"], ["merc", "Mercenarios"]]) {
         const dt = document.createElement("dt"), dd = document.createElement("dd");
@@ -852,14 +889,14 @@ export function crearUI(api) {
         objs.append(c);
         celdas[o.id] = c;
       }
-      hojaCuerpo.append(objs);
+      destino.append(objs);
       const detalle = nota("Tocá un objeto para ver qué hace.");
       for (const o of OBJETOS) celdas[o.id].addEventListener("click", () => { detalle.textContent = o.nombre + ": " + o.desc + "."; });
       const raros = nota("");
       // objetos activos y estadísticas del party en la exploración en curso
       seccion("Exploración en curso");
       const activos = document.createElement("div");
-      hojaCuerpo.append(activos);
+      destino.append(activos);
       let firma = "";
       filas.push({ refresh: (st) => {
         const d = st.dungeon, run = getRun();
@@ -903,7 +940,7 @@ export function crearUI(api) {
       const caja = document.createElement("div");
       caja.className = "botones";
       caja.append(b);
-      hojaCuerpo.append(caja);
+      destino.append(caja);
     }, null, "#b06bff");
   }
 
@@ -913,7 +950,7 @@ export function crearUI(api) {
       const ver = document.createElement("p");
       ver.className = "nota";
       ver.textContent = "Versión " + window.APP_VERSION;
-      hojaCuerpo.append(ver);
+      destino.append(ver);
 
       seccion("Ventanas");
       const filaT = document.createElement("label");
@@ -934,7 +971,7 @@ export function crearUI(api) {
         aplicarAjustes();
       });
       filaT.append(txt, chk);
-      hojaCuerpo.append(filaT);
+      destino.append(filaT);
 
       seccion("Sonido");
       const filaM = document.createElement("label");
@@ -951,7 +988,7 @@ export function crearUI(api) {
       chkM.checked = !!ajustes.musica;
       chkM.addEventListener("change", () => { ajustes.musica = chkM.checked; guardarAjustes(); musica.configurar(ajustes.musica, ajustes.volMusica); musica.despertar(); });
       filaM.append(txM, chkM);
-      hojaCuerpo.append(filaM);
+      destino.append(filaM);
       const rngM = document.createElement("input");
       rngM.type = "range"; rngM.min = 0; rngM.max = 100; rngM.value = Math.round((ajustes.volMusica ?? 0.35) * 100);
       rngM.className = "rango-musica";
@@ -962,7 +999,7 @@ export function crearUI(api) {
       const tVM = document.createElement("b"); tVM.textContent = "Volumen de la música";
       infoVM.append(tVM);
       filaVM.append(infoVM, rngM);
-      hojaCuerpo.append(filaVM);
+      destino.append(filaVM);
 
       seccion("Rendimiento");
       const filaV = document.createElement("div");
@@ -987,7 +1024,7 @@ export function crearUI(api) {
         api.limiteVisibles?.(ajustes.visibles);
       });
       filaV.append(infoV, rng);
-      hojaCuerpo.append(filaV);
+      destino.append(filaV);
 
       const filaF = document.createElement("div");
       filaF.className = "fila";
@@ -1011,7 +1048,7 @@ export function crearUI(api) {
         return b;
       });
       filaF.append(infoF, selF);
-      hojaCuerpo.append(filaF);
+      destino.append(filaF);
 
       const filaR = document.createElement("div");
       filaR.className = "fila";
@@ -1035,7 +1072,7 @@ export function crearUI(api) {
         return b;
       });
       filaR.append(infoR, selR);
-      hojaCuerpo.append(filaR);
+      destino.append(filaR);
 
       seccion("Admin (pruebas)");
       const notaAdm = document.createElement("p");
@@ -1056,7 +1093,7 @@ export function crearUI(api) {
       for (const [id, nombre] of [["tormenta", "Tormenta de esporas"], ["meteoros", "Lluvia de meteoritos"], ["esporada", "Esporada"], ["geiser", "Géiseres de esporas"], ["cristales", "Brote de cristales"], ["mercader", "Mercader hongil"], ["invasion", "Invasión"]]) {
         adm(nombre, () => api.dispararArcano(id) ? `Evento iniciado: ${nombre}.` : "Ya hay un evento arcano en curso.");
       }
-      hojaCuerpo.append(botAdm, notaAdm);
+      destino.append(botAdm, notaAdm);
 
       seccion("Partida");
       const ta = document.createElement("textarea");
@@ -1102,7 +1139,7 @@ export function crearUI(api) {
       const botones = document.createElement("div");
       botones.className = "botones";
       botones.append(bExp, bImp, bReset);
-      hojaCuerpo.append(ta, botones, msg);
+      destino.append(ta, botones, msg);
 
       seccion("Novedades");
       for (const c of CHANGELOG) {
@@ -1117,7 +1154,7 @@ export function crearUI(api) {
           ul.append(li);
         }
         b.append(t, ul);
-        hojaCuerpo.append(b);
+        destino.append(b);
       }
     });
   }
@@ -1310,6 +1347,7 @@ export function crearUI(api) {
       }
       marcar(f);
     }
+    marcarSecciones();
   }
 
   return {

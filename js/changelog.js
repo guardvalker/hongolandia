@@ -1,5 +1,12 @@
 export const CHANGELOG = [
   {
+    v: "0.65.0",
+    fecha: "2026-10-06",
+    cambios: [
+      "Ventanas más fáciles de leer: ahora todas las secciones (Honguitos, Toques, Logística de esporas, Prismas, Edificios, Mejoras, Talentos, Pactos, etc.) aparecen cerradas, solo con el título, un contador de cuántas filas tienen y una flechita. Al tocar el título se abre lo que contiene; tocá de nuevo para cerrarlo. El número del título se pone amarillo cuando adentro hay algo que podés comprar. Las secciones que abriste se mantienen abiertas mientras comprás (y se cierran al abrir otra ventana). Si una ventana tiene una sola sección, aparece ya abierta. Los párrafos de explicación largos se muestran en dos líneas y se abren al tocarlos, y los ✓ de lo ya completado ocupan una sola línea. Esto aplica a todas las ventanas: hongo madre, edificios, Altar, Prestigio, Ajustes, etc. Las filas ya mostraban solo el título y la descripción al tocarlo.",
+    ],
+  },
+  {
     v: "0.64.0",
     fecha: "2026-10-06",
     cambios: [

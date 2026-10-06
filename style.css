@@ -123,6 +123,17 @@ body:has(#hoja.abierta) #fondo-hoja { pointer-events: auto; }
 #hoja-cerrar { width: 36px; height: 36px; border: 0; background: var(--panel2); font: inherit; font-size: 16px; color: var(--txt); box-shadow: 0 0 0 2px var(--borde); }
 #hoja-cuerpo { overflow-y: auto; padding: 0 18px 18px; -webkit-overflow-scrolling: touch; }
 #hoja h3 { margin: 12px 0 8px; font-size: 12px; letter-spacing: .14em; text-transform: uppercase; color: color-mix(in srgb, var(--ac) 65%, var(--dim)); display: flex; align-items: center; gap: 8px; }
+#hoja h3.sec { cursor: pointer; user-select: none; -webkit-user-select: none; margin: 6px 0 4px; padding: 8px 6px; background: color-mix(in srgb, var(--ac) 10%, transparent); box-shadow: inset 3px 0 0 color-mix(in srgb, var(--ac) 55%, transparent); }
+#hoja h3.sec:active { background: color-mix(in srgb, var(--ac) 22%, transparent); }
+.sec-marca::before { content: "▸"; display: inline-block; width: 12px; }
+#hoja h3.sec.abierta .sec-marca::before { content: "▾"; }
+.sec-n { font-size: 11px; letter-spacing: 0; color: var(--dim); background: var(--panel); padding: 1px 6px; box-shadow: 0 0 0 1px var(--borde); }
+#hoja h3.sec.lista .sec-n { color: #272736; background: #ffe14d; box-shadow: none; }
+#hoja h3.sec.lista { color: #ffe14d; }
+.sec-cuerpo[hidden] { display: none; }
+.sec-cuerpo { margin-bottom: 6px; }
+.nota:not(.abierta) { display: -webkit-box; -webkit-line-clamp: 2; line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; cursor: pointer; }
+.nota.hecha:not(.abierta) { -webkit-line-clamp: 1; line-clamp: 1; }
 #hoja h3::after { content: ""; flex: 1; height: 2px; background: color-mix(in srgb, var(--ac) 40%, transparent); }
 
 .fila { --a: var(--ac); display: flex; align-items: center; gap: 12px; padding: 10px 12px; margin-bottom: 10px; background: var(--panel2); box-shadow: 0 0 0 2px var(--borde), inset 4px 0 0 var(--a); padding-left: 16px; transition: background .12s steps(3); }
