@@ -1,5 +1,6 @@
 import { puA, puM } from './puData.js';
 import { PRISMA_POR_ID } from './prismas.js';
+import { efectosAltar } from './altar.js';
 
 // Artefactos del Mercader hongil: 63 objetos permanentes (hasta el próximo prestigio). Cada vez que viene
 // el mercader ofrece 5 al azar y se puede quedar con uno solo. No todos suben la producción: abaratan,
@@ -121,6 +122,7 @@ export function arteM(state, k) {
   let m = puM(state, k);
   for (const id in tiene(state)) { const a = ARTE_POR_ID[id]; if (a && a.k === k) m *= a.v; }
   for (const id in prismas(state)) { const a = PRISMA_POR_ID[id]; if (a && a.k === k) m *= a.v; }
+  for (const e of efectosAltar(state)) if (e[0] === k) m *= e[1];
   return m;
 }
 // suma de los artefactos (y mejoras de prestigio) de clave k (0 si no hay)
@@ -128,6 +130,7 @@ export function arteA(state, k) {
   let x = puA(state, k);
   for (const id in tiene(state)) { const a = ARTE_POR_ID[id]; if (a && a.k === k) x += a.v; }
   for (const id in prismas(state)) { const a = PRISMA_POR_ID[id]; if (a && a.k === k) x += a.v; }
+  for (const e of efectosAltar(state)) if (e[0] === k) x += e[1];
   return x;
 }
 export const esMult = (k) => MULT.has(k);

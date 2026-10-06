@@ -318,6 +318,8 @@ body.transp #hoja-cerrar { background: rgba(45, 45, 64, .6); }
 #barra-bloque { cursor: pointer; pointer-events: auto; }
 
 #btn-prestigio { position: fixed; left: 12px; bottom: calc(env(safe-area-inset-bottom) + 76px); z-index: 5; font-size: 13px; background: #6b5a1c; color: #ffd23f; }
+#btn-altar { position: fixed; left: 12px; bottom: calc(env(safe-area-inset-bottom) + 124px); z-index: 5; font-size: 13px; background: #3a2a6a; color: #d9c8ff; }
+#btn-altar[hidden] { display: none; }
 #btn-prestigio.lista { background: #ffd23f; color: #272736; animation: latido-presti 1.6s steps(2) infinite; }
 @keyframes latido-presti { 50% { box-shadow: 0 0 0 3px #fff3b0; } }
 

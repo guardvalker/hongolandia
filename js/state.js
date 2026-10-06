@@ -42,6 +42,7 @@ export function nuevoEstado() {
     total: D(0), // esporas ganadas en toda la partida (define la etapa)
     logi: { valor: D(0), n: 0, sitios: {}, comp: {} }, // comp: montañas que se están compactando; // esporas sueltas esperando que los básicos las lleven al hongo madre: valor total, cantidad y cuántas hay en la montaña de cada lugar
     prisma: { nivel: 0, n: 0, tot: 0, comprados: {} }, // compactación de la corrida (nivel 0 a 10), Prismas sin gastar, ganados en total y mejoras prismáticas compradas
+    altar: { talentos: [], pacto: null }, // Altar de micelio: talentos equipados y pacto activo (persisten entre corridas)
     pp: 0, // puntos de prestigio sin gastar
     ppExtra: 0, // PP extra ganados en la corrida (Periódico de herencias)
     nivelVisto: 0, // último nivel de prestigio de la corrida ya procesado por las mejoras de prestigio
@@ -104,6 +105,7 @@ function deserializar(raw) {
     total: new Dec(raw.total ?? 0),
     logi: { valor: new Dec(raw.logi?.valor ?? 0), n: raw.logi?.n ?? 0, sitios: raw.logi?.sitios ? { ...raw.logi.sitios } : (raw.logi?.n ? { madre: raw.logi.n } : {}), comp: { ...raw.logi?.comp } },
     prisma: { ...base.prisma, ...raw.prisma, comprados: { ...raw.prisma?.comprados } },
+    altar: { talentos: Array.isArray(raw.altar?.talentos) ? [...raw.altar.talentos] : [], pacto: raw.altar?.pacto ?? null },
     honguitos: { ...base.honguitos, ...raw.honguitos },
     mejoras: { ...raw.mejoras },
     pu: { ...raw.pu },

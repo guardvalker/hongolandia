@@ -197,7 +197,7 @@ export function emisionPorSitio(state) {
 }
 // Cuánto se puede amontonar en un lugar antes de que la montaña colapse: ~45 s de lo que se suelta ahí (mínimo 60 esporas)
 export const cmaxSitio = (tasa, mult = 1) => Math.max(60, 45 * tasa) * mult;
-const altoComp = (state) => LOGI.compAltura + arteA(state, "comp_alt"); // cuánto más alta puede ser una montaña compactada
+const altoComp = (state) => Math.max(1.2, LOGI.compAltura + arteA(state, "comp_alt")); // cuánto más alta puede ser una montaña compactada
 // Las montañas de esporas: [{ id, n, cmax }] para la escena y el panel
 export function logiSitios(state) {
   const em = emisionPorSitio(state);
@@ -298,7 +298,7 @@ export function cristalizar(state, id) {
   state.esporas = state.esporas.add(ganancia);
   state.total = state.total.add(ganancia);
   let prismas = 0;
-  if (f >= 0.5) { prismas = f >= 0.85 ? 2 + Math.floor(arteA(state, "prisma_extra")) : 1; P.nivel = Math.min(LOGI.compNivelMax, P.nivel + 1); }
+  if (f >= 0.5 - arteA(state, "comp_umbral")) { prismas = f >= 0.85 ? 2 + Math.floor(arteA(state, "prisma_extra")) : 1; P.nivel = Math.min(LOGI.compNivelMax, P.nivel + 1); }
   P.n += prismas; P.tot += prismas;
   if (logiEventos.length < 30) logiEventos.push({ sitio: id, n, cristal: true, f });
   return { ganancia, prismas, f, bono };

@@ -1,5 +1,13 @@
 export const CHANGELOG = [
   {
+    v: "0.59.0",
+    fecha: "2026-10-06",
+    cambios: [
+      "Altar de micelio (idea de la Piedra de talentos y los Acuerdos de Gnorp Apologue): un botón nuevo «Altar» arriba de Prestigio (aparece con el primer PP). Tiene Talentos: efectos que se equipan en espacios limitados (2 al empezar, +1 con 10, 40, 100, 200 y 350 PP ganados en total) y que cambian cómo se juega la corrida (toques ×2, manojos más grandes, edificios más baratos, Corte fino, Gran prensa, Savia pura ×1,5, Ojo del micelio ×1,8, etc.: 23 talentos en 5 tiers que se destraban con los PP ganados). Se conservan al prestigiar y se pueden cambiar cuando quieras.",
+      "Pactos del Altar: 6 ventajas grandes con un costo, y solo uno activo a la vez: cosecha (toques ×4, −10% producción), camino (manojos ×2, −10%), cielo (más eventos, −15%), cristal (bono de cristalización ×2 pero básicos más lentos y montañas más bajas), tesoro (Mercader con más ofertas) y guerra (enemigos más débiles, más botín). El talento «Pacto total» los activa todos a la vez, con todos sus costos. Los valores están puestos a ojo.",
+    ],
+  },
+  {
     v: "0.58.0",
     fecha: "2026-10-06",
     cambios: [

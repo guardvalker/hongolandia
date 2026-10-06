@@ -3,6 +3,7 @@ import { iconoObjeto } from './dungeonVista.js';
 import { getEvento, DEF_MEJ, nivelDef, costoDef, comprarDef, ofertasMercader, precioArtefacto, comprarArtefacto, probInterceptar, MAGOS_MIN } from './eventos.js';
 import { TIPOS_TORRE, EVOLUCIONES, ENEMIGOS, TORRES_MAX, SOLD_MAX, costoTorre, costoEvolucion, evolucionarTorre, sumarSoldados, statsTorre, dpsTorre, infoDefensa, quedan } from './invasion.js';
 import { PRISMAS } from './prismas.js';
+import { TALENTOS, PACTOS, espaciosAltar, talentoAbierto, UMBRAL_TIER_TALENTO, alternarTalento, elegirPacto, pactoActivo } from './altar.js';
 import { ARTEFACTOS, ARTE_POR_ID, TIERS, iconoArtefacto, cantArte } from './artefactos.js';
 import { OBJETOS, escalaJefes, CLASES, TABERNA_MEJ, costoMerc, contratar, comprarTab, nivelTab, costoTab, sanos, iniciar as iniciarExploracion, getRun, PARTY_MAX, mercStats, CRISTAL_MULT } from './dungeon.js';
 import { EVENTOS, HONGUITOS, MEJORAS, EDIFICIOS, TECNOLOGIAS, MEJ_EDIF, MEJ_CLICK, MEJ_LOGI, TEC_POR_ID, HITOS, NIVELES_TEC } from './data.js';
@@ -421,6 +422,38 @@ export function crearUI(api) {
   }
 
   // ---- Prestigio: reiniciar la corrida a cambio de PP y mejoras permanentes ----
+  // ---- Altar de micelio: talentos (espacios limitados) y pactos (uno a la vez) ----
+  function abrirAltar() {
+    abrir("altar", "Altar de micelio", () => {
+      const st = api.estado();
+      const info = nota("");
+      filas.push({ refresh: (s) => {
+        const prox = [10, 40, 100, 200, 350].find((u) => s.ppTotal < u);
+        info.textContent = `Espacios de talento: ${s.altar.talentos.length}/${espaciosAltar(s)} (PP ganados en total: ${s.ppTotal}` + (prox ? ` · próximo espacio con ${prox}` : "") + "). Los talentos y pactos cambian cómo se juega la corrida: elegí tu estilo. Se conservan al prestigiar y podés cambiarlos cuando quieras.";
+      } });
+      seccion("Talentos");
+      for (const t of TALENTOS) {
+        const puesto = st.altar.talentos.includes(t.id), abierto = talentoAbierto(st, t);
+        const f = fila(t.nombre, abierto ? t.desc : `Se destraba con ${UMBRAL_TIER_TALENTO[t.tier]} PP ganados en total.`, () => {
+          const msg = alternarTalento(api.estado(), t.id);
+          if (msg) api.toast?.(msg);
+          api.guardar(); abrirAltar();
+        }, puesto ? "#ffd23f" : "#a77bff");
+        f.refresh = (s) => { const pu = s.altar.talentos.includes(t.id); f.btn.textContent = pu ? "✓ Quitar" : "Equipar"; f.btn.disabled = !talentoAbierto(s, t) || (!pu && s.altar.talentos.length >= espaciosAltar(s)); };
+        filas.push(f);
+      }
+      seccion("Pactos");
+      nota("Un pacto da una ventaja grande a cambio de un costo. Solo uno activo a la vez (el talento «Pacto total» los activa todos).");
+      for (const p of PACTOS) {
+        const f = fila(p.nombre, `${p.ventaja} Costo: ${p.costo}`, () => { elegirPacto(api.estado(), p.id); api.guardar(); abrirAltar(); }, "#ff6bd6");
+        f.refresh = (s) => { const act = pactoActivo(s, p.id); f.btn.textContent = s.altar.talentos.includes("t_pacto_total") ? "Activo" : act ? "✓ Quitar" : "Activar"; f.btn.disabled = s.altar.talentos.includes("t_pacto_total"); };
+        filas.push(f);
+      }
+    }, null, "#a77bff");
+  }
+  const elBtnAltar = $("btn-altar");
+  elBtnAltar.addEventListener("click", abrirAltar);
+
   function abrirPrestigio() {
     let seguro = false;
     abrir("prestigio", "Prestigio", () => {
@@ -1097,6 +1130,7 @@ export function crearUI(api) {
 
     const pr = prestigio(s.total);
     const ppg = ppAlPrestigiar(s);
+    elBtnAltar.hidden = !(s.ppTotal > 0);
     elBtnPresti.textContent = ppg > 0 ? `Prestigio +${ppg} PP` : s.pp > 0 ? `Prestigio (${s.pp} PP)` : "Prestigio";
     elBtnPresti.classList.toggle("lista", ppg > 0 || s.pp > 0);
     elNivel.textContent = "Prestigio " + pr.puntos;

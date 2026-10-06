@@ -18,6 +18,7 @@ export function prestigiar(viejo) {
   n.ppTotal = (viejo.ppTotal || 0) + gana;
   n.prestigios = (viejo.prestigios || 0) + 1;
   n.pu = { ...viejo.pu };
+  n.altar = { talentos: [...viejo.altar.talentos], pacto: viejo.altar.pacto };
   n.dungeon = viejo.dungeon;
   n.fondo = viejo.fondo;
   n.flags = { ...viejo.flags };
