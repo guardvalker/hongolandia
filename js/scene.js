@@ -1429,21 +1429,71 @@ export function crearEscena(canvas, opciones = {}) {
     for (let i = tiros.length - 1; i >= 0; i--) { tiros[i].t += dt; if (tiros[i].t > 0.3) tiros.splice(i, 1); }
     for (const v of torresV) v.retro = Math.max(0, v.retro - dt);
   }
+  function rueda(cx, cy, par) {
+    g.fillStyle = "#6a4220"; g.fillRect(cx - 3, cy - 3, 7, 7);
+    g.fillStyle = "#c28a4f";
+    if (par) { g.fillRect(cx - 3, cy, 7, 1); g.fillRect(cx, cy - 3, 1, 7); }
+    else { g.fillRect(cx - 2, cy - 2, 1, 1); g.fillRect(cx + 2, cy - 2, 1, 1); g.fillRect(cx - 2, cy + 2, 1, 1); g.fillRect(cx + 2, cy + 2, 1, 1); g.fillRect(cx - 1, cy - 1, 3, 3); }
+    g.fillStyle = "#2a1a0e";
+    g.fillRect(cx - 1, cy - 4, 3, 1); g.fillRect(cx - 1, cy + 4, 3, 1); g.fillRect(cx - 3, cy - 3, 2, 1); g.fillRect(cx + 2, cy - 3, 2, 1); g.fillRect(cx - 3, cy + 3, 2, 1); g.fillRect(cx + 2, cy + 3, 2, 1);
+    g.fillRect(cx - 4, cy - 2, 1, 5); g.fillRect(cx + 4, cy - 2, 1, 5);
+    g.fillStyle = "#ffd23f"; g.fillRect(cx, cy, 1, 1);
+  }
   function dibujarMercader(e) {
-    const x = Math.round(madre.x + e.dx), dir = Math.sign(e.meta - e.dx) || (e.dx < 0 ? 1 : -1), camina = e.estado !== "espera";
-    const bob = camina ? Math.round(Math.abs(Math.sin(t * 9)) * 1.5) : 0, y = groundY - bob;
-    // mochila grande, sombrero ancho morado con moneda, bigote
-    g.fillStyle = "#8a5a2a"; g.fillRect(x - dir * 7, y - 12, 6, 9); g.fillStyle = "#c28a4f"; g.fillRect(x - dir * 7, y - 12, 6, 2); g.fillStyle = "#ffd23f"; g.fillRect(x - dir * 6, y - 8, 4, 3);
-    g.fillStyle = "#6a2fa8"; g.fillRect(x - 6, y - 11, 13, 2); g.fillRect(x - 4, y - 14, 9, 3); g.fillRect(x - 2, y - 16, 5, 2);
-    g.fillStyle = "#ffd23f"; g.fillRect(x - 1, y - 12, 3, 2);
-    g.fillStyle = "#fff"; g.fillRect(x - 4, y - 9, 9, 6);
-    g.fillStyle = "#1d1d2a"; g.fillRect(x - 2, y - 8, 1, 1); g.fillRect(x + 2, y - 8, 1, 1);
-    g.fillStyle = "#5a3a1a"; g.fillRect(x - 3, y - 6, 7, 1);
-    g.fillStyle = "#fff"; g.fillRect(x - 3, y - 3 + (camina ? Math.floor(t * 9) % 2 : 0), 2, 3); g.fillRect(x + 2, y - 3 + (camina ? 1 - (Math.floor(t * 9) % 2) : 0), 2, 3);
+    const x = Math.round(madre.x + e.dx), dir = e.estado === "se va" ? (Math.sign(e.dx) || 1) : (Math.sign(e.meta - e.dx) || (e.dx < 0 ? 1 : -1)), camina = e.estado !== "espera";
+    const jolt = camina && Math.floor(t * 9) % 4 === 0 ? 1 : 0, y = groundY - jolt;
+    const par = Math.floor(Math.abs(x) / 2) % 2 === 0;
+    const fw = (o, w) => (dir > 0 ? x + o : x - o - w); // rect hacia adelante (o = borde cercano al centro)
+    // sombra y brillo
+    g.globalAlpha = 0.3; g.fillStyle = "#000"; g.fillRect(x - 14, groundY, 38 * 1 + 0, 1); g.globalAlpha = 1;
+    if (e.estado === "espera") { g.globalAlpha = 0.14 + 0.08 * Math.sin(t * 4); disco(x, y - 14, 26, "#ffd23f"); g.globalAlpha = 1; }
+    // varas del carro hasta el mercader
+    const mx = x + dir * (camina ? 21 : 19);
+    g.fillStyle = "#6a4220"; g.fillRect(Math.min(x + dir * 11, mx), y - 7, Math.abs(mx - x - dir * 11), 1);
+    if (!camina) { g.fillStyle = "#4a2f16"; g.fillRect(fw(12, 1), y - 6, 1, 6); } // patita de apoyo
+    // caja del carro
+    g.fillStyle = "#8a5a2a"; g.fillRect(x - 11, y - 13, 23, 8);
+    g.fillStyle = "#6a4220"; g.fillRect(x - 11, y - 10, 23, 1); g.fillRect(x - 11, y - 7, 23, 1);
+    g.fillStyle = "#c28a4f"; g.fillRect(x - 12, y - 14, 25, 2);
+    g.fillStyle = "#ffd23f"; g.fillRect(x - 4, y - 12, 8, 3); g.fillStyle = "#6a2fa8"; g.fillRect(x - 3, y - 11, 6, 1); // letrero
+    // carga: saco, frasco de esporas y cristales
+    g.fillStyle = "#c28a4f"; g.fillRect(x - 10, y - 19, 6, 5); g.fillRect(x - 9, y - 20, 4, 1); g.fillStyle = "#6a4220"; g.fillRect(x - 9, y - 17, 4, 1);
+    g.fillStyle = "#e8ffff"; g.fillRect(x - 2, y - 19, 4, 5); g.fillStyle = "#b48cff"; g.fillRect(x - 1, y - 17, 2, 3); g.fillStyle = "#8a5a2a"; g.fillRect(x - 2, y - 20, 4, 1);
+    const cr = ["#7fe9ff", "#ff6bd6", "#b5ff4a"];
+    for (let i = 0; i < 3; i++) { g.fillStyle = cr[i]; g.fillRect(x + 4 + i * 3, y - 18, 2, 4); g.fillRect(x + 4 + i * 3, y - 19, 1, 1); }
+    if (e.estado === "espera" && Math.floor(t * 3) % 3 < 2) { g.fillStyle = "#fff"; const k = Math.floor(t * 3) % 3; g.fillRect(x + 4 + k * 3, y - 20, 1, 1); }
+    // toldo de hongo con manchas y flecos
+    g.fillStyle = "#4a2f16"; g.fillRect(x - 12, y - 28, 1, 14); g.fillRect(x + 12, y - 28, 1, 14);
+    g.fillStyle = "#6a2fa8"; g.fillRect(x - 6, y - 34, 13, 1); g.fillRect(x - 9, y - 33, 19, 1); g.fillRect(x - 12, y - 32, 25, 3); g.fillRect(x - 14, y - 29, 29, 2);
+    g.fillStyle = "#8a4fd0"; g.fillRect(x - 6, y - 34, 13, 1); g.fillRect(x - 9, y - 33, 4, 1);
+    g.fillStyle = "#fff"; g.fillRect(x - 7, y - 32, 3, 2); g.fillRect(x + 1, y - 33, 3, 2); g.fillRect(x + 7, y - 31, 3, 2); g.fillRect(x - 12, y - 29, 2, 1); g.fillRect(x - 2, y - 29, 2, 1); g.fillRect(x + 11, y - 29, 2, 1);
+    g.fillStyle = "#ffd23f"; for (let i = -14; i <= 14; i += 4) g.fillRect(x + i, y - 27, 2, 1 + (i % 8 === 0 ? 1 : 0));
+    // farol colgando (se mece)
+    const lx = x + dir * 10 + Math.round(Math.sin(t * 2) * (camina ? 1.5 : 0.5));
+    g.fillStyle = "#14141d"; g.fillRect(lx, y - 26, 1, 3); g.fillStyle = "#c28a4f"; g.fillRect(lx - 1, y - 23, 3, 1); g.fillStyle = "#ffe14d"; g.fillRect(lx - 1, y - 22, 3, 3);
+    g.globalAlpha = 0.2 + 0.08 * Math.sin(t * 5); disco(lx, y - 21, 9, "#ffe14d"); g.globalAlpha = 1;
+    // ruedas
+    rueda(x - 7, y - 5, par); rueda(x + 7, y - 5, par);
+    // el mercader: honguito de panza blanca, sombrero ancho, bigote y capa
+    const bob = camina ? Math.round(Math.abs(Math.sin(t * 9)) * 1.5) : 0, my = groundY - bob, s = dir > 0 ? 1 : 0, ph = camina ? Math.floor(t * 9) % 2 : 0;
+    g.fillStyle = "#2a1a0e"; g.fillRect(mx - 3, my - 2 + ph, 3, 2); g.fillRect(mx + 1, my - 2 + (1 - ph), 3, 2);
+    g.fillStyle = "#f2e3c8"; g.fillRect(mx - 2, my - 5, 2, 3); g.fillRect(mx + 1, my - 5, 2, 3);
+    g.fillStyle = "#4b2a80"; g.fillRect(mx - 4, my - 11, 9, 7); g.fillStyle = "#ffd23f"; g.fillRect(mx - 4, my - 7, 9, 1); g.fillRect(mx - 4, my - 11, 9, 1);
+    g.fillStyle = "#f2e3c8"; g.fillRect(mx - 3, my - 16, 7, 5);
+    g.fillStyle = "#1d1d2a"; g.fillRect(mx - 2 + s, my - 15, 1, 2); g.fillRect(mx + 1 + s, my - 15, 1, 2);
+    g.fillStyle = "#e8a38a"; g.fillRect(mx + (s ? 4 : -4), my - 14, 1, 2);
+    g.fillStyle = "#e8e8f4"; g.fillRect(mx - 3 + s, my - 13, 6, 2); g.fillRect(mx - 4 + s * 2, my - 12, 1, 2); g.fillRect(mx + 3 - (1 - s) * 0 + (s ? 0 : -0), my - 12, 1, 2);
+    g.fillStyle = "#6a2fa8"; g.fillRect(mx - 8, my - 18, 17, 2); g.fillRect(mx - 5, my - 22, 11, 4); g.fillRect(mx - 3, my - 24, 7, 2);
+    g.fillStyle = "#8a4fd0"; g.fillRect(mx - 3, my - 24, 7, 1); g.fillStyle = "#ffd23f"; g.fillRect(mx - 5, my - 19, 11, 1);
+    g.fillStyle = "#fff"; g.fillRect(mx - 3, my - 22, 2, 2); g.fillRect(mx + 2, my - 23, 2, 2);
+    g.fillStyle = "#6a2fa8"; g.fillRect(mx + dir * 3 - 1, my - 26, 3, 2); g.fillRect(mx + dir * 5 - 1, my - 25, 2, 1); // punta del sombrero doblada
+    // brazos: agarra la vara al caminar, saluda al esperar
+    g.fillStyle = "#4b2a80";
+    if (camina) g.fillRect(Math.min(mx + dir * 3, mx + dir * 7), my - 9, 5, 2);
+    else { g.fillRect(mx + dir * 4 - (dir > 0 ? 0 : 1), my - 10 - Math.round(Math.sin(t * 6) * 1.5) - 3, 2, 5); g.fillStyle = "#f2e3c8"; g.fillRect(mx + dir * 4 - (dir > 0 ? 0 : 1), my - 14 - Math.round(Math.sin(t * 6) * 1.5), 2, 2); g.fillStyle = "#4b2a80"; g.fillRect(mx - dir * 5 - (dir > 0 ? 1 : 0), my - 9, 2, 3); }
     if (e.estado === "espera") { // cartel de «tocame»
       const sal = Math.round(Math.sin(t * 5) * 2);
-      g.fillStyle = "#ffd23f"; g.fillRect(x - 1, y - 27 + sal, 3, 6); g.fillRect(x - 1, y - 19 + sal, 3, 2);
-      g.globalAlpha = 0.18 + 0.1 * Math.sin(t * 4); disco(x, y - 8, 14, "#ffd23f"); g.globalAlpha = 1;
+      g.fillStyle = "#ffd23f"; g.fillRect(x - 1, y - 47 + sal, 3, 6); g.fillRect(x - 1, y - 39 + sal, 3, 2);
     }
   }
   function dibujarCriatura(c) {
@@ -3601,7 +3651,7 @@ export function crearEscena(canvas, opciones = {}) {
       if (Math.abs(cx - (madre.x + c.dx)) < r && Math.abs(cy - yc) < r + 6) return { quien: "criatura", c };
     }
     for (const v of torresV) if (Math.abs(cx - v.x) < 9 && cy > groundY - 36 && cy < groundY + 2) return { quien: "torre_def", i: v.i };
-    if (eA && eA.tipo === "mercader" && eA.estado === "espera" && Math.abs(cx - (madre.x + eA.dx)) < 11 && cy > groundY - 28 && cy < groundY + 4) return { quien: "mercader" };
+    if (eA && eA.tipo === "mercader" && eA.estado === "espera" && Math.abs(cx - (madre.x + eA.dx)) < 26 && cy > groundY - 36 && cy < groundY + 4) return { quien: "mercader" };
     for (const id in edif) {
       if (colocando?.mover && colocando.id === id) continue;
       const m = tam(id);

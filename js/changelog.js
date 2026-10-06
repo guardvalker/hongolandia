@@ -1,5 +1,12 @@
 export const CHANGELOG = [
   {
+    v: "0.57.0",
+    fecha: "2026-10-06",
+    cambios: [
+      "El Mercader hongil rediseñado: ahora llega tirando de una carreta de madera con ruedas que giran, toldo de hongo violeta con manchas y flecos, farol que se mece, y carga de sacos, frascos de esporas y cristales que brillan. El personaje es un honguito viejo con sombrero ancho de punta doblada, bigote y capa; camina agarrando la vara del carro y, cuando se detiene, apoya la carreta y te saluda con la mano. Al irse ya no camina de espaldas. El área para tocarlo es más grande (cubre toda la carreta).",
+    ],
+  },
+  {
     v: "0.56.3",
     fecha: "2026-10-06",
     cambios: [
