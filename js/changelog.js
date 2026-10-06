@@ -1,5 +1,12 @@
 export const CHANGELOG = [
   {
+    v: "0.56.2",
+    fecha: "2026-10-06",
+    cambios: [
+      "Aclaración de unidades en la logística: la producción (esporas/s) mide VALOR (muy grande en el final), mientras que lo que llevan los básicos son GRANOS de espora sueltos (cantidad). Cada grano vale muchas esporas. La ventana del hongo madre ahora lo dice («cada grano vale hoy ~X esporas»), la fila del honguito en el contador muestra «gr/s» y «En el piso» se cuenta en granos.",
+    ],
+  },
+  {
     v: "0.56.1",
     fecha: "2026-10-06",
     cambios: [

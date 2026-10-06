@@ -468,7 +468,8 @@ export function crearUI(api) {
     const info = nota("");
     filas.push({ refresh: (st) => {
       const L = logiInfo(st);
-      info.textContent = `Los honguitos básicos (${L.n}) juntan las esporas que sueltan los demás y tus toques, y las llevan en manojos de ${fmtN(L.carga)} (viaje de ${L.viaje.toFixed(1).replace(".", ",")} s): podés llevar ${fmtN(L.cap)} esporas/s y se sueltan ${fmtN(L.em)}/s. ` + (L.razon < 1 ? `Hoy llegan el ${Math.round(L.razon * 100)}% de lo que se produce: ¡faltan manos!` : "Alcanza para todo lo que se produce.");
+      const vale = L.em > 0 ? produccionPorSeg(st).div(L.em) : null; // lo que vale en promedio cada grano suelto
+      info.textContent = `Los honguitos básicos (${L.n}) juntan los granos de espora que sueltan los demás y tus toques, y los llevan en manojos de ${fmtN(L.carga)} granos (viaje de ${L.viaje.toFixed(1).replace(".", ",")} s): pueden llevar ${fmtN(L.cap)} granos/s y se sueltan ${fmtN(L.em)} granos/s` + (vale ? ` (cada grano vale hoy ~${fmt(vale)} esporas, por eso la producción es tan grande)` : "") + ". " + (L.razon < 1 ? `Hoy llega el ${Math.round(L.razon * 100)}% de lo que se produce: ¡faltan manos!` : "Alcanza para todo lo que se produce.");
     } });
     for (const m of MEJ_LOGI) {
       const n = nivelMej(s, m.id);
@@ -1099,7 +1100,7 @@ export function crearUI(api) {
       if (!tiene) continue;
       if (HONGUITOS[id].logistico) { // el básico no produce: su ranking es cuántas esporas/s alcanza a llevar
         const LG0 = logiInfo(s);
-        dpsFilas[id].val.textContent = fmtN(LG0.cap) + "/s";
+        dpsFilas[id].val.textContent = fmtN(LG0.cap) + " gr/s"; // granos de espora por segundo que alcanza a llevar
         dpsFilas[id].bar.style.width = Math.max(2, Math.min(100, LG0.razon * 100)) + "%";
         dpsFilas[id].el.classList.toggle("debuff", LG0.razon < 0.995);
         dpsFilas[id].el.style.order = 0;
