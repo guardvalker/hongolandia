@@ -215,8 +215,15 @@ setInterval(() => {
 const forzado = new URLSearchParams(location.search).get("arcano");
 if (forzado) setTimeout(() => forzarEvento(state, forzado), 2500);
 
-let proximoHud = 0;
+let proximoHud = 0, ultimoDibujo = 0;
 function frame(ahora) {
+  // límite de cuadros por segundo (Ajustes → Rendimiento): se saltea el cuadro entero si todavía no toca
+  const fpsMax = ajustes.fps ?? 60;
+  if (fpsMax > 0) {
+    const paso = 1000 / fpsMax, desde = ahora - ultimoDibujo;
+    if (desde < paso - 1) { requestAnimationFrame(frame); return; }
+    ultimoDibujo = desde < paso * 2 ? ahora - (desde % paso) : ahora; // mantiene el ritmo aunque el monitor no sea múltiplo exacto
+  }
   const dt = Math.min(economia(ahora), 1);
   escena.update(dt, state, etapaDe(state));
   escena.draw();

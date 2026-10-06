@@ -1,5 +1,14 @@
 export const CHANGELOG = [
   {
+    v: "0.47.0",
+    fecha: "2026-10-05",
+    cambios: [
+      "Optimización fuerte del dibujo (menos uso de la placa de video, sobre todo en el endgame): el hongo madre, los edificios y la luna ya no se vuelven a pintar rectángulo por rectángulo en cada cuadro. Se pintan en su propio lienzo y entre medio solo se copian (madre y edificios ~20 veces por segundo, luna 10); el apretón y el brillo del pulso del hongo madre se aplican al copiar. Los discos de luz y esporas son sprites. En una partida de endgame bajó de ~2,9 millones a ~0,3 millones de operaciones de dibujo por segundo.",
+      "El campo de color de las luces del sombrero del hongo madre se calcula como una imagen chica que se agranda de una vez, en lugar de miles de rectángulos.",
+      "Nuevo ajuste «Cuadros por segundo» en Ajustes → Rendimiento: 30, 60 (por defecto) o sin límite. Antes el juego dibujaba a la frecuencia completa del monitor (120/144 Hz), lo que duplicaba el gasto en monitores rápidos.",
+    ],
+  },
+  {
     v: "0.46.1",
     fecha: "2026-10-05",
     cambios: [

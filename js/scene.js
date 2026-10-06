@@ -97,7 +97,8 @@ const MADRE_GRANDE = MADRE.map((m) => ({ w: Math.round(m.w * BONUS_CONSERV), ch:
 export function crearEscena(canvas, opciones = {}) {
   const ctx = canvas.getContext("2d");
   const lo = document.createElement("canvas");
-  const g = lo.getContext("2d");
+  let g = lo.getContext("2d"); // se cambia un instante por el contexto del caché del hongo madre
+  const gPrincipal = g;
   let dpr = 1, S = 1, K = 1, Wc = 0, Hc = 0, groundY = 0;
   // cámara: Wc/Hc = celdas visibles; S = px por celda (niveles enteros para que el pixel art quede nítido)
   let groundRef = 220, S0 = 1, Wc0 = 300, Hc0 = 300, niveles = [1], zoomIdx = null, camX = C0, camY = 0, extent = 150;
@@ -347,7 +348,25 @@ export function crearEscena(canvas, opciones = {}) {
   });
 
   // ---------- primitivas ----------
+  // los discos (luces, esporas, halos) se arman una vez como sprite y después se copian con una sola llamada
+  const cacheDiscos = new Map();
   function disco(x, y, r, color) {
+    if (Number.isInteger(r) && r > 0) {
+      const clave = r + color;
+      let d = cacheDiscos.get(clave);
+      if (!d) {
+        if (cacheDiscos.size > 500) cacheDiscos.clear();
+        const wm = Math.floor(Math.sqrt(r * r + r * 0.5)), cv = document.createElement("canvas");
+        cv.width = wm * 2 + 1; cv.height = r * 2 + 1;
+        const c = cv.getContext("2d");
+        c.fillStyle = color;
+        for (let dy = -r; dy <= r; dy++) { const w = Math.floor(Math.sqrt(r * r - dy * dy + r * 0.5)); c.fillRect(wm - w, dy + r, w * 2 + 1, 1); }
+        d = { cv, wm };
+        cacheDiscos.set(clave, d);
+      }
+      g.drawImage(d.cv, Math.round(x) - d.wm, Math.round(y) - r);
+      return;
+    }
     g.fillStyle = color;
     for (let dy = -r; dy <= r; dy++) {
       const w = Math.floor(Math.sqrt(r * r - dy * dy + r * 0.5));
@@ -2333,31 +2352,79 @@ export function crearEscena(canvas, opciones = {}) {
 
   let coloresMadre = ["#ff4d4d"];
 
+  // El hongo madre es lo más caro de dibujar (decenas de miles de rectángulos por cuadro cuando está enorme).
+  // Se arma en dos lienzos: la geometría (sombrero, manchas, tallo) solo se vuelve a pintar cuando cambia, y
+  // encima las luces, que fluyen despacio, a ~20 cuadros por segundo. En cada cuadro solo se copia el resultado.
+  const mkCache = () => ({ cv: document.createElement("canvas"), t: -9, clave: "" });
+  const geoMadre = mkCache(), luzMadre = mkCache(), brilloMadre = mkCache();
+  const CACHE_MADRE_DT = 0.05;
+  function lienzoCache(c, x0, y0, w, h) {
+    const pw = Math.ceil(w * K), ph = Math.ceil(h * K);
+    if (c.cv.width !== pw || c.cv.height !== ph) { c.cv.width = pw; c.cv.height = ph; } // cambiar el tamaño es caro: solo si hace falta
+    const gc = c.cv.getContext("2d");
+    gc.setTransform(1, 0, 0, 1, 0, 0);
+    gc.clearRect(0, 0, pw, ph);
+    gc.setTransform(K, 0, 0, K, -x0 * K, -y0 * K);
+    gc.imageSmoothingEnabled = false;
+    gc.globalAlpha = 1;
+    return gc;
+  }
   function dibujarMadre() {
-    const m = medidas();
-    const cx = Math.round(madre.x);
-    const { capBase, ch, rx } = hongoBase(cx, m, Math.round(madre.pulso * Math.max(3, medidas().ch * 0.06)), madre.brillo);
-    // un punto rojo al principio; cada edificio suma su color. Posición y tamaño al azar (fijos por semilla)
-    const pos = manchasDe("madre", 31, coloresMadre.length);
-    coloresMadre.forEach((col, k) => {
-      const q = pos[k];
-      manchaCap(cx, capBase, rx, ch, cx + Math.round(q.u * rx), capBase - 2 - Math.round(q.h * ch), Math.max(1, Math.round(ch * q.f * 1.2)), col);
-    });
-    lucesMadre(cx, capBase, rx, ch, Math.round(m.sw / 2));
-    // brotecitos y pasto en la base, más con cada etapa
-    const idx = etapaPrev ?? 0;
-    g.fillStyle = "#4a5a6a";
-    for (let k = 0; k <= idx + 2; k++) {
-      const dx = (k % 2 ? 1 : -1) * (Math.round(m.sw / 2) + 5 + k * 3);
-      g.fillRect(cx + dx, groundY - 2, 1, 2);
-      g.fillRect(cx + dx + 1, groundY - 1, 1, 1);
+    const m = medidas(), cx = Math.round(madre.x), rx = Math.round(m.w / 2), mitad = Math.round(m.sw / 2);
+    const x0 = cx - Math.ceil(rx * 1.6) - 8, y0 = groundY - m.sh - Math.ceil(m.ch * 1.7) - 8;
+    const w = cx + Math.ceil(rx * 1.6) + 8 - x0, h = groundY + 4 - y0;
+    // el apretón del pulso y el brillo no se vuelven a pintar: se aplican al copiar el lienzo (los honguitos pulsan al hongo todo el tiempo)
+    const sq = Math.round(madre.pulso * Math.max(3, m.ch * 0.06)), br = madre.brillo;
+    const claveGeo = [x0, y0, w, h, K, m.w, m.ch, m.sh, m.sw, coloresMadre.join()].join("|");
+    if (claveGeo !== geoMadre.clave) {
+      geoMadre.clave = claveGeo;
+      g = lienzoCache(geoMadre, x0, y0, w, h);
+      try {
+        const capBase = groundY - m.sh, ch = m.ch;
+        hongoBase(cx, m, 0, 0);
+        // un punto rojo al principio; cada edificio suma su color. Posición y tamaño al azar (fijos por semilla)
+        const pos = manchasDe("madre", 31, coloresMadre.length);
+        coloresMadre.forEach((col, k) => {
+          const q = pos[k];
+          manchaCap(cx, capBase, rx, ch, cx + Math.round(q.u * rx), capBase - 2 - Math.round(q.h * ch), Math.max(1, Math.round(ch * q.f * 1.2)), col);
+        });
+        // brotecitos y pasto en la base, más con cada etapa
+        const idx = etapaPrev ?? 0;
+        g.fillStyle = "#4a5a6a";
+        for (let k = 0; k <= idx + 2; k++) {
+          const dx = (k % 2 ? 1 : -1) * (mitad + 5 + k * 3);
+          g.fillRect(cx + dx, groundY - 2, 1, 2);
+          g.fillRect(cx + dx + 1, groundY - 1, 1, 1);
+        }
+      } finally { g = gPrincipal; }
+      g = lienzoCache(brilloMadre, x0, y0, w, h); // silueta blanca del sombrero para el brillo del pulso
+      try { semi(cx, groundY - m.sh, rx, m.ch, BLANCO, 1); } finally { g = gPrincipal; }
     }
+    const c = luzMadre;
+    if (c.clave !== claveGeo || t - c.t >= CACHE_MADRE_DT || t < c.t) {
+      const dtLuz = Math.min(0.25, Math.max(0.001, t - c.t)), luzAntes = luzDt;
+      c.clave = claveGeo; c.t = t;
+      const gc = lienzoCache(c, x0, y0, w, h);
+      gc.drawImage(geoMadre.cv, x0, y0, w, h);
+      g = gc; luzDt = dtLuz;
+      try { lucesMadre(cx, groundY - m.sh, rx, m.ch, mitad); } finally { g = gPrincipal; luzDt = luzAntes; }
+    }
+    const capBase = groundY - m.sh, k = (m.ch - sq) / m.ch, corte = capBase - y0;
+    const copiar = (cv) => {
+      if (k > 0.999) { g.drawImage(cv, x0, y0, w, h); return; }
+      g.drawImage(cv, 0, 0, cv.width, corte * K, x0, capBase - corte * k, w, corte * k); // lo de arriba se aplasta contra el tronco
+      g.drawImage(cv, 0, corte * K, cv.width, cv.height - corte * K, x0, capBase, w, h - corte);
+    };
+    copiar(c.cv);
+    if (br > 0.02) { const a = g.globalAlpha; g.globalAlpha = a * br * 0.35; copiar(brilloMadre.cv); g.globalAlpha = a; }
   }
 
   // Luces y color del hongo madre. Con cada edificio se suma un color: los colores se funden entre sí
   // (campo suave que fluye), patrones de luz que se turnan (ola, anillos, rayos), todos los contornos
   // del hongo se iluminan y hay esporas de colores que aparecen y se apagan, más cerca del hongo.
   const esporasLuz = [];
+  const luzCv = document.createElement("canvas"), luzCtx = luzCv.getContext("2d");
+  let luzImg = null;
   function lucesMadre(cx, capBase, rx, ch, mitad) {
     const cols = coloresMadre, n = cols.length;
     // paleta que se funde: 96 pasos a lo largo del ciclo de colores
@@ -2372,22 +2439,32 @@ export function crearEscena(canvas, opciones = {}) {
     const cs = Math.max(2, Math.round(rx / 42));
     const modo = Math.floor(t / 7) % 3, env = Math.pow(Math.sin(Math.PI * ((t % 7) / 7)), 0.6);
     const cy0 = capBase - ch * 0.3;
-    for (let dy = 0; dy < ch - 1; dy += cs) {
+    // el campo de color son celdas de cs×cs: se calcula en una imagen chica y se agranda de una vez (una sola llamada de dibujo)
+    const Wd = Math.ceil((2 * rx) / cs) + 1, Hd = Math.max(1, Math.ceil((ch - 1) / cs));
+    if (luzCv.width !== Wd || luzCv.height !== Hd || !luzImg) { luzCv.width = Wd; luzCv.height = Hd; luzImg = luzCtx.createImageData(Wd, Hd); }
+    const px = luzImg.data;
+    const rgb = LUT.map((hx) => [parseInt(hx.slice(1, 3), 16), parseInt(hx.slice(3, 5), 16), parseInt(hx.slice(5, 7), 16)]);
+    for (let jj = 0; jj < Hd; jj++) {
+      const dy = jj * cs, fila = Hd - 1 - jj;
       const w = Math.floor(rx * Math.sqrt(Math.max(0, 1 - (dy / ch) ** 2))) - 2;
-      if (w < 2) continue;
-      for (let x = -w; x < w; x += cs) {
+      for (let ii = 0; ii < Wd; ii++) {
+        const x = -rx + ii * cs, o = (fila * Wd + ii) * 4;
+        if (w < 2 || x < -w || x >= w) { px[o + 3] = 0; continue; }
         const u = x / rx, v = dy / ch;
         const fase = u * 0.9 + v * 0.8 + t * 0.22 + 0.6 * Math.sin(t * 0.35 + v * 3 + u * 2);
         let luz = 0;
         if (modo === 0) luz = Math.max(0, 1 - Math.abs(u + v * 0.7 - (((t * 0.13) % 1) * 3 - 1.3)) / 0.28);
         else if (modo === 1) { const r = Math.hypot(x, (capBase - dy) - cy0) / rx; luz = Math.max(0, 1 - Math.abs(r - ((t * 0.11) % 1) * 1.5) / 0.14); }
         else luz = Math.pow(0.5 + 0.5 * Math.sin(Math.atan2(cy0 - (capBase - dy), x) * 5 + t * 1.1), 3) * 0.7 * (1 - v * 0.4);
-        g.globalAlpha = (0.1 + 0.22 * fuerza) * (0.8 + 0.2 * Math.sin(t + u * 4));
-        g.fillStyle = pal(fase);
-        g.fillRect(cx + x, capBase - 3 - dy, cs, cs);
-        if (luz > 0.04) { g.globalAlpha = luz * env * 0.38 * fuerza; g.fillStyle = "#ffffff"; g.fillRect(cx + x, capBase - 3 - dy, cs, cs); }
+        const a1 = (0.1 + 0.22 * fuerza) * (0.8 + 0.2 * Math.sin(t + u * 4)), a2 = luz > 0.04 ? luz * env * 0.38 * fuerza : 0;
+        const c = rgb[Math.floor((((fase / n) % 1) + 1) % 1 * 96) % 96];
+        const A = a2 + a1 * (1 - a2); // color de la celda con un destello blanco encima
+        px[o] = (255 * a2 + c[0] * a1 * (1 - a2)) / A; px[o + 1] = (255 * a2 + c[1] * a1 * (1 - a2)) / A; px[o + 2] = (255 * a2 + c[2] * a1 * (1 - a2)) / A; px[o + 3] = A * 255;
       }
     }
+    luzCtx.putImageData(luzImg, 0, 0);
+    g.globalAlpha = 1;
+    g.drawImage(luzCv, cx - rx, capBase - 3 - (Hd - 1) * cs, Wd * cs, Hd * cs);
     // todos los contornos se iluminan: borde del sombrero, tallo y bordes de la base
     g.globalAlpha = 0.5 + 0.4 * fuerza;
     for (let dy = 0; dy < ch; dy++) {
@@ -2432,6 +2509,20 @@ export function crearEscena(canvas, opciones = {}) {
   }
 
   // Edificios: hongo con decoración propia en el sombrero y en el tallo.
+  // Cada edificio se pinta en su propio lienzo a ~20 cuadros por segundo y entre medio solo se copia
+  // (así se piden muchísimas menos operaciones de dibujo a la placa de video).
+  const cachesEdif = {};
+  function dibujarEdificioCache(id, x) {
+    const m = tam(id), cx = Math.round(x), c = cachesEdif[id] || (cachesEdif[id] = mkCache());
+    const x0 = cx - Math.ceil(m.w / 2) - 40, y0 = groundY - m.sh - m.ch - 70, w = Math.ceil(m.w) + 80, h = groundY + 8 - y0;
+    const clave = [id, x0, y0, w, h, K, m.sw, semilla].join("|");
+    if (clave !== c.clave || t - c.t >= CACHE_MADRE_DT || t < c.t) {
+      c.clave = clave; c.t = t;
+      g = lienzoCache(c, x0, y0, w, h);
+      try { dibujarEdificio(id, x); } finally { g = gPrincipal; }
+    }
+    g.drawImage(c.cv, x0, y0, w, h);
+  }
   function dibujarEdificio(id, x, alfa = 1) {
     const m = tam(id);
     const cx = Math.round(x);
@@ -2754,6 +2845,17 @@ export function crearEscena(canvas, opciones = {}) {
 
   // Luna de fondo: sutil, siempre presente. Cada expedición le suma una base hongil de color.
   const CRATERES = [[-0.35, -0.3, 0.2], [0.3, -0.45, 0.14], [0.45, 0.15, 0.22], [-0.2, 0.4, 0.16], [-0.55, 0.1, 0.1], [0.05, -0.05, 0.09]];
+  const cacheLuna = { cv: document.createElement("canvas"), t: -9, clave: "" };
+  function dibujarLunaCache() {
+    const L = geomLuna(), x0 = Math.floor(L.x - L.r) - 14, y0 = Math.floor(L.y - L.r) - 14, w = Math.ceil(L.r * 2) + 28, h = w;
+    const c = cacheLuna, clave = [x0, y0, w, K].join("|");
+    if (clave !== c.clave || t - c.t >= 0.1 || t < c.t) { // la luna cambia despacio: 10 cuadros por segundo alcanzan
+      c.clave = clave; c.t = t;
+      g = lienzoCache(c, x0, y0, w, h);
+      try { dibujarLuna(); } finally { g = gPrincipal; }
+    }
+    g.drawImage(c.cv, x0, y0, w, h);
+  }
   function dibujarLuna() {
     const L = geomLuna();
     // halo muy tenue
@@ -3077,12 +3179,12 @@ export function crearEscena(canvas, opciones = {}) {
 
     g.save();
     g.translate(offX(), oy);
-    dibujarLuna();
+    dibujarLunaCache();
     dibujarNubes();
     dibujarMina();
     dibujarMadre();
     dibujarCristalesMadre();
-    for (const id in edif) if (!(colocando?.mover && colocando.id === id)) dibujarEdificio(id, edif[id].x);
+    for (const id in edif) if (!(colocando?.mover && colocando.id === id)) dibujarEdificioCache(id, edif[id].x);
     for (const v of torresV) dibujarTorre(v);
     dibujarCoheteEnVuelo();
     for (const b of brotes) {

@@ -13,7 +13,7 @@ import { CHANGELOG } from './changelog.js';
 
 // Preferencias de interfaz (no forman parte de la partida): guardadas aparte.
 const KEY_AJ = "hongolandia-ajustes";
-const AJ_BASE = { transparencia: false, dpsPlegado: false, visibles: 20, cantidad: 1 };
+const AJ_BASE = { transparencia: false, dpsPlegado: false, visibles: 20, cantidad: 1, fps: 60 };
 export const ajustes = (() => {
   try { return { ...AJ_BASE, ...JSON.parse(localStorage.getItem(KEY_AJ) || "{}") }; } catch (_) { return { ...AJ_BASE }; }
 })();
@@ -816,6 +816,30 @@ export function crearUI(api) {
       });
       filaV.append(infoV, rng);
       hojaCuerpo.append(filaV);
+
+      const filaF = document.createElement("div");
+      filaF.className = "fila";
+      const infoF = document.createElement("div");
+      infoF.className = "fila-info";
+      const tf = document.createElement("b");
+      tf.textContent = "Cuadros por segundo";
+      const df = document.createElement("span");
+      df.textContent = "Limita cuántas veces por segundo se dibuja el juego. 30 usa la mitad de placa de video que 60; «Sin límite» sigue la frecuencia de tu monitor (gasta más).";
+      infoF.append(tf, df);
+      const selF = document.createElement("div");
+      selF.className = "cant";
+      const OPF = [[30, "30"], [60, "60"], [0, "Sin límite"]];
+      const botF = OPF.map(([v, txt]) => {
+        const b = document.createElement("button");
+        b.className = "cant-btn";
+        b.textContent = txt;
+        b.classList.toggle("activo", (ajustes.fps ?? 60) === v);
+        b.addEventListener("click", () => { ajustes.fps = v; guardarAjustes(); botF.forEach((x, i) => x.classList.toggle("activo", OPF[i][0] === v)); });
+        selF.append(b);
+        return b;
+      });
+      filaF.append(infoF, selF);
+      hojaCuerpo.append(filaF);
 
       seccion("Admin (pruebas)");
       const notaAdm = document.createElement("p");
