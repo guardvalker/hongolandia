@@ -1,5 +1,13 @@
 export const CHANGELOG = [
   {
+    v: "0.61.0",
+    fecha: "2026-10-06",
+    cambios: [
+      "Transportes alternativos (idea de los zygnorps y los drones de Gnorp Apologue), dos mejoras nuevas de Logística: «Red de hifas» (10 niveles) lleva granos bajo el piso sin necesitar básicos (+0,5 granos/s por nivel por cada lugar que suelta esporas; se ven hilos luminosos con pulsos bajo el piso hacia cada edificio) y «Polillas de esporas» (10 niveles) vuelan siempre a la montaña más alta y llevan granos de ahí (+0,8 granos/s por nivel; evitan que colapse; no tocan las compactadas). Ambas suman al porcentaje de Transporte del panel.",
+      "Jardín de savias (idea del Jardín de Gnorp Apologue): el Vivero tiene tres habilidades nuevas (piden 25 jardineros). Savia roja: onda de choque que lanza TODAS las esporas sueltas del piso al hongo madre de golpe (+10% de bono por nivel). Savia azul: los básicos y las polillas van ×2 por 25 s. Savia verde: el bono de las cristalizaciones es ×1,5 por 30 s. Cada nivel acorta la recarga y alarga la duración. Valores a ojo.",
+    ],
+  },
+  {
     v: "0.60.0",
     fecha: "2026-10-06",
     cambios: [

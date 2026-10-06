@@ -173,6 +173,9 @@ export function crearUI(api) {
       case "buff": return `Habilidad: ×${m.mult} a los ${p} durante ${durBuff(m, n + 1)} s (recarga ${Math.round(cdHabilidad(m, n + 1))} s). Cada nivel dura más y recarga antes.`;
       case "racha": { const c = Math.max(3, m.cada0 - m.dc * Math.max(0, n)); return `Racha: cada ${c} acciones de los ${p} (una por honguito cada ~10 s), una sale ×${m.m}: ráfaga de producción visible. Cada nivel acorta la racha.`; }
       case "cadena": return `Cadena: cada vez que un ${HONGUITOS[m.fuente].nombre.toLowerCase()} actúa (una vez cada ~10 s) hay ${num((m.p0 + m.p1 * n) * 100)}% de chance de que los ${p} cobren ${m.seg} s de su producción de golpe. Cada nivel sube la chance.`;
+      case "savia_roja": return `Habilidad: el Jardín da savia roja y los honguitos escupen una onda de choque que lanza TODAS las esporas sueltas del piso (menos las montañas compactadas) al hongo madre de golpe${n > 0 ? ` (+${10 * n}% de bono)` : ""}. Recarga ${Math.round(cdHabilidad(m, n + 1))} s.`;
+      case "savia_azul": return `Habilidad: savia azul: aparecen directores y los básicos y las polillas van ×2 durante ${durBuff(m, n + 1)} s (recarga ${Math.round(cdHabilidad(m, n + 1))} s).`;
+      case "savia_verde": return `Habilidad: savia verde: el bono de las cristalizaciones es ×1,5 durante ${durBuff(m, n + 1)} s (recarga ${Math.round(cdHabilidad(m, n + 1))} s).`;
       case "sinergia": return `Cada ${m.cada} ${plural(m.fuente)}: +${num(m.bono * 100)}% a ${objetivoTxt(m.objetivo)}.`;
       case "descuento": return `El precio de los ${p} sube un ${pct(m.a)}% menos con cada compra, por nivel.`;
       case "autoevento": return `+${pct(m.a)}% de chance por nivel de que los eventos del cielo se recojan solos.`;
@@ -209,7 +212,7 @@ export function crearUI(api) {
   }
 
   // ---- Mejoras de edificio (por niveles), habilidades activas e interruptores ----
-  const ACTIVAS = ["buff", "hechizo", "apuesta"];
+  const ACTIVAS = ["buff", "hechizo", "apuesta", "savia_roja", "savia_azul", "savia_verde"];
   function filasMejorasEdificio(id, reabrir) {
     const s = api.estado();
     const mias = MEJ_EDIF.filter((m) => m.edificio === id);
@@ -259,7 +262,7 @@ export function crearUI(api) {
           const ahora = Date.now(), h = st.habil[m.id];
           if (h && ahora < h.hasta) { f.btn.textContent = Math.ceil((h.hasta - ahora) / 1000) + " s"; f.btn.disabled = true; f.btn.classList.add("activa"); }
           else if (h && ahora < h.listoEn) { const r = Math.ceil((h.listoEn - ahora) / 1000); f.btn.textContent = Math.floor(r / 60) + ":" + String(r % 60).padStart(2, "0"); f.btn.disabled = true; f.btn.classList.remove("activa"); }
-          else { f.btn.textContent = m.ef === "buff" ? "Activar" : "Usar"; f.btn.disabled = false; f.btn.classList.remove("activa"); }
+          else { f.btn.textContent = m.ef === "buff" || m.ef === "savia_azul" || m.ef === "savia_verde" ? "Activar" : "Usar"; f.btn.disabled = false; f.btn.classList.remove("activa"); }
         };
         filas.push(f);
       }

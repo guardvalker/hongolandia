@@ -159,9 +159,14 @@ export function logiInfo(state) {
   const recoger = LOGI.recoger * Math.max(0.2, 1 - 0.07 * nivelMej(state, "logi_recoger") - arteA(state, "logi_recoger"));
   const viaje = ((2 * distMedia(state)) / vel + recoger) * (1 - Math.min(0.5, 0.05 * nivelMej(state, "logi_relevo"))); // segundos de ida, vuelta y juntar el manojo
   const n = state.honguitos.basico || 0;
-  const cap = (n * carga) / viaje; // esporas por segundo que se pueden llevar al hongo madre
+  const azul = saviaActiva(state, "jardinero_savia_azul") ? 2 : 1; // «Savia azul»: los directores aceleran a los que llevan
+  const capB = (n * carga) / viaje * azul; // esporas por segundo que llevan los básicos
+  const nSitios = Object.keys(emisionPorSitio(state)).length + (state.logi.tasaClick > 0 ? 1 : 0);
+  const capH = 0.5 * nivelMej(state, "logi_hifas") * Math.max(1, nSitios); // las hifas bajo el piso
+  const capP = 0.8 * nivelMej(state, "logi_polillas") * azul; // las polillas de la montaña más alta
+  const cap = capB + capH + capP; // esporas por segundo que se pueden llevar al hongo madre
   const em = emisionPorSeg(state) + (state.logi.tasaClick || 0);
-  return { carga, viaje, vel, recoger, n, cap, em, razon: em > 0 ? Math.min(1, cap / em) : 1 };
+  return { carga, viaje, vel, recoger, n, cap, capB, capH, capP, em, razon: em > 0 ? Math.min(1, cap / em) : 1 };
 }
 // Partidas anteriores a la logística: se les regalan los honguitos básicos justos para que todo siga llegando al hongo madre
 export function migrarLogistica(state) {
@@ -170,6 +175,7 @@ export function migrarLogistica(state) {
   const L = logiInfo(state);
   if (L.razon < 1) state.honguitos.basico = Math.max(state.honguitos.basico || 1, Math.ceil((L.em * L.viaje) / L.carga * 1.05)); // se les regalan los cargadores que hagan falta
 }
+export const saviaActiva = (state, id) => (state.habil[id]?.hasta || 0) > Date.now();
 export const costoLogi = (state, m) => {
   const n = nivelMej(state, m.id);
   const fijo = D(m.base).mul(D(m.esc).pow(n));
@@ -208,6 +214,8 @@ export function logiSitios(state) {
 }
 // Avisos para la escena: una montaña colapsó y el piso se la tragó (no se guardan)
 export const logiEventos = [];
+// vuelos de polillas de esta tanda para la escena (no se guardan)
+export const polillaVuelos = [];
 // Suma esporas sueltas a la montaña de un lugar (los toques van al hongo madre; los géiseres, al edificio más cercano)
 export function sumarAlPiso(state, sitio, valor, cuenta) {
   const L = state.logi;
@@ -245,16 +253,45 @@ export function logistica(state, dt, valor, llegadas, toques = 0) {
   let nComp = 0;
   for (const id in comp) if (comp[id]) nComp += L.sitios[id] || 0;
   const nLibre = Math.max(0, L.n - nComp);
-  const mov = Math.min(nLibre, logiInfo(state).cap * dt);
-  let parte = D(0);
-  if (mov > 0) {
-    const f = mov / nLibre; // los básicos se llevan de todas las montañas libres en proporción a su tamaño
-    parte = mov >= L.n ? L.valor : L.valor.mul(mov / L.n);
-    L.valor = L.valor.sub(parte);
-    L.n -= mov;
-    for (const id in L.sitios) if (!comp[id]) L.sitios[id] *= 1 - f;
-    state.esporas = state.esporas.add(parte);
-    state.total = state.total.add(parte);
+  const LI = logiInfo(state);
+  const mov = Math.min(nLibre, LI.cap * dt);
+  let parte = D(0), mpMov = 0;
+  // las polillas se llevan primero de la montaña más alta (la más cerca del tope) que no se esté compactando
+  if (LI.capP > 0 && mov > 0) {
+    const emP = emisionPorSitio(state);
+    emP.madre = (emP.madre || 0) + L.tasaClick;
+    let alto = null, mejor = 0;
+    for (const id in L.sitios) {
+      if (comp[id] || !(L.sitios[id] > 0.5)) continue;
+      const fr = L.sitios[id] / cmaxSitio(emP[id] || 0);
+      if (fr > mejor) { mejor = fr; alto = id; }
+    }
+    if (alto) {
+      const mp = Math.min(LI.capP * dt, L.sitios[alto], mov);
+      if (mp > 0) {
+        const vp = mp >= L.n ? L.valor : L.valor.mul(mp / L.n);
+        L.valor = L.valor.sub(vp); L.n -= mp; L.sitios[alto] -= mp;
+        state.esporas = state.esporas.add(vp); state.total = state.total.add(vp);
+        parte = parte.add(vp); mpMov = mp;
+        if (polillaVuelos.length < 12 && dt <= 2) polillaVuelos.push({ sitio: alto, n: mp });
+        if (L.n <= 1e-9) { L.n = 0; L.valor = D(0); L.sitios = {}; return parte; }
+      }
+    }
+  }
+  if (mov > 0 && L.n > 0) {
+    let libre = 0;
+    for (const id in L.sitios) if (!comp[id]) libre += L.sitios[id];
+    const m2 = Math.min(libre, Math.max(0, mov - mpMov));
+    if (m2 > 0) {
+      const f = m2 / libre; // los básicos y las hifas se llevan de todas las montañas libres en proporción a su tamaño
+      const p2 = m2 >= L.n ? L.valor : L.valor.mul(m2 / L.n);
+      L.valor = L.valor.sub(p2);
+      L.n -= m2;
+      for (const id in L.sitios) if (!comp[id]) L.sitios[id] *= 1 - f;
+      state.esporas = state.esporas.add(p2);
+      state.total = state.total.add(p2);
+      parte = parte.add(p2);
+    }
   }
   // colapsos: una montaña que llega a su tope se hunde en el piso (las compactadas, si no se cristalizan a tiempo)
   const em = emisionPorSitio(state);
@@ -291,7 +328,7 @@ export function cristalizar(state, id) {
   const f = Math.min(1, n / cmaxSitio(em[id] || 0, altoComp(state)));
   const vSitio = L.valor.mul(Math.min(1, n / L.n));
   const bono = (1 + 1.2 * f * f) * (1 + 0.04 * P.nivel);
-  const ganancia = vSitio.mul(1 + (bono - 1) * arteM(state, "comp_bono"));
+  const ganancia = vSitio.mul(1 + (bono - 1) * arteM(state, "comp_bono") * (saviaActiva(state, "jardinero_savia_verde") ? 1.5 : 1));
   L.valor = L.valor.sub(vSitio);
   L.n -= n;
   L.sitios[id] = 0;
@@ -579,6 +616,7 @@ export function alternarSobrecarga(state) {
 
 // Habilidades activas: buffs temporales, apuesta y hechizo. Usan el reloj real (siguen con la pestaña oculta).
 // Devuelve un texto para mostrar, o null si no se pudo usar.
+const fmtRapido = (d) => d.toExponential(2).replace('e+', 'e');
 export function activarHabilidad(state, id) {
   const m = MEJ_EDIF_POR_ID[id];
   const n = m ? nivelMej(state, id) : 0;
@@ -587,6 +625,24 @@ export function activarHabilidad(state, id) {
   if (m.ef === "buff") {
     state.habil[id] = { hasta: ahora + durBuff(m, n) * 1000, listoEn: ahora + cdHabilidad(m, n) * 1000 };
     return `${m.nombre}: ×${m.mult} a los ${HONGUITOS[m.aplica].nombre.toLowerCase()}s por ${durBuff(m, n)} s`;
+  }
+  if (m.ef === "savia_azul" || m.ef === "savia_verde") {
+    state.habil[id] = { hasta: ahora + durBuff(m, n) * 1000, listoEn: ahora + cdHabilidad(m, n) * 1000 };
+    emitir({ savia: m.ef === "savia_azul" ? "azul" : "verde" });
+    return m.ef === "savia_azul" ? `Savia azul: los básicos y las polillas van ×2 por ${durBuff(m, n)} s` : `Savia verde: el bono de cristalización es ×1,5 por ${durBuff(m, n)} s`;
+  }
+  if (m.ef === "savia_roja") {
+    state.habil[id] = { hasta: 0, listoEn: ahora + cdHabilidad(m, n) * 1000 };
+    const L = state.logi, comp = L.comp || {};
+    let libre = 0;
+    for (const sid in L.sitios) if (!comp[sid]) libre += L.sitios[sid];
+    if (libre <= 0 || L.n <= 0) return "Savia roja: no había nada en el piso";
+    const f = Math.min(1, libre / L.n), valor = L.valor.mul(f).mul(1 + 0.1 * (n - 1));
+    L.valor = L.valor.sub(L.valor.mul(f)); L.n -= libre;
+    for (const sid in L.sitios) if (!comp[sid]) L.sitios[sid] = 0;
+    state.esporas = state.esporas.add(valor); state.total = state.total.add(valor);
+    emitir({ savia: "roja" });
+    return `¡Onda de choque! +${fmtRapido(valor)} esporas llegaron de golpe al hongo madre`;
   }
   if (m.ef === "hechizo") {
     state.habil[id] = { hasta: 0, listoEn: ahora + cdHabilidad(m, n) * 1000 };
