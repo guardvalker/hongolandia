@@ -6,7 +6,7 @@ import { D } from './decimal.js';
 import { buffCrisis } from './puData.js';
 import { prestigio, meteoros, produccionPorSeg } from './engine.js';
 import { HONGUITOS } from './data.js';
-import { ARTEFACTOS, ARTE_POR_ID, arteA, sortearOfertas } from './artefactos.js';
+import { ARTEFACTOS, ARTE_POR_ID, arteA, arteM, sortearOfertas } from './artefactos.js';
 import { crearInvasion, pasoInvasion, terminada, cerrarInvasion, danar, danoClick } from './invasion.js';
 
 export const MAGOS_MIN = 10;
@@ -96,6 +96,9 @@ function iniciar(state, tipo) {
     ofertasMercader(state);
     ev = { tipo, t: 0, dur: 100, dx: (Math.random() < 0.5 ? -1 : 1) * alcance * 0.9, estado: "llega" };
     ev.meta = (ev.dx < 0 ? -1 : 1) * 70;
+  } else if (tipo === "gemas") {
+    const n = Math.min(40, 12 + Math.floor(prestigio(state.total).puntos / 4));
+    ev = { tipo, t: 0, pendientes: n, proximo: 0.4, total: n, gemas: [], cobradas: 0, esporas: D(0), nextId: 1 };
   } else if (tipo === "invasion") {
     A.invasiones++;
     state.flags.invasion = true; // desbloquea la Barraca hongil
@@ -105,14 +108,34 @@ function iniciar(state, tipo) {
   fxPush({ tipo: "inicio", evento: tipo });
 }
 
+// Eventos arcanos con tier, peso y nivel de prestigio mínimo (como las calamidades de la wiki de Dwarf Eats Mountain)
+export const EVENTOS_ARCANOS = [
+  { tipo: "tormenta", tier: 1, min: 0, peso: 32 },
+  { tipo: "mercader", tier: 1, min: 0, peso: 24 },
+  { tipo: "gemas", tier: 2, min: 6, peso: 22 },
+  { tipo: "meteoros", tier: 2, min: 0, peso: 20 },
+  { tipo: "invasion", tier: 3, min: 0, peso: 24 },
+];
 function elegir(state) {
   const A = state.arcano;
   if (A.sinInvasion >= 3 && !state.flags.invasion) return "invasion"; // la primera invasión no se hace esperar
-  const r = Math.random() * 100;
-  if (r < 32) return "tormenta";
-  if (r < 52) return "meteoros";
-  if (r < 76) return "mercader";
-  return "invasion";
+  const nivel = prestigio(state.total).puntos;
+  const pool = EVENTOS_ARCANOS.filter((e) => nivel >= e.min);
+  let r = Math.random() * pool.reduce((t, e) => t + e.peso, 0);
+  for (const e of pool) { r -= e.peso; if (r < 0) return e.tipo; }
+  return pool[0].tipo;
+}
+
+// Lluvia de gemas: caen gemas por todo el mapa; tocarlas da esporas (las que no tocás se pierden)
+export function recolectarGema(state, gm) {
+  if (!ev || ev.tipo !== "gemas" || (gm.estado !== "cae" && gm.estado !== "suelo")) return null;
+  gm.estado = "hecha";
+  const v = produccionPorSeg(state).mul(rnd(20, 45) * arteM(state, "dorada_val")).ceil();
+  const ganancia = v.lt(13) ? D(13) : v;
+  state.esporas = state.esporas.add(ganancia); state.total = state.total.add(ganancia);
+  ev.cobradas++; ev.esporas = ev.esporas.add(ganancia);
+  fxPush({ tipo: "gema", dx: gm.dx, col: gm.col });
+  return ganancia;
 }
 
 export function golpearCriatura(state, c) { if (ev && ev.tipo === "invasion") danar(state, ev, c, danoClick(ev), "mano", fxPush); }
@@ -123,6 +146,7 @@ function terminar(state) {
   } else if (ev.tipo === "meteoros") {
     resultado = { tipo: "meteoros", interceptados: ev.interceptados, impactos: ev.impactos, total: ev.total, dano: ev.dano };
   } else if (ev.tipo === "tormenta") resultado = { tipo: "tormenta" };
+  else if (ev.tipo === "gemas") resultado = { tipo: "gemas", cobradas: ev.cobradas, total: ev.total, esporas: ev.esporas };
   ev = null;
   state.arcano.prox = intervalo(state);
 }
@@ -188,6 +212,23 @@ function paso(state, dt) {
       }
     }
     if (ev.pendientes <= 0 && ev.meteoros.every((m) => m.estado === "hecho") && ev.t > 3) terminar(state);
+    return;
+  }
+  if (ev.tipo === "gemas") {
+    ev.proximo -= dt;
+    if (ev.pendientes > 0 && ev.proximo <= 0) {
+      ev.pendientes--; ev.proximo = rnd(0.25, 0.9);
+      ev.gemas.push({ id: ev.nextId++, dx: rnd(-alcance * 0.85, alcance * 0.85), t: 0, caida: rnd(1.6, 2.6), vida: 8 + Math.random() * 3, estado: "cae", col: Math.floor(Math.random() * 6) });
+    }
+    for (const gm of ev.gemas) {
+      if (gm.estado === "hecha" || gm.estado === "perdida") continue;
+      gm.t += dt;
+      if (gm.estado === "cae" && gm.t >= gm.caida) {
+        gm.estado = "suelo";
+        if (Math.random() < Math.min(0.9, arteA(state, "autoevento"))) recolectarGema(state, gm); // las «redes del cielo» las juntan solas
+      } else if (gm.estado === "suelo" && gm.t >= gm.caida + gm.vida) gm.estado = "perdida";
+    }
+    if (ev.pendientes <= 0 && ev.gemas.every((q) => q.estado === "hecha" || q.estado === "perdida") && ev.t > 2) terminar(state);
     return;
   }
   if (ev.tipo === "mercader") {

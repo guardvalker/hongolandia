@@ -1,5 +1,13 @@
 export const CHANGELOG = [
   {
+    v: "0.49.0",
+    fecha: "2026-10-05",
+    cambios: [
+      "Evento arcano nuevo: Lluvia de gemas (tomado de las calamidades de reward de la wiki de Dwarf Eats Mountain). Caen decenas de gemas de colores por todo el mapa y cada una que tocás da entre 20 y 45 segundos de producción (con el bono de las esporas doradas); las que no tocás se pierden a los ~10 s (titilan antes de irse). Las «Redes del cielo» juntan algunas solas. Cuanto más prestigio, más gemas caen. Aparece desde el nivel 6 de prestigio de la corrida.",
+      "Los eventos arcanos ahora se eligen con una tabla de tier, peso y nivel mínimo en lugar de porcentajes fijos, para poder sumar más fácilmente eventos nuevos y que los fuertes aparezcan más tarde.",
+    ],
+  },
+  {
     v: "0.48.1",
     fecha: "2026-10-05",
     cambios: [

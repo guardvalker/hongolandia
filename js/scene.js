@@ -1338,6 +1338,9 @@ export function crearEscena(canvas, opciones = {}) {
         motas(x, y, 14, 1.3, "#7fe9ff"); aroPart(x, y, 16, 0.5);
         const tv = torresV[0];
         if (e.torre && tv) { tiros.push({ kind: "basica", x0: tv.x, y0: groundY - alturaTorre(tv), x1: x, y1: y, t: 0 }); tv.ang = Math.atan2(y - (groundY - alturaTorre(tv)), x - tv.x); tv.retro = 0.2; }
+      } else if (e.tipo === "gema") {
+        const y = groundY - 8;
+        motas(x, y, 16, 1.3, GEMAS[e.col][0]); motas(x, y, 8, 1, GEMAS[e.col][1]); aroPart(x, y, 14, 0.4);
       } else if (e.tipo === "kill") {
         const yy = groundY - 5 - (e.y || 0);
         motas(x, yy, e.grande ? 36 : 9, e.grande ? 1.8 : 1, "#c58aff"); aroPart(x, yy, e.grande ? 40 : 10, e.grande ? 0.7 : 0.4);
@@ -1534,6 +1537,21 @@ export function crearEscena(canvas, opciones = {}) {
       }
     }
   }
+  // gemas de la lluvia de gemas: un rombo de 7x9 por color, con brillo
+  const GEMAS = [["#4fb4ff", "#bfe6ff"], ["#ff4f7a", "#ffc0d0"], ["#3ddc84", "#c0ffd8"], ["#ffd23f", "#fff2b0"], ["#c58aff", "#ecd8ff"], ["#2fd4c4", "#c0fff6"]];
+  const spritesGema = GEMAS.map(([c, l]) => {
+    const cv = document.createElement("canvas");
+    cv.width = 7; cv.height = 9;
+    const x = cv.getContext("2d");
+    const F = ["...w...", "..wcw..", ".wcccw.", "wcclccw", ".wcccw.", "..wcw..", "...w..."];
+    x.fillStyle = BLANCO;
+    F.forEach((fila, y) => { for (let i = 0; i < 7; i++) { const ch = fila[i]; if (ch === ".") continue; x.fillStyle = ch === "w" ? BLANCO : ch === "l" ? l : c; x.fillRect(i, y + 1, 1, 1); } });
+    return cv;
+  });
+  const gemaY = (gm) => {
+    if (gm.estado === "cae") { const p = clamp(gm.t / gm.caida, 0, 1), y0 = -offY() - 20; return y0 + (groundY - 6 - y0) * p * p; }
+    return groundY - 6 - Math.abs(Math.sin(Math.min(1, (gm.t - gm.caida) * 3) * Math.PI)) * 3 * (gm.t - gm.caida < 0.34 ? 1 : 0);
+  };
   function dibujarArcano() {
     for (const c of crateres) { g.globalAlpha = Math.min(1, c.t / 3); g.fillStyle = "#14141d"; g.fillRect(Math.round(c.x) - 11, groundY, 23, 4); g.fillRect(Math.round(c.x) - 8, groundY + 4, 17, 2); g.fillStyle = "#3a2a1a"; g.fillRect(Math.round(c.x) - 7, groundY - 1, 15, 2); g.globalAlpha = 1; }
     const e = getEvento();
@@ -1544,6 +1562,17 @@ export function crearEscena(canvas, opciones = {}) {
         for (let k = 22; k >= 1; k--) { const q = clamp(p - k * 0.02, 0, 1); g.globalAlpha = 0.65 * (1 - k / 23); g.fillStyle = k < 8 ? "#ffe14d" : "#ff8a1f"; const sz = Math.round(13 - k * 0.3); g.fillRect(Math.round(x1 + (1 - q) * 160) - (sz >> 1), Math.round(y0 + (groundY - y0) * q * q) - (sz >> 1), sz, sz); }
         g.globalAlpha = 0.25; disco(Math.round(hx), Math.round(hy), 17, "#ff8a1f"); g.globalAlpha = 1;
         g.fillStyle = "#ff8a1f"; g.fillRect(Math.round(hx) - 9, Math.round(hy) - 9, 19, 19); g.fillStyle = "#ffe14d"; g.fillRect(Math.round(hx) - 6, Math.round(hy) - 6, 13, 13); g.fillStyle = "#fff"; g.fillRect(Math.round(hx) - 3, Math.round(hy) - 3, 7, 7);
+      }
+    }
+    if (e && e.tipo === "gemas") {
+      for (const gm of e.gemas) {
+        if (gm.estado !== "cae" && gm.estado !== "suelo") continue;
+        const x = Math.round(madre.x + gm.dx), y = Math.round(gemaY(gm));
+        if (gm.estado === "suelo" && gm.caida + gm.vida - gm.t < 2.5 && Math.floor(gm.t * 7) % 2) continue; // titila antes de perderse
+        if (gm.estado === "cae") { g.globalAlpha = 0.5; g.fillStyle = GEMAS[gm.col][1]; for (let k = 1; k <= 4; k++) { g.globalAlpha = 0.5 * (1 - k / 5); g.fillRect(x, y - k * 3, 1, 2); } g.globalAlpha = 1; }
+        g.globalAlpha = 0.22; disco(x, y, 7, GEMAS[gm.col][0]); g.globalAlpha = 1;
+        g.drawImage(spritesGema[gm.col], x - 3, y - 5);
+        if (Math.floor(t * 4 + gm.id) % 2) { g.fillStyle = BLANCO; g.fillRect(x + 4, y - 4, 1, 1); g.fillRect(x - 5, y + 2, 1, 1); }
       }
     }
     if (e && e.tipo === "mercader") dibujarMercader(e);
@@ -3336,6 +3365,10 @@ export function crearEscena(canvas, opciones = {}) {
       if (Math.abs(cx - (edif.mina.x + n.x)) < 9 && cy > groundY + n.y - 20 && cy < groundY + n.y + 2) return { quien: "puerta" };
     }
     const eA = getEvento();
+    if (eA && eA.tipo === "gemas") for (const gm of eA.gemas) {
+      if (gm.estado !== "cae" && gm.estado !== "suelo") continue;
+      if (Math.abs(cx - (madre.x + gm.dx)) < 8 && Math.abs(cy - gemaY(gm)) < 10) return { quien: "gema", gema: gm };
+    }
     if (eA && eA.tipo === "invasion") for (const c of eA.criaturas) {
       if (!c.vivo || c.ret > 0) continue;
       const r = c.tipo === "jefe" ? 14 : 10, yc = c.tipo === "murcielago" ? groundY - 14 - c.y : groundY - (c.tipo === "jefe" ? 12 : 8);
