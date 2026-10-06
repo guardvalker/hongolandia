@@ -598,12 +598,12 @@ export function crearEscena(canvas, opciones = {}) {
   }
   const colHongo = (v) => (v.tipo === "basico" ? ROJO : PALETA[v.col]);
   const emitirEspora = (v) => lanzarEspora(v.x, groundY - 14, colHongo(v));
-  // Las esporas que sueltan los productores (y los toques) caen al piso y esperan ahí a que un básico las lleve
+  // Las esporas que sueltan los productores (y los toques) caen al piso y esperan ahí a que un honguito logístico las lleve
   function lanzarEspora(x, y, col, lento = 0) {
     const x1 = x + (Math.random() - 0.5) * 14;
     part(x, y, 0, 0, { tipo: "viaje", col, x0: x, y0: y, x1, y1: groundY - 2, dur: 0.4 + Math.random() * 0.3 + lento * 0.3, arco: 5 + Math.random() * 9, estela: 0, local: true });
   }
-  // Entrega: una espora de un manojo vuela hasta el sombrero del hongo madre (lo hacen los básicos al llegar)
+  // Entrega: una espora de un manojo vuela hasta el sombrero del hongo madre (lo hacen los honguitos logísticos al llegar)
   function volarAMadre(x, y, col, lento = 0) {
     const m = medidas();
     // destino al azar dentro del sombrero (media elipse), no en una línea fija
@@ -2244,7 +2244,7 @@ export function crearEscena(canvas, opciones = {}) {
     const LI = logiInfo(state);
     actualizarMontes(dt, state);
     const sitiosPila = sitiosDePila();
-    // hay trabajo si hay esporas en el piso o si se están soltando (aunque los básicos las lleven al instante): trabaja la fracción de cargadores que hace falta
+    // hay trabajo si hay esporas en el piso o si se están soltando (aunque los honguitos logísticos las lleven al instante): trabaja la fracción de cargadores que hace falta
     const hayPila = state.logi.n >= 0.5 || LI.em >= 0.05;
     const util = clamp(LI.em / Math.max(LI.cap, 1e-9), 0.12, 1);
     const dtG = dt;
@@ -3221,7 +3221,7 @@ export function crearEscena(canvas, opciones = {}) {
     g.restore();
   }
 
-  // ---- Logística: pilas de esporas sueltas y manojos que cargan los básicos ----
+  // ---- Logística: pilas de esporas sueltas y manojos que cargan los honguitos logísticos ----
   let nPila = 0; // esporas sueltas en el piso (las informa el motor)
   const manojoVisual = (carga) => clamp(Math.round(1.8 * Math.log2(Math.max(1, carga)) + 0.5), 1, 14); // cuántas esporas se ven en el manojo
   // ---- Montañas de esporas ----
@@ -3440,7 +3440,7 @@ export function crearEscena(canvas, opciones = {}) {
       }
     }
   }
-  // lugares donde los básicos van a juntar esporas (al pie de cada montaña), con su peso
+  // lugares donde los honguitos logísticos van a juntar esporas (al pie de cada montaña), con su peso
   function sitiosDePila() {
     const out = [];
     for (const d of montesDatos) {

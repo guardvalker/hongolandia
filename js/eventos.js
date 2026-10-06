@@ -153,7 +153,7 @@ export function cosecharCristal(state, c) {
   return ganancia;
 }
 
-// Géiser de esporas: brotan géiseres a lo largo del piso y sueltan esporas en las pilas (los básicos las tienen que llevar).
+// Géiser de esporas: brotan géiseres a lo largo del piso y sueltan esporas en las pilas (los honguitos logísticos las tienen que llevar).
 // Tocar un géiser lo hace erupcionar en grande.
 function erupcion(state, gs, grande) {
   const v = produccionPorSeg(state).mul((grande ? 12 * arteM(state, "geiser_val") : 3) * rnd(0.8, 1.3)).ceil();

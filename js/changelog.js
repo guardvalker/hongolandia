@@ -1,5 +1,12 @@
 export const CHANGELOG = [
   {
+    v: "0.67.1",
+    fecha: "2026-10-06",
+    cambios: [
+      "Cambio de nombre en los textos: los «honguitos básicos» ahora se llaman «honguitos logísticos» en todas las descripciones, mejoras, artefactos, talentos, pactos, logros, avisos y botones (por ejemplo «Los honguitos logísticos caminan un 20% más rápido»). Es solo texto: no cambia ninguna mecánica ni se pierde nada de la partida.",
+    ],
+  },
+  {
     v: "0.67.0",
     fecha: "2026-10-06",
     cambios: [

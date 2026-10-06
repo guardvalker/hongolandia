@@ -146,7 +146,7 @@ export function emisionPorSeg(state) {
   for (const id in HONGUITOS) if (HONGUITOS[id].prod.gt(0)) n += state.honguitos[id] || 0;
   return n * LOGI.emision;
 }
-// distancia media (celdas) que recorre un básico hasta las esporas: crece con lo lejos que están los edificios
+// distancia media (celdas) que recorre un honguito logístico hasta las esporas: crece con lo lejos que están los edificios
 function distMedia(state) {
   const ds = Object.values(state.edificios).map((e) => Math.abs(e.dx ?? 0));
   const media = ds.length ? ds.reduce((a, b) => a + b, 0) / ds.length : 0;
@@ -155,14 +155,14 @@ function distMedia(state) {
 export function logiInfo(state) {
   const nB = state.honguitos.basico || 0;
   let carga = LOGI.carga0 * LOGI.factorCarga ** nivelMej(state, "logi_manojo") * arteM(state, "logi_carga") * arteM(state, "prod_basico") * Math.sqrt(multHitos(nB, state)); // los hitos de cantidad agrandan el manojo, pero a medias: la cantidad de básicos sigue importando
-  for (const mj of MEJORAS) if (mj.aplica === "basico" && state.mejoras[mj.id]) carga *= mj.mult.toNumber(); // las mejoras «de los básicos» agrandan el manojo
-  carga *= 1 + 0.02 * nivelMej(state, "logi_cuadrilla") * Math.floor(nB / 10); // cuadrillas: más básicos, manojos más grandes
+  for (const mj of MEJORAS) if (mj.aplica === "basico" && state.mejoras[mj.id]) carga *= mj.mult.toNumber(); // las mejoras «de los honguitos logísticos» agrandan el manojo
+  carga *= 1 + 0.02 * nivelMej(state, "logi_cuadrilla") * Math.floor(nB / 10); // cuadrillas: más logísticos, manojos más grandes
   const vel = LOGI.vel * (1 + 0.1 * nivelMej(state, "logi_zancada") + arteA(state, "logi_vel"));
   const recoger = LOGI.recoger * Math.max(0.2, 1 - 0.07 * nivelMej(state, "logi_recoger") - arteA(state, "logi_recoger"));
   const viaje = ((2 * distMedia(state)) / vel + recoger) * (1 - Math.min(0.5, 0.05 * nivelMej(state, "logi_relevo"))); // segundos de ida, vuelta y juntar el manojo
   const n = state.honguitos.basico || 0;
   const azul = saviaActiva(state, "jardinero_savia_azul") ? 2 : 1; // «Savia azul»: los directores aceleran a los que llevan
-  const capB = (n * carga) / viaje * azul; // esporas por segundo que llevan los básicos
+  const capB = (n * carga) / viaje * azul; // esporas por segundo que llevan los honguitos logísticos
   const nSitios = Object.keys(emisionPorSitio(state)).length + (state.logi.tasaClick > 0 ? 1 : 0);
   const capH = 0.5 * nivelMej(state, "logi_hifas") * Math.max(1, nSitios); // las hifas bajo el piso
   const capP = LOGI.dronVel * (state.prisma.drones || 0) * azul; // los drones: toda la flota va a la montaña más alta, de a una por vez
@@ -170,7 +170,7 @@ export function logiInfo(state) {
   const em = emisionPorSeg(state) + (state.logi.tasaClick || 0);
   return { carga, viaje, vel, recoger, n, cap, capB, capH, capP, em, razon: em > 0 ? Math.min(1, cap / em) : 1 };
 }
-// Partidas anteriores a la logística: se les regalan los honguitos básicos justos para que todo siga llegando al hongo madre
+// Partidas anteriores a la logística: se les regalan los honguitos logísticos justos para que todo siga llegando al hongo madre
 export function migrarLogistica(state) {
   if (state.flags.logiInicial) return;
   state.flags.logiInicial = true;
@@ -233,7 +233,7 @@ export function sitioMasCercano(state, dx) {
   }
   return mejor;
 }
-// Entrega al hongo madre lo que los básicos alcanzan a llevar en `dt` s; el resto queda en el piso (cada lugar con su montaña).
+// Entrega al hongo madre lo que los honguitos logísticos alcanzan a llevar en `dt` s; el resto queda en el piso (cada lugar con su montaña).
 // `valor` es lo recién producido (en esporas) y `llegadas` cuántas esporas sueltas nuevas hay por lugar. Si una montaña llega
 // a su tope, colapsa: el piso se traga las esporas (se pierden).
 export function logistica(state, dt, valor, llegadas, toques = 0) {
@@ -250,7 +250,7 @@ export function logistica(state, dt, valor, llegadas, toques = 0) {
   for (const id in llegadas) { L.sitios[id] = (L.sitios[id] || 0) + llegadas[id]; cuenta += llegadas[id]; }
   L.n += cuenta;
   if (L.n <= 0) { L.valor = D(0); L.n = 0; L.sitios = {}; return D(0); }
-  // las montañas que se están compactando no se tocan: los básicos solo llevan de las demás
+  // las montañas que se están compactando no se tocan: los honguitos logísticos solo llevan de las demás
   const comp = L.comp || (L.comp = {});
   let nComp = 0;
   for (const id in comp) if (comp[id]) nComp += L.sitios[id] || 0;
@@ -285,7 +285,7 @@ export function logistica(state, dt, valor, llegadas, toques = 0) {
     for (const id in L.sitios) if (!comp[id]) libre += L.sitios[id];
     const m2 = Math.min(libre, Math.max(0, mov - mpMov));
     if (m2 > 0) {
-      const f = m2 / libre; // los básicos y las hifas se llevan de todas las montañas libres en proporción a su tamaño
+      const f = m2 / libre; // los honguitos logísticos y las hifas se llevan de todas las montañas libres en proporción a su tamaño
       const p2 = m2 >= L.n ? L.valor : L.valor.mul(m2 / L.n);
       L.valor = L.valor.sub(p2);
       L.n -= m2;
@@ -350,7 +350,7 @@ export function cristalizar(state, id) {
 export function alternarCompactacion(state, id) {
   if (!nivelMej(state, "logi_prensa")) return { msg: "Con la Prensa de micelio (hongo madre → Logística) podés compactar y cristalizar las montañas de esporas." };
   const L = state.logi, comp = L.comp || (L.comp = {});
-  if (!comp[id]) { comp[id] = true; return { msg: "Compactando: los básicos dejan esta montaña. Tocala de nuevo para cristalizarla (¡antes de que llegue al tope!)." }; }
+  if (!comp[id]) { comp[id] = true; return { msg: "Compactando: los honguitos logísticos dejan esta montaña. Tocala de nuevo para cristalizarla (¡antes de que llegue al tope!)." }; }
   const r = cristalizar(state, id);
   return r ? { cristal: r } : { msg: "Todavía no hay esporas en esta montaña." };
 }
@@ -398,7 +398,7 @@ export const autoSobreMadre = { on: false };
 export const autoFraccion = (state) => 0.5 + 0.1 * nivelClick(state, "autoFuerza") + arteA(state, "auto_frac");
 export function tocarMadre(state) {
   const v = valorToque(state);
-  sumarAlPiso(state, "madre", v, 1); // el toque suelta una espora en el piso: un básico la lleva
+  sumarAlPiso(state, "madre", v, 1); // el toque suelta una espora en el piso: un honguito logístico la lleva
   state.logi.clkV = (state.logi.clkV || D(0)).add(v);
   state.logi.clk = (state.logi.clk || 0) + 1;
   state.flags.toco = true;
@@ -439,7 +439,7 @@ function nivelesNuevos(state) {
   while ((state.nivelVisto || 0) < lvl) {
     const n = (state.nivelVisto = (state.nivelVisto || 0) + 1);
     const rec = puA(state, "recluta_nivel");
-    if (rec > 0 && n % 3 === 0) { state.honguitos.basico = (state.honguitos.basico || 0) + rec; avisosPU.push(`Reclutas de la pradera: +${rec} honguito${rec > 1 ? "s" : ""} básico${rec > 1 ? "s" : ""}`); }
+    if (rec > 0 && n % 3 === 0) { state.honguitos.basico = (state.honguitos.basico || 0) + rec; avisosPU.push(`Reclutas de la pradera: +${rec} honguito${rec > 1 ? "s" : ""} logístico${rec > 1 ? "s" : ""}`); }
     if (Math.random() < puA(state, "pp_chance")) { state.ppExtra = (state.ppExtra || 0) + 1; avisosPU.push("Periódico de herencias: ¡+1 PP para el próximo prestigio!"); }
     if (Math.random() < puA(state, "tesoro_nivel")) {
       const libres = ARTEFACTOS.filter((a) => !state.arte.tienen[a.id]);
@@ -605,7 +605,7 @@ export function tick(state, dt) {
   const llegadas = emisionPorSitio(state);
   for (const id in llegadas) llegadas[id] *= dt;
   llegadas.madre = (llegadas.madre || 0) + cuentaExtra;
-  logistica(state, dt, ganancia, llegadas, cuentaExtra); // la producción queda en el piso hasta que los básicos la llevan
+  logistica(state, dt, ganancia, llegadas, cuentaExtra); // la producción queda en el piso hasta que los honguitos logísticos la llevan
 }
 
 // Suma puntos a la investigación en curso; al terminar una, sigue con el nivel siguiente del mismo tema.
@@ -666,7 +666,7 @@ export function activarHabilidad(state, id) {
     state.habil[id] = { hasta: ahora + durBuff(m, n) * 1000, listoEn: ahora + cdHabilidad(m, n) * 1000 };
     state.flags.savia = true;
     emitir({ savia: m.ef === "savia_azul" ? "azul" : "verde" });
-    return m.ef === "savia_azul" ? `Savia azul: los básicos y los drones van ×2 por ${durBuff(m, n)} s` : `Savia verde: el bono de cristalización es ×1,5 por ${durBuff(m, n)} s`;
+    return m.ef === "savia_azul" ? `Savia azul: los honguitos logísticos y los drones van ×2 por ${durBuff(m, n)} s` : `Savia verde: el bono de cristalización es ×1,5 por ${durBuff(m, n)} s`;
   }
   if (m.ef === "savia_roja") {
     state.habil[id] = { hasta: 0, listoEn: ahora + cdHabilidad(m, n) * 1000 };
@@ -703,7 +703,7 @@ export function activarHabilidad(state, id) {
   return null;
 }
 
-// «Aprendices gremiales» (prestigio): los primeros N honguitos de cada tipo (sin contar el primer básico) salen gratis
+// «Aprendices gremiales» (prestigio): los primeros N honguitos de cada tipo (sin contar el primer honguito logístico) salen gratis
 const umbralGratis = (state, id) => (id === "basico" ? 1 : 0) + Math.floor(arteA(state, "hong_gratis"));
 export function costoHonguito(state, id) {
   const t = HONGUITOS[id];
@@ -766,7 +766,7 @@ export function comprarHonguitos(state, id, k = 1) {
 export const comprarHonguito = (state, id) => comprarHonguitos(state, id, 1);
 
 // ---- Vender honguitos (por si se compró uno por error): se devuelve todo lo que costó ----
-// El honguito básico nunca baja de 1: es el único que lleva las esporas.
+// El honguito logístico nunca baja de 1: es el único que lleva las esporas.
 export const vendibles = (state, id) => Math.max(0, (state.honguitos[id] || 0) - (id === "basico" ? 1 : 0));
 export function reembolsoHonguitos(state, id, k) {
   k = Math.min(k, vendibles(state, id));

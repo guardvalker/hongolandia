@@ -216,7 +216,7 @@ export function crearUI(api) {
       case "racha": { const c = Math.max(3, m.cada0 - m.dc * Math.max(0, n)); return `Racha: cada ${c} acciones de los ${p} (una por honguito cada ~10 s), una sale ×${m.m}: ráfaga de producción visible. Cada nivel acorta la racha.`; }
       case "cadena": return `Cadena: cada vez que un ${HONGUITOS[m.fuente].nombre.toLowerCase()} actúa (una vez cada ~10 s) hay ${num((m.p0 + m.p1 * n) * 100)}% de chance de que los ${p} cobren ${m.seg} s de su producción de golpe. Cada nivel sube la chance.`;
       case "savia_roja": return `Habilidad: el Jardín da savia roja y los honguitos escupen una onda de choque que lanza TODAS las esporas sueltas del piso (menos las montañas compactadas) al hongo madre de golpe${n > 0 ? ` (+${10 * n}% de bono)` : ""}. Recarga ${Math.round(cdHabilidad(m, n + 1))} s.`;
-      case "savia_azul": return `Habilidad: savia azul: aparecen directores y los básicos y los drones van ×2 durante ${durBuff(m, n + 1)} s (recarga ${Math.round(cdHabilidad(m, n + 1))} s).`;
+      case "savia_azul": return `Habilidad: savia azul: aparecen directores y los honguitos logísticos y los drones van ×2 durante ${durBuff(m, n + 1)} s (recarga ${Math.round(cdHabilidad(m, n + 1))} s).`;
       case "savia_verde": return `Habilidad: savia verde: el bono de las cristalizaciones es ×1,5 durante ${durBuff(m, n + 1)} s (recarga ${Math.round(cdHabilidad(m, n + 1))} s).`;
       case "sinergia": return `Cada ${m.cada} ${plural(m.fuente)}: +${num(m.bono * 100)}% a ${objetivoTxt(m.objetivo)}.`;
       case "descuento": return `El precio de los ${p} sube un ${pct(m.a)}% menos con cada compra, por nivel.`;
@@ -591,7 +591,7 @@ export function crearUI(api) {
     }, null, "#ffd23f");
   }
 
-  // ---- Logística de esporas: los básicos juntan las esporas sueltas y las llevan al hongo madre ----
+  // ---- Logística de esporas: los honguitos logísticos juntan las esporas sueltas y las llevan al hongo madre ----
   function seccionLogistica(ancla) {
     const s = api.estado();
     seccion("Logística de esporas");
@@ -599,7 +599,7 @@ export function crearUI(api) {
     filas.push({ refresh: (st) => {
       const L = logiInfo(st);
       const vale = L.em > 0 ? produccionPorSeg(st).div(L.em) : null; // lo que vale en promedio cada grano suelto
-      info.textContent = `Los honguitos básicos (${L.n}) juntan los granos de espora que sueltan los demás y tus toques, y los llevan en manojos de ${fmtN(L.carga)} granos (viaje de ${L.viaje.toFixed(1).replace(".", ",")} s): pueden llevar ${fmtN(L.cap)} granos/s y se sueltan ${fmtN(L.em)} granos/s` + (vale ? ` (cada grano vale hoy ~${fmt(vale)} esporas, por eso la producción es tan grande)` : "") + ". " + (L.razon < 1 ? `Hoy llega el ${Math.round(L.razon * 100)}% de lo que se produce: ¡faltan manos!` : "Alcanza para todo lo que se produce.");
+      info.textContent = `Los honguitos logísticos (${L.n}) juntan los granos de espora que sueltan los demás y tus toques, y los llevan en manojos de ${fmtN(L.carga)} granos (viaje de ${L.viaje.toFixed(1).replace(".", ",")} s): pueden llevar ${fmtN(L.cap)} granos/s y se sueltan ${fmtN(L.em)} granos/s` + (vale ? ` (cada grano vale hoy ~${fmt(vale)} esporas, por eso la producción es tan grande)` : "") + ". " + (L.razon < 1 ? `Hoy llega el ${Math.round(L.razon * 100)}% de lo que se produce: ¡faltan manos!` : "Alcanza para todo lo que se produce.");
     } });
     for (const m of MEJ_LOGI) {
       const n = nivelMej(s, m.id);
@@ -613,7 +613,7 @@ export function crearUI(api) {
       }
       f.refresh = (st) => {
         const c = costoLogi(st, m), faltan = m.req && (st.honguitos.basico || 0) < m.req, sinReq = m.reqMej && !nivelMej(st, m.reqMej);
-        f.btn.textContent = sinReq ? "Falta la Prensa" : faltan ? `${st.honguitos.basico || 0}/${m.req} básicos` : fmt(c);
+        f.btn.textContent = sinReq ? "Falta la Prensa" : faltan ? `${st.honguitos.basico || 0}/${m.req} logísticos` : fmt(c);
         f.btn.disabled = !!sinReq || faltan || st.esporas.lt(c);
       };
       filas.push(f);
@@ -1286,7 +1286,7 @@ export function crearUI(api) {
       const tiene = (s.honguitos[id] || 0) > 0;
       dpsFilas[id].el.hidden = !tiene;
       if (!tiene) continue;
-      if (HONGUITOS[id].logistico) { // el básico no produce: su ranking es cuántas esporas/s alcanza a llevar
+      if (HONGUITOS[id].logistico) { // el honguito logístico no produce: su ranking es cuántas esporas/s alcanza a llevar
         const LG0 = logiInfo(s);
         dpsFilas[id].val.textContent = fmtN(LG0.cap) + " gr/s"; // granos de espora por segundo que alcanza a llevar
         dpsFilas[id].bar.style.width = Math.max(2, Math.min(100, LG0.razon * 100)) + "%";

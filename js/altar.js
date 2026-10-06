@@ -11,8 +11,8 @@ const pct = (x) => Math.round(x * 100);
 export const TALENTOS = [
   // tier 0: desde el primer prestigio
   { id: "t_manos", tier: 0, nombre: "Manos de micelio", desc: "Los toques al hongo madre valen ×2.", ef: [["toque_mult", 2]] },
-  { id: "t_paso", tier: 0, nombre: "Paso ligero", desc: "Los básicos caminan un 20% más rápido.", ef: [["logi_vel", 0.2]] },
-  { id: "t_mochila", tier: 0, nombre: "Mochila amplia", desc: "Los manojos de los básicos son un 30% más grandes.", ef: [["logi_carga", 1.3]] },
+  { id: "t_paso", tier: 0, nombre: "Paso ligero", desc: "Los honguitos logísticos caminan un 20% más rápido.", ef: [["logi_vel", 0.2]] },
+  { id: "t_mochila", tier: 0, nombre: "Mochila amplia", desc: "Los manojos de los honguitos logísticos son un 30% más grandes.", ef: [["logi_carga", 1.3]] },
   { id: "t_mano_abierta", tier: 0, nombre: "Mano abierta", desc: "Los honguitos suben un 8% menos su precio por unidad.", ef: [["costo_hong", 0.08]] },
   { id: "t_ojo", tier: 0, nombre: "Ojo de águila", desc: "Los eventos del cielo aparecen un 30% más seguido y un 15% más se recogen solos.", ef: [["evt_freq", 0.3], ["autoevento", 0.15]] },
   // tier 1 (10 PP en total)
@@ -23,7 +23,7 @@ export const TALENTOS = [
   { id: "t_gran_prensa", tier: 1, nombre: "Gran prensa", desc: "Las montañas compactadas crecen un punto más antes de colapsar (+1 a su altura máxima).", ef: [["comp_alt", 1]] },
   // tier 2 (40 PP)
   { id: "t_salvataje", tier: 2, nombre: "Salvataje", desc: "Cuando una montaña colapsa, se salva el 35% de sus esporas.", ef: [["colapso_resto", 0.35]] },
-  { id: "t_coro", tier: 2, nombre: "Coro del prado", desc: "+1% de producción total por cada 25 honguitos básicos.", ef: [["syn_basico", 0.01]] },
+  { id: "t_coro", tier: 2, nombre: "Coro del prado", desc: "+1% de producción total por cada 25 honguitos logísticos.", ef: [["syn_basico", 0.01]] },
   { id: "t_plano", tier: 2, nombre: "Plano maestro", desc: "+2% de producción total por cada edificio construido.", ef: [["syn_edif", 0.02]] },
   { id: "t_bolsa", tier: 2, nombre: "Bolsa dorada", desc: "Las esporas doradas valen ×2,5.", ef: [["dorada_val", 2.5]] },
   { id: "t_reloj", tier: 2, nombre: "Reloj de arena", desc: "Todos los honguitos trabajan un 10% más rápido.", ef: [["vel_all", 0.1]] },
@@ -43,9 +43,9 @@ export const TALENTO_POR_ID = Object.fromEntries(TALENTOS.map((t) => [t.id, t]))
 // Pactos: una ventaja grande a cambio de un costo. Un solo pacto activo (o todos con «Pacto total»).
 export const PACTOS = [
   { id: "pa_cosecha", nombre: "Pacto de la cosecha", ventaja: "Los toques valen ×4 y el autoclick pega un 30% más fuerte.", costo: "Toda la producción −10%.", ef: [["toque_mult", 4], ["auto_frac", 0.3], ["prod_all", 0.9]] },
-  { id: "pa_camino", nombre: "Pacto del camino", ventaja: "Los manojos de los básicos ×2 y caminan un 40% más rápido.", costo: "Toda la producción −10%.", ef: [["logi_carga", 2], ["logi_vel", 0.4], ["prod_all", 0.9]] },
+  { id: "pa_camino", nombre: "Pacto del camino", ventaja: "Los manojos de los honguitos logísticos ×2 y caminan un 40% más rápido.", costo: "Toda la producción −10%.", ef: [["logi_carga", 2], ["logi_vel", 0.4], ["prod_all", 0.9]] },
   { id: "pa_cielo", nombre: "Pacto del cielo", ventaja: "Los eventos del cielo y los de los magos aparecen un 80% más seguido y duran 6 s más.", costo: "Toda la producción −15%.", ef: [["evt_freq", 0.8], ["arc_freq", 0.8], ["evt_dur", 6], ["prod_all", 0.85]] },
-  { id: "pa_cristal", nombre: "Pacto del cristal", ventaja: "El bono de cristalización ×2 y +1 Prisma al cristalizar casi lleno.", costo: "Los básicos caminan un 20% más lento y las montañas compactadas crecen un punto menos.", ef: [["comp_bono", 2], ["prisma_extra", 1], ["logi_vel", -0.2], ["comp_alt", -1]] },
+  { id: "pa_cristal", nombre: "Pacto del cristal", ventaja: "El bono de cristalización ×2 y +1 Prisma al cristalizar casi lleno.", costo: "Los honguitos logísticos caminan un 20% más lento y las montañas compactadas crecen un punto menos.", ef: [["comp_bono", 2], ["prisma_extra", 1], ["logi_vel", -0.2], ["comp_alt", -1]] },
   { id: "pa_tesoro", nombre: "Pacto del tesoro", ventaja: "El Mercader ofrece 2 artefactos más y los raros pesan un 50% más.", costo: "Toda la producción −10%.", ef: [["merc_ofertas", 2], ["merc_tier", 0.5], ["prod_all", 0.9]] },
   { id: "pa_guerra", nombre: "Pacto de guerra", ventaja: "Enemigos con un 30% menos de vida, +100% de botín y los mercenarios +30% de vida y ataque.", costo: "Toda la producción −10%.", ef: [["inv_vida", 0.3], ["inv_botin", 1], ["dung_stats", 0.3], ["prod_all", 0.9]] },
 ];

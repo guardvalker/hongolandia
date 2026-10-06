@@ -15,7 +15,7 @@ const MULT = new Set([
 
 // [id, nombre, descripción, clave, valor, categoría (1-3: cuánto cuesta)]
 const T = [
-  ["cuenco", "Cuenco de micelio dorado", "Los honguitos básicos llevan manojos ×1,5 más grandes.", "prod_basico", 1.5, 1],
+  ["cuenco", "Cuenco de micelio dorado", "Los honguitos logísticos llevan manojos ×1,5 más grandes.", "prod_basico", 1.5, 1],
   ["pizarra", "Pizarra sin borrar", "Los maestros producen ×1,5.", "prod_maestro", 1.5, 1],
   ["diapason", "Diapasón eterno", "Los músicos producen ×1,5.", "prod_musico", 1.5, 1],
   ["regadera", "Regadera infinita", "Los jardineros producen ×1,5.", "prod_jardinero", 1.5, 1],
@@ -63,20 +63,20 @@ const T = [
   ["alerta", "Reloj de alerta", "Las invasiones duran 10 s más antes de que roben.", "inv_tiempo", 10, 1],
   ["saco", "Saco sin fondo", "Cada criatura derrotada deja el doble de esporas.", "inv_botin", 1, 1],
   ["mapa_edif", "Mapa de los edificios", "+1,5% de producción total por cada edificio construido.", "syn_edif", 0.015, 3],
-  ["rueda", "Rueda de hámster hongil", "+1% de producción total por cada 25 honguitos básicos.", "syn_basico", 0.01, 3],
-  ["cesta", "Cesta de mimbre", "Los honguitos básicos llevan manojos ×1,3 más grandes.", "logi_carga", 1.3, 1],
-  ["botas_raiz", "Botas de raíz", "Los básicos caminan un 15% más rápido al llevar esporas.", "logi_vel", 0.15, 2],
+  ["rueda", "Rueda de hámster hongil", "+1% de producción total por cada 25 honguitos logísticos.", "syn_basico", 0.01, 3],
+  ["cesta", "Cesta de mimbre", "Los honguitos logísticos llevan manojos ×1,3 más grandes.", "logi_carga", 1.3, 1],
+  ["botas_raiz", "Botas de raíz", "Los honguitos logísticos caminan un 15% más rápido al llevar esporas.", "logi_vel", 0.15, 2],
   ["sendero_musgo", "Sendero de musgo", "Los caminos de las esporas al hongo madre son un 12% más cortos.", "logi_dist", 0.12, 2],
-  ["hamaca", "Hamaca de micelio", "Los honguitos básicos descansan mejor: manojos ×1,2 más grandes.", "logi_carga", 1.2, 1],
+  ["hamaca", "Hamaca de micelio", "Los honguitos logísticos descansan mejor: manojos ×1,2 más grandes.", "logi_carga", 1.2, 1],
   ["guantes_hoja", "Guantes de hoja", "Juntar el manojo tarda un 25% menos.", "logi_recoger", 0.25, 1],
   ["lupa_cristal", "Lupa de cristal", "Las esporas cristalinas de la Esporada aparecen un 15% más seguido.", "esporada_cristal", 0.15, 1],
-  ["brujula_esp", "Brújula de esporas", "Los viajes de los básicos al hongo madre son un 10% más cortos.", "logi_dist", 0.1, 2],
+  ["brujula_esp", "Brújula de esporas", "Los viajes de los honguitos logísticos al hongo madre son un 10% más cortos.", "logi_dist", 0.1, 2],
   ["fuelle", "Fuelle de géiser", "Los géiseres de esporas erupcionan un 40% más seguido.", "geiser_freq", 0.4, 2],
   ["tapon", "Tapón de corcho", "Tocar un géiser de esporas rinde ×1,5.", "geiser_val", 1.5, 2],
   ["red_gasa", "Red de gasa", "La Esporada suelta un 30% más de esporas.", "esporada_n", 0.3, 2],
   ["corona_rocio", "Corona de rocío", "Las esporas doradas y los toques de eventos valen ×1,5.", "dorada_val", 1.5, 3],
-  ["raiz_maestra", "Raíz maestra", "Los honguitos básicos llevan manojos ×1,6 más grandes.", "logi_carga", 1.6, 3],
-  ["madre_esporas", "Madre de las esporas", "Los manojos de todos los básicos son ×2 más grandes.", "logi_carga", 2, 3],
+  ["raiz_maestra", "Raíz maestra", "Los honguitos logísticos llevan manojos ×1,6 más grandes.", "logi_carga", 1.6, 3],
+  ["madre_esporas", "Madre de las esporas", "Los manojos de todos los honguitos logísticos son ×2 más grandes.", "logi_carga", 2, 3],
   ["pluma", "Pluma de fénix", "Toda la producción ×1,3.", "prod_all", 1.3, 3],
 ];
 

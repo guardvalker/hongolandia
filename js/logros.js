@@ -7,7 +7,7 @@ export const BONO_LOGRO = 0.02;
 export const LOGROS = [
   { id: "primer_edificio", nombre: "Primera piedra", desc: "Construí tu primer edificio.", ok: (s) => Object.keys(s.edificios).length >= 1 },
   { id: "diez_edificios", nombre: "Pueblo hongil", desc: "Tené 10 edificios a la vez.", ok: (s) => Object.keys(s.edificios).length >= 10 },
-  { id: "cien_basicos", nombre: "Cuadrilla enorme", desc: "Tené 100 honguitos básicos.", ok: (s) => cant(s, "basico") >= 100 },
+  { id: "cien_basicos", nombre: "Cuadrilla enorme", desc: "Tené 100 honguitos logísticos.", ok: (s) => cant(s, "basico") >= 100 },
   { id: "mil_toques", nombre: "Dedos de micelio", desc: "Tocá el hongo madre 1.000 veces.", ok: (s) => (s.flags.nToques || 0) >= 1000 },
   { id: "primer_colapso", nombre: "¡Se derrumbó!", desc: "Dejá que una montaña de esporas colapse.", ok: (s) => !!s.flags.colapso },
   { id: "primer_prisma", nombre: "Primer destello", desc: "Conseguí tu primer Prisma cristalizando una montaña.", ok: (s) => (s.prisma?.tot || 0) >= 1 || !!s.flags.prismaAlgunaVez },

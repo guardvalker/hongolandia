@@ -6,9 +6,9 @@ import { HONGUITOS } from './data.js';
 const GLOBALES = [
   { id: "p_lente", nombre: "Lente prismático", desc: "Toda la producción ×1,5.", costo: 4, k: "prod_all", v: 1.5 },
   { id: "p_faceta", nombre: "Facetas pulidas", desc: "Al cristalizar, el bono de la montaña es un 50% mayor.", costo: 5, k: "comp_bono", v: 1.5 },
-  { id: "p_hifas", nombre: "Hifas veloces", desc: "Los honguitos básicos caminan un 30% más rápido.", costo: 5, k: "logi_vel", v: 0.3 },
+  { id: "p_hifas", nombre: "Hifas veloces", desc: "Los honguitos logísticos caminan un 30% más rápido.", costo: 5, k: "logi_vel", v: 0.3 },
   { id: "p_prensa", nombre: "Prensa profunda", desc: "Las montañas compactadas crecen hasta 4,5 veces (en vez de 3) antes de colapsar.", costo: 6, k: "comp_alt", v: 1.5 },
-  { id: "p_brisa", nombre: "Brisa cristalina", desc: "Los manojos de los básicos son un 50% más grandes.", costo: 6, k: "logi_carga", v: 1.5 },
+  { id: "p_brisa", nombre: "Brisa cristalina", desc: "Los manojos de los honguitos logísticos son un 50% más grandes.", costo: 6, k: "logi_carga", v: 1.5 },
   { id: "p_estable", nombre: "Núcleo estable", desc: "Cuando una montaña colapsa, la mitad de las esporas se salvan y llegan al hongo madre.", costo: 7, k: "colapso_resto", v: 0.5 },
   { id: "p_resonancia", nombre: "Resonancia", desc: "Cada nivel de compactación de la corrida suma +2% a toda la producción.", costo: 8, k: "comp_prod", v: 0.02 },
   { id: "p_segunda", nombre: "Segunda luz", desc: "Cristalizar con la montaña casi llena (85% o más) da 1 Prisma extra.", costo: 12, k: "prisma_extra", v: 1 },

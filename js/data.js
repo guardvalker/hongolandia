@@ -5,7 +5,7 @@ import { D } from './decimal.js';
 // probar cosas. En false se usan los valores reales, que salen de la fórmula por tier de abajo.
 export const MODO_PRUEBA = false;
 
-// Cada "tier" es un escalón de la economía: el honguito básico es el tier 0 y cada edificio con su
+// Cada "tier" es un escalón de la economía: el honguito logístico es el tier 0 y cada edificio con su
 // honguito es el siguiente. Para meter un edificio entre medio solo hay que ponerlo en la posición
 // que corresponde (campo `tier`) y correr los de arriba un lugar: todo se recalcula.
 //   producción  = 0,1 · (producto de SALTO_PROD hasta ese tier) esporas/s por unidad
@@ -227,7 +227,7 @@ export const MEJORAS = [
   {
     id: "rocio",
     nombre: "Rocío",
-    desc: "Los honguitos básicos llevan manojos ×2 más grandes.",
+    desc: "Los honguitos logísticos llevan manojos ×2 más grandes.",
     costo: C(1500),
     aplica: "basico",
     mult: D(2),
@@ -254,18 +254,18 @@ export const MEJ_CLICK_POR_ID = Object.fromEntries(MEJ_CLICK.map((m) => [m.id, m
 
 // ---- Logística de esporas ----
 // Las esporas ya no llegan solas al hongo madre: las producen los honguitos (y tus toques) y quedan sueltas;
-// los honguitos básicos las juntan en manojos y las llevan. El modelo es agregado (cuentan las esporas,
+// los honguitos logísticos las juntan en manojos y las llevan. El modelo es agregado (cuentan las esporas,
 // no los sprites): cada honguito suelta `emision` esporas por segundo y cada básico lleva `carga` por viaje.
 export const LOGI = { vel: 14, distBase: 14, recoger: 1, carga0: 3, emision: 0.35, factorCarga: 1.12, compAltura: 3, compNivelMax: 10, dronVel: 6 }; // dronVel: granos/s que lleva cada dron (se compran con Prismas)
 export const MEJ_LOGI = [
-  { id: "logi_manojo", ef: "carga", nombre: "Manojos más grandes", max: 30, base: 40, esc: 1.7, desc: (n) => `Cada honguito básico lleva ×${(LOGI.factorCarga ** n).toFixed(2).replace(".", ",")} esporas por viaje (un manojo más alto sobre la cabeza).` },
-  { id: "logi_zancada", ef: "vel", nombre: "Zancadas largas", max: 20, base: 60, esc: 1.55, desc: (n) => `Los básicos caminan un ${10 * n}% más rápido.` },
+  { id: "logi_manojo", ef: "carga", nombre: "Manojos más grandes", max: 30, base: 40, esc: 1.7, desc: (n) => `Cada honguito logístico lleva ×${(LOGI.factorCarga ** n).toFixed(2).replace(".", ",")} esporas por viaje (un manojo más alto sobre la cabeza).` },
+  { id: "logi_zancada", ef: "vel", nombre: "Zancadas largas", max: 20, base: 60, esc: 1.55, desc: (n) => `Los honguitos logísticos caminan un ${10 * n}% más rápido.` },
   { id: "logi_senderos", ef: "dist", nombre: "Senderos de micelio", max: 10, base: 150, esc: 2, desc: (n) => `Los caminos entre las esporas y el hongo madre son un ${5 * n}% más cortos.` },
-  { id: "logi_cuadrilla", ef: "cuadrilla", nombre: "Cuadrillas de cargadores", max: 8, base: 400, esc: 2.2, req: 25, desc: (n) => `Por cada 10 honguitos básicos, los manojos son un ${2 * n}% más grandes (necesita 25 básicos).` },
-  { id: "logi_relevo", ef: "relevo", nombre: "Relevos en el camino", max: 8, base: 900, esc: 2.4, req: 50, desc: (n) => `Los básicos se pasan los manojos a mitad de camino: los viajes duran un ${5 * n}% menos (necesita 50 básicos).` },
-  { id: "logi_prensa", ef: "prensa", nombre: "Prensa de micelio", max: 1, base: 600, esc: 1, desc: () => "Tocá una montaña de esporas para compactarla: los básicos dejan de llevársela y puede crecer el triple. Volvé a tocarla para cristalizarla: entrega todo con un bono que crece con lo alta que esté (a más altura, mucho más) y da Prismas. Si llega al tope, colapsa." },
+  { id: "logi_cuadrilla", ef: "cuadrilla", nombre: "Cuadrillas de cargadores", max: 8, base: 400, esc: 2.2, req: 25, desc: (n) => `Por cada 10 honguitos logísticos, los manojos son un ${2 * n}% más grandes (necesita 25 logísticos).` },
+  { id: "logi_relevo", ef: "relevo", nombre: "Relevos en el camino", max: 8, base: 900, esc: 2.4, req: 50, desc: (n) => `Los honguitos logísticos se pasan los manojos a mitad de camino: los viajes duran un ${5 * n}% menos (necesita 50 logísticos).` },
+  { id: "logi_prensa", ef: "prensa", nombre: "Prensa de micelio", max: 1, base: 600, esc: 1, desc: () => "Tocá una montaña de esporas para compactarla: los honguitos logísticos dejan de llevársela y puede crecer el triple. Volvé a tocarla para cristalizarla: entrega todo con un bono que crece con lo alta que esté (a más altura, mucho más) y da Prismas. Si llega al tope, colapsa." },
   { id: "logi_cristal_auto", ef: "cristalauto", nombre: "Cristalización asistida", max: 1, base: 25000, esc: 1, reqMej: "logi_prensa", desc: () => "Las montañas compactadas cristalizan solas al llegar al 90%, antes de que colapsen." },
-  { id: "logi_hifas", ef: "hifas", nombre: "Red de hifas", max: 10, base: 300, esc: 1.9, desc: (n) => `Una red de hifas bajo el piso lleva granos sola, sin básicos: +${(0.5 * n).toFixed(1).replace(".", ",")} granos/s por cada lugar que suelta esporas.` },
+  { id: "logi_hifas", ef: "hifas", nombre: "Red de hifas", max: 10, base: 300, esc: 1.9, desc: (n) => `Una red de hifas bajo el piso lleva granos sola, sin honguitos logísticos: +${(0.5 * n).toFixed(1).replace(".", ",")} granos/s por cada lugar que suelta esporas.` },
   { id: "logi_recoger", ef: "recoger", nombre: "Recolección ágil", max: 10, base: 100, esc: 1.9, desc: (n) => `Juntar el manojo lleva un ${7 * n}% menos de tiempo.` },
 ];
 export const MEJ_LOGI_POR_ID = Object.fromEntries(MEJ_LOGI.map((m) => [m.id, m]));
