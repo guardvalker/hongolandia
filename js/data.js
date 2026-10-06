@@ -145,9 +145,22 @@ const EDIF_DEF = [
     color: "#4fb4ff",
   },
 ];
+// Requisito de cantidad (como «The Great Maw pide 6 mineros» en la wiki de Dwarf Eats Mountain): para
+// construir un edificio hay que tener antes cierta cantidad de honguitos del edificio anterior de la cadena.
+export const REQ_EDIF = {
+  conservatorio: { tipo: "maestro", n: 10 },
+  vivero: { tipo: "musico", n: 10 },
+  universidad: { tipo: "jardinero", n: 8 },
+  fabrica: { tipo: "cientifico", n: 5 },
+  mina: { tipo: "obrero", n: 10 },
+  torre: { tipo: "minero", n: 10 },
+  gimnasio: { tipo: "mago", n: 10 },
+  trade: { tipo: "atleta", n: 10 },
+  astropuerto: { tipo: "trader", n: 10 },
+};
 export const EDIFICIOS = Object.fromEntries(EDIF_DEF.map((e) => {
   const v = valoresTier(e.tier);
-  return [e.id, { ...e, costo: C(e.costoFijo ?? v.costoEdificio), desbloqueo: e.costoFijo || MODO_PRUEBA ? D(0) : D(v.desbloqueo) }];
+  return [e.id, { ...e, reqHong: REQ_EDIF[e.id] || null, costo: C(e.costoFijo ?? v.costoEdificio), desbloqueo: e.costoFijo || MODO_PRUEBA ? D(0) : D(v.desbloqueo) }];
 }));
 
 // Bolsa (traders): sus ganancias no entran de a poco sino de golpe, cada `ciclo` segundos.

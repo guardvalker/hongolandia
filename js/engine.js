@@ -459,6 +459,7 @@ export function colocarEdificio(state, id, dx) {
   const e = EDIFICIOS[id];
   const costoE = e ? costoEdificio(state, e) : null;
   if (!e || state.edificios[id] || state.esporas.lt(costoE)) return false;
+  if (e.reqHong && cuenta(state, e.reqHong.tipo) < e.reqHong.n) return false; // faltan honguitos del edificio anterior
   if (e.requiere && !state.mejoras[e.requiere]) return false; // falta la carrera de la Universidad
   if (e.requiereFlag && !state.flags[e.requiereFlag]) return false; // falta un hallazgo (la dungeon)
   state.esporas = state.esporas.sub(costoE);

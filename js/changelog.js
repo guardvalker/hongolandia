@@ -1,5 +1,12 @@
 export const CHANGELOG = [
   {
+    v: "0.46.0",
+    fecha: "2026-10-05",
+    cambios: [
+      "Los edificios ahora piden tener cierta cantidad de honguitos del edificio anterior (idea de la wiki de Dwarf Eats Mountain, donde un edificio pide 6 mineros): Conservatorio 10 maestros, Vivero 10 músicos, Universidad 8 jardineros, Fábrica 5 científicos, Mina 10 obreros, Torre de magos 10 mineros, Gimnasio 10 magos, Trade center 10 atletas y Astropuerto 10 traders. El botón muestra cuántos tenés (por ejemplo 3/10 maestros).",
+    ],
+  },
+  {
     v: "0.45.1",
     fecha: "2026-10-05",
     cambios: [

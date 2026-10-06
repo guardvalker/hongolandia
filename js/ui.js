@@ -487,8 +487,8 @@ export function crearUI(api) {
         seccion("Edificios");
         for (const ed of edificios) {
           const req = ed.requiere ? TEC_POR_ID[ed.requiere] : null, falta = req && !api.estado().mejoras[req.id];
-          const f = fila(ed.nombre, ed.desc + (falta ? ` Requiere investigar «${req.nombre}» en la Universidad.` : ""), () => {
-            if (api.estado().esporas.lt(costoEdificio(api.estado(), ed)) || (req && !api.estado().mejoras[req.id])) return;
+          const f = fila(ed.nombre, ed.desc + (falta ? ` Requiere investigar «${req.nombre}» en la Universidad.` : "") + (ed.reqHong ? ` Requiere tener ${ed.reqHong.n} ${plural(ed.reqHong.tipo)}.` : ""), () => {
+            if (api.estado().esporas.lt(costoEdificio(api.estado(), ed)) || (req && !api.estado().mejoras[req.id]) || (ed.reqHong && (api.estado().honguitos[ed.reqHong.tipo] || 0) < ed.reqHong.n)) return;
             cerrar();
             api.colocar(ed.id);
           }, ed.color);
@@ -1032,8 +1032,9 @@ export function crearUI(api) {
         f.btn.disabled = s.esporas.lt(c);
       } else if (f.tipo === "edificio") {
         const bloq = f.ed.requiere && !s.mejoras[f.ed.requiere];
-        f.btn.textContent = bloq ? "Bloqueado" : fmt(costoEdificio(s, f.ed));
-        f.btn.disabled = bloq || s.esporas.lt(costoEdificio(s, f.ed));
+        const rq = f.ed.reqHong, faltan = rq && (s.honguitos[rq.tipo] || 0) < rq.n;
+        f.btn.textContent = bloq ? "Bloqueado" : faltan ? `${s.honguitos[rq.tipo] || 0}/${rq.n} ${plural(rq.tipo)}` : fmt(costoEdificio(s, f.ed));
+        f.btn.disabled = bloq || faltan || s.esporas.lt(costoEdificio(s, f.ed));
       } else {
         f.btn.textContent = fmt(f.mj.costo);
         f.btn.disabled = s.esporas.lt(f.mj.costo);
