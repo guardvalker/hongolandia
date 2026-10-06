@@ -208,7 +208,7 @@ export function crearUI(api) {
       for (const m of pendientes) {
         const n = nivelMej(s, m.id);
         const titulo = m.max > 1 ? `${m.nombre} · nivel ${n}/${m.max}` : m.nombre;
-        const f = fila(titulo, descMej(m, n) + ` Requiere ${m.req} ${plural(m.tipo)}.`, () => {
+        const f = fila(titulo, descMej(m, n) + ` Requiere ${m.req} ${plural(m.tipo)}` + (m.reqOtro ? ` y ${m.reqOtro.n} ${plural(m.reqOtro.tipo)}.` : "."), () => {
           if (comprarMejoraEdificio(api.estado(), m.id)) { api.guardar(); reabrir(); }
         }, EDIFICIOS[id].color);
         if (m.max > 1) { // un cuadradito por nivel: los comprados se pintan del color del edificio
@@ -218,9 +218,10 @@ export function crearUI(api) {
           f.el.querySelector(".fila-info").append(pips);
         }
         f.refresh = (st) => {
-          const faltan = (st.honguitos[m.tipo] || 0) < m.req;
+          const faltaOtro = m.reqOtro && (st.honguitos[m.reqOtro.tipo] || 0) < m.reqOtro.n;
+          const faltan = (st.honguitos[m.tipo] || 0) < m.req || faltaOtro;
           const c = costoMej(st, m);
-          f.btn.textContent = faltan ? `${st.honguitos[m.tipo] || 0}/${m.req}` : fmt(c);
+          f.btn.textContent = faltaOtro ? `${st.honguitos[m.reqOtro.tipo] || 0}/${m.reqOtro.n} ${plural(m.reqOtro.tipo)}` : faltan ? `${st.honguitos[m.tipo] || 0}/${m.req}` : fmt(c);
           f.btn.disabled = faltan || st.esporas.lt(c);
         };
         filas.push(f);

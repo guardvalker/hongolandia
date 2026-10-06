@@ -1,5 +1,12 @@
 export const CHANGELOG = [
   {
+    v: "0.54.0",
+    fecha: "2026-10-06",
+    cambios: [
+      "10 mejoras de sinergia entre honguitos, una por edificio, que además de tener cantidad del propio tipo piden cantidad de OTRO tipo (idea de la wiki, donde Alquimia pide 8 científicos): Himno escolar (10 músicos), Clases de canto (20 maestros), Huerto escolar (30 maestros), Cinta de cosecha (20 jardineros), Herramientas de fábrica (25 obreros), Grimorio razonado (10 científicos), Poción deportiva (20 magos), Patrocinios (20 atletas), Cartas de navegación (30 mineros) y Cristales estelares (20 astronautas). Cada una suma un bono de producción al honguito de su edificio por cada N honguitos del otro tipo. El botón muestra cuántos te faltan del otro tipo.",
+    ],
+  },
+  {
     v: "0.53.0",
     fecha: "2026-10-06",
     cambios: [

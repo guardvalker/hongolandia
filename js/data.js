@@ -404,6 +404,19 @@ export const MEJ_EDIF = [
   M("cientifico", "becas", "Becas de investigación", 40, 10, 2, 6, { ef: "descInv", a: 0.05 }),
   M("cientifico", "eureka", "¡Eureka!", 60, 15, 2, 5, { ef: "crit", p0: 0.02, p1: 0.005, seg: 15 }),
   M("cientifico", "premios", "Premios de la academia", 90, 20, 1, 1, { ef: "sinergia", fuente: "cientifico", cada: 10, bono: 0.01, objetivo: "todos" }),
+
+  // Sinergias entre honguitos: además de tener cantidad del propio tipo, piden cierta cantidad de OTRO tipo (como en la wiki
+  // de Dwarf Eats Mountain, donde «Alquimia» pide 8 científicos): cada N honguitos del otro tipo suman un bono al propio.
+  M("maestro", "himno", "Himno escolar", 120, 20, 1, 1, { ef: "sinergia", fuente: "musico", cada: 10, bono: 0.03, objetivo: "maestro", reqOtro: { tipo: "musico", n: 10 } }),
+  M("musico", "clases_canto", "Clases de canto", 120, 20, 1, 1, { ef: "sinergia", fuente: "maestro", cada: 10, bono: 0.03, objetivo: "musico", reqOtro: { tipo: "maestro", n: 20 } }),
+  M("jardinero", "huerto_escolar", "Huerto escolar", 120, 20, 1, 1, { ef: "sinergia", fuente: "maestro", cada: 15, bono: 0.03, objetivo: "jardinero", reqOtro: { tipo: "maestro", n: 30 } }),
+  M("obrero", "cinta_cosecha", "Cinta de cosecha", 120, 20, 1, 1, { ef: "sinergia", fuente: "jardinero", cada: 10, bono: 0.03, objetivo: "obrero", reqOtro: { tipo: "jardinero", n: 20 } }),
+  M("minero", "herramientas_fabrica", "Herramientas de fábrica", 120, 20, 1, 1, { ef: "sinergia", fuente: "obrero", cada: 10, bono: 0.03, objetivo: "minero", reqOtro: { tipo: "obrero", n: 25 } }),
+  M("mago", "grimorio_razonado", "Grimorio razonado", 120, 20, 1, 1, { ef: "sinergia", fuente: "cientifico", cada: 5, bono: 0.04, objetivo: "mago", reqOtro: { tipo: "cientifico", n: 10 } }),
+  M("atleta", "pocion_deportiva", "Poción deportiva", 120, 20, 1, 1, { ef: "sinergia", fuente: "mago", cada: 10, bono: 0.03, objetivo: "atleta", reqOtro: { tipo: "mago", n: 20 } }),
+  M("trader", "patrocinios", "Patrocinios", 120, 20, 1, 1, { ef: "sinergia", fuente: "atleta", cada: 10, bono: 0.03, objetivo: "trader", reqOtro: { tipo: "atleta", n: 20 } }),
+  M("astronauta", "cartas_navegacion", "Cartas de navegación", 120, 20, 1, 1, { ef: "sinergia", fuente: "minero", cada: 10, bono: 0.03, objetivo: "astronauta", reqOtro: { tipo: "minero", n: 30 } }),
+  M("cristalero", "cristales_estelares", "Cristales estelares", 120, 20, 1, 1, { ef: "sinergia", fuente: "astronauta", cada: 10, bono: 0.03, objetivo: "cristalero", reqOtro: { tipo: "astronauta", n: 20 } }),
 ];
 export const MEJ_EDIF_POR_ID = Object.fromEntries(MEJ_EDIF.map((m) => [m.id, m]));
 

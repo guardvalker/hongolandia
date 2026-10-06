@@ -422,7 +422,7 @@ export function comprarMejoraEdificio(state, id) {
   const m = MEJ_EDIF_POR_ID[id];
   const n = m ? nivelMej(state, id) : 0;
   const costo = m ? costoMej(state, m) : null;
-  if (!m || n >= m.max || !state.edificios[m.edificio] || cuenta(state, m.tipo) < m.req || state.esporas.lt(costo)) return false;
+  if (!m || n >= m.max || !state.edificios[m.edificio] || cuenta(state, m.tipo) < m.req || (m.reqOtro && cuenta(state, m.reqOtro.tipo) < m.reqOtro.n) || state.esporas.lt(costo)) return false;
   state.esporas = state.esporas.sub(costo);
   state.mejoras[id] = n + 1;
   return true;
