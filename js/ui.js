@@ -8,11 +8,11 @@ import { LOGROS, cantLogros, BONO_LOGRO } from './logros.js';
 import { TALENTOS, PACTOS, espaciosAltar, talentoAbierto, UMBRAL_TIER_TALENTO, alternarTalento, elegirPacto, pactoActivo } from './altar.js';
 import { ARTEFACTOS, ARTE_POR_ID, TIERS, iconoArtefacto, cantArte } from './artefactos.js';
 import { OBJETOS, escalaJefes, CLASES, TABERNA_MEJ, costoMerc, contratar, comprarTab, nivelTab, costoTab, sanos, iniciar as iniciarExploracion, getRun, PARTY_MAX, mercStats, CRISTAL_MULT } from './dungeon.js';
-import { EVENTOS, HONGUITOS, MEJORAS, EDIFICIOS, TECNOLOGIAS, MEJ_EDIF, MEJ_CLICK, MEJ_LOGI, TEC_POR_ID, HITOS, NIVELES_TEC } from './data.js';
+import { EVENTOS, HONGUITOS, MEJORAS, EDIFICIOS, TECNOLOGIAS, MEJ_EDIF, MEJ_CLICK, MEJ_LOGI, LOGI, TEC_POR_ID, HITOS, NIVELES_TEC } from './data.js';
 import { PU, TIERS_PU, nombreTier, umbralDeTier, costoPU, puRango, tierAbierto, comprarPU } from './puData.js';
 import { ppAlPrestigiar } from './reinicio.js';
 import { fmt, fmtRate } from './format.js';
-import { factorAcido, factorMeteoro, produccionPorSeg, produccionPorTipo, prestigio, costoHonguito, costoHonguitos, maxHonguitos, comprarHonguitos, venderHonguitos, reembolsoHonguitos, vendibles, comprarMejora, tecDisponible, pctTec, invPorSeg, proximoHito, costoEdificio, elegirInvestigacion, comprarMejoraEdificio, activarHabilidad, buffActivo, nivelMej, costoMej, valorToque, autoPorSeg, autoFraccion, comprarMejoraClick, logiInfo, costoLogi, comprarMejoraLogi, comprarPrisma, durBuff, cdHabilidad, alternarSobrecarga, trabajoEf } from './engine.js';
+import { factorAcido, factorMeteoro, produccionPorSeg, produccionPorTipo, prestigio, costoHonguito, costoHonguitos, maxHonguitos, comprarHonguitos, venderHonguitos, reembolsoHonguitos, vendibles, comprarMejora, tecDisponible, pctTec, invPorSeg, proximoHito, costoEdificio, elegirInvestigacion, comprarMejoraEdificio, activarHabilidad, buffActivo, nivelMej, costoMej, valorToque, autoPorSeg, autoFraccion, comprarMejoraClick, logiInfo, costoLogi, comprarMejoraLogi, comprarPrisma, comprarDron, costoDron, durBuff, cdHabilidad, alternarSobrecarga, trabajoEf } from './engine.js';
 import { exportar, importar, borrarGuardado } from './state.js';
 import { CHANGELOG } from './changelog.js';
 
@@ -112,7 +112,7 @@ export function crearUI(api) {
     });
     el.append(info, btn);
     hojaCuerpo.append(el);
-    return { el, titulo: t, btn };
+    return { el, titulo: t, desc: d, btn };
   }
 
   function seccion(texto) {
@@ -178,7 +178,7 @@ export function crearUI(api) {
       case "racha": { const c = Math.max(3, m.cada0 - m.dc * Math.max(0, n)); return `Racha: cada ${c} acciones de los ${p} (una por honguito cada ~10 s), una sale ×${m.m}: ráfaga de producción visible. Cada nivel acorta la racha.`; }
       case "cadena": return `Cadena: cada vez que un ${HONGUITOS[m.fuente].nombre.toLowerCase()} actúa (una vez cada ~10 s) hay ${num((m.p0 + m.p1 * n) * 100)}% de chance de que los ${p} cobren ${m.seg} s de su producción de golpe. Cada nivel sube la chance.`;
       case "savia_roja": return `Habilidad: el Jardín da savia roja y los honguitos escupen una onda de choque que lanza TODAS las esporas sueltas del piso (menos las montañas compactadas) al hongo madre de golpe${n > 0 ? ` (+${10 * n}% de bono)` : ""}. Recarga ${Math.round(cdHabilidad(m, n + 1))} s.`;
-      case "savia_azul": return `Habilidad: savia azul: aparecen directores y los básicos y las polillas van ×2 durante ${durBuff(m, n + 1)} s (recarga ${Math.round(cdHabilidad(m, n + 1))} s).`;
+      case "savia_azul": return `Habilidad: savia azul: aparecen directores y los básicos y los drones van ×2 durante ${durBuff(m, n + 1)} s (recarga ${Math.round(cdHabilidad(m, n + 1))} s).`;
       case "savia_verde": return `Habilidad: savia verde: el bono de las cristalizaciones es ×1,5 durante ${durBuff(m, n + 1)} s (recarga ${Math.round(cdHabilidad(m, n + 1))} s).`;
       case "sinergia": return `Cada ${m.cada} ${plural(m.fuente)}: +${num(m.bono * 100)}% a ${objetivoTxt(m.objetivo)}.`;
       case "descuento": return `El precio de los ${p} sube un ${pct(m.a)}% menos con cada compra, por nivel.`;
@@ -569,6 +569,14 @@ export function crearUI(api) {
     filas.push({ refresh: (st) => {
       info.textContent = `Tenés ${st.prisma.n} ${st.prisma.n === 1 ? "Prisma" : "Prismas"} (ganaste ${st.prisma.tot} en la corrida). Nivel de compactación: ${st.prisma.nivel}/10 (cada cristalización de una montaña al 50% o más lo sube y mejora el bono). Los Prismas no alcanzan para todo: elegí un estilo. Se reinician al prestigiar.`;
     } });
+    const fd = fila("Dron de recolección", "", () => { if (comprarDron(api.estado())) { api.guardar(); abrirMadre(ancla); } }, "#5ef2ff");
+    fd.refresh = (st) => {
+      const n = st.prisma.drones || 0;
+      fd.titulo.textContent = `Dron de recolección · tenés ${n}`;
+      fd.desc.textContent = `Unidad mecánica rapidísima: cada dron lleva ${LOGI.dronVel} granos/s. Todo el escuadrón va a la montaña más grande (que no esté compactando), de a una por vez, y la vacía antes de que colapse. Hoy llevan ${fmtN(n * LOGI.dronVel)} granos/s.`;
+      fd.btn.textContent = costoDron(st) + " ✦"; fd.btn.disabled = st.prisma.n < costoDron(st);
+    };
+    filas.push(fd);
     for (const p of PRISMAS) {
       if (s.prisma.comprados[p.id]) { nota("✓ " + p.nombre + " — " + p.desc).classList.add("hecha"); continue; }
       const f = fila(p.nombre, p.desc, () => { if (comprarPrisma(api.estado(), p.id)) { api.guardar(); abrirMadre(ancla); } }, p.color || "#5ef2ff");

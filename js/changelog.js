@@ -1,5 +1,12 @@
 export const CHANGELOG = [
   {
+    v: "0.63.0",
+    fecha: "2026-10-06",
+    cambios: [
+      "Las polillas de esporas se reemplazaron por Drones de recolección (las polillas rompían la temática): ahora son unidades que se compran con Prismas en la sección «Prismas» del hongo madre (2 Prismas el primero, +1 por cada uno que tengas). Cada dron lleva 6 granos/s (muchísimo más que un básico) y todo el escuadrón va junto a la montaña más grande que no se esté compactando, de a una por vez, y la vacía antes de que colapse. Se ven volando rápido con rotores y un granito colgando. La Savia azul también los acelera ×2. Quienes tenían polillas reciben 1 dron cada 3 niveles. El logro «Nube de alas» pasó a «Escuadrón de drones» (8 drones).",
+    ],
+  },
+  {
     v: "0.62.0",
     fecha: "2026-10-06",
     cambios: [

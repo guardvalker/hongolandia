@@ -256,7 +256,7 @@ export const MEJ_CLICK_POR_ID = Object.fromEntries(MEJ_CLICK.map((m) => [m.id, m
 // Las esporas ya no llegan solas al hongo madre: las producen los honguitos (y tus toques) y quedan sueltas;
 // los honguitos básicos las juntan en manojos y las llevan. El modelo es agregado (cuentan las esporas,
 // no los sprites): cada honguito suelta `emision` esporas por segundo y cada básico lleva `carga` por viaje.
-export const LOGI = { vel: 14, distBase: 14, recoger: 1, carga0: 3, emision: 0.35, factorCarga: 1.12, compAltura: 3, compNivelMax: 10 };
+export const LOGI = { vel: 14, distBase: 14, recoger: 1, carga0: 3, emision: 0.35, factorCarga: 1.12, compAltura: 3, compNivelMax: 10, dronVel: 6 }; // dronVel: granos/s que lleva cada dron (se compran con Prismas)
 export const MEJ_LOGI = [
   { id: "logi_manojo", ef: "carga", nombre: "Manojos más grandes", max: 30, base: 40, esc: 1.7, desc: (n) => `Cada honguito básico lleva ×${(LOGI.factorCarga ** n).toFixed(2).replace(".", ",")} esporas por viaje (un manojo más alto sobre la cabeza).` },
   { id: "logi_zancada", ef: "vel", nombre: "Zancadas largas", max: 20, base: 60, esc: 1.55, desc: (n) => `Los básicos caminan un ${10 * n}% más rápido.` },
@@ -266,7 +266,6 @@ export const MEJ_LOGI = [
   { id: "logi_prensa", ef: "prensa", nombre: "Prensa de micelio", max: 1, base: 600, esc: 1, desc: () => "Tocá una montaña de esporas para compactarla: los básicos dejan de llevársela y puede crecer el triple. Volvé a tocarla para cristalizarla: entrega todo con un bono que crece con lo alta que esté (a más altura, mucho más) y da Prismas. Si llega al tope, colapsa." },
   { id: "logi_cristal_auto", ef: "cristalauto", nombre: "Cristalización asistida", max: 1, base: 25000, esc: 1, reqMej: "logi_prensa", desc: () => "Las montañas compactadas cristalizan solas al llegar al 90%, antes de que colapsen." },
   { id: "logi_hifas", ef: "hifas", nombre: "Red de hifas", max: 10, base: 300, esc: 1.9, desc: (n) => `Una red de hifas bajo el piso lleva granos sola, sin básicos: +${(0.5 * n).toFixed(1).replace(".", ",")} granos/s por cada lugar que suelta esporas.` },
-  { id: "logi_polillas", ef: "polillas", nombre: "Polillas de esporas", max: 10, base: 800, esc: 1.9, desc: (n) => `Unas polillas vuelan siempre a la montaña más alta y llevan ${(0.8 * n).toFixed(1).replace(".", ",")} granos/s de ahí (evitan que colapse; las compactadas no las tocan).` },
   { id: "logi_recoger", ef: "recoger", nombre: "Recolección ágil", max: 10, base: 100, esc: 1.9, desc: (n) => `Juntar el manojo lleva un ${7 * n}% menos de tiempo.` },
 ];
 export const MEJ_LOGI_POR_ID = Object.fromEntries(MEJ_LOGI.map((m) => [m.id, m]));
@@ -330,7 +329,7 @@ export const TEC_POR_ID = Object.fromEntries(TECNOLOGIAS.map((t) => [t.id, t]));
 //   racha      cada `cada0 − dc·(n−1)` acciones del tipo (una por honguito cada ~10 s) una sale ×m: ráfaga de (m−1) acciones extra
 //   cadena     cuando un honguito de `fuente` actúa, chance `p0 + p1·(n−1)` de que `aplica` cobre `seg` s de su producción
 //   savia_roja / savia_azul / savia_verde  habilidades del Vivero (Jardín de savias): onda de choque que entrega todo el piso /
-//              básicos y polillas ×2 por dur s / bono de cristalización ×1,5 por dur s
+//              básicos y drones ×2 por dur s / bono de cristalización ×1,5 por dur s
 //   sinergia   (un solo nivel) cada `cada` honguitos de `fuente`: +`bono` a `objetivo`
 //   descuento  el precio de sus honguitos sube un a·n menos con cada compra
 //   autoevento chance a·n de que los eventos se recojan solos

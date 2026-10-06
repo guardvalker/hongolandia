@@ -87,7 +87,7 @@ const MADRE = [
 ];
 
 import { EDIFICIOS, HONGUITOS, ACIDO, EVENTOS, EVENTO_CFG } from './data.js';
-import { meteoros as danoMeteoro, improd, velocidad, eventos, buffTipoActivo, efectos, prestigio, logiInfo, logiSitios, logiEventos, polillaVuelos, nivelMej } from './engine.js';
+import { meteoros as danoMeteoro, improd, velocidad, eventos, buffTipoActivo, efectos, prestigio, logiInfo, logiSitios, logiEventos, dronVuelos, nivelMej } from './engine.js';
 import { getRun } from './dungeon.js';
 import { getEvento, consumirFx, setAlcance, nivelDef } from './eventos.js';
 import { TIPOS_TORRE, statsTorre } from './invasion.js';
@@ -3265,8 +3265,8 @@ export function crearEscena(canvas, opciones = {}) {
     x.putImageData(img, 0, 0);
     return cv;
   }
-  // ---- Jardín de savias, polillas de esporas y red de hifas ----
-  const polillas = []; // { x0, y0, t, dur }
+  // ---- Jardín de savias, drones de recolección y red de hifas ----
+  const polillas = []; // vuelos de drones: { x0, y0, t, dur }
   let hifasN = 0;
   function saviaVisual(color) {
     const col = color === "roja" ? "#ff5a3c" : color === "azul" ? "#4fb4ff" : "#7bff5a";
@@ -3275,22 +3275,26 @@ export function crearEscena(canvas, opciones = {}) {
     motas(madre.x, groundY - 4, 40, 2.2, col);
     if (color === "roja") for (const d of montesDatos) { const p = posMonte(d.id); if (p && d.id !== "madre") { aroPart(p.x, groundY - 2, 36, 0.7); motas(p.x, groundY - 4, 14, 1.5, col); } }
   }
-  function actualizarPolillas(dt) {
-    for (const v of polillaVuelos.splice(0)) {
+  function actualizarDrones(dt) {
+    for (const v of dronVuelos.splice(0)) {
       const p = posMonte(v.sitio), m = montes[v.sitio];
-      if (!p || !m || polillas.length > 24) continue;
-      polillas.push({ x0: p.x + (Math.random() - 0.5) * p.ancho * 0.5, y0: groundY - Math.max(4, m.h * (0.4 + Math.random() * 0.5)), t: 0, dur: 1.1 + Math.random() * 0.5, fase: Math.random() * 6 });
+      if (!p || !m) continue;
+      for (let k = Math.min(4, 1 + Math.floor((v.d || 1) / 3)); k > 0 && polillas.length < 36; k--) // más drones, más vuelos a la vez
+        polillas.push({ x0: p.x + (Math.random() - 0.5) * p.ancho * 0.5, y0: groundY - Math.max(4, m.h * (0.3 + Math.random() * 0.65)), t: -Math.random() * 0.15, dur: 0.55 + Math.random() * 0.3, fase: Math.random() * 6, col: CRISTALES[Math.floor(Math.random() * CRISTALES.length)] });
     }
-    for (let i = polillas.length - 1; i >= 0; i--) { polillas[i].t += dt; if (polillas[i].t >= polillas[i].dur) { aroPart(madre.x, groundY - Hc * 0.5, 8, 0.3); polillas.splice(i, 1); } }
+    for (let i = polillas.length - 1; i >= 0; i--) { polillas[i].t += dt; if (polillas[i].t >= polillas[i].dur) { aroPart(madre.x, groundY - Hc * 0.5, 6, 0.25); polillas.splice(i, 1); } }
   }
-  function dibujarPolillas() {
+  function dibujarDrones() {
     for (const q of polillas) {
+      if (q.t < 0) continue;
       const u = q.t / q.dur, e = u * u * (3 - 2 * u);
-      const x = Math.round(q.x0 + (madre.x - q.x0) * e), y = Math.round(q.y0 + ((groundY - Hc * 0.5) - q.y0) * e - Math.sin(u * Math.PI) * 14 + Math.sin(t * 9 + q.fase) * 1.5);
-      const ale = Math.floor(t * 14 + q.fase) % 2;
-      g.globalAlpha = 0.25; disco(x, y, 5, "#e8f6ff"); g.globalAlpha = 1;
-      g.fillStyle = "#e8f6ff"; g.fillRect(x - 3, y - (ale ? 2 : 0), 3, 1); g.fillRect(x + 1, y - (ale ? 2 : 0), 3, 1);
-      g.fillStyle = "#b48cff"; g.fillRect(x, y - 1, 1, 3);
+      const x = Math.round(q.x0 + (madre.x - q.x0) * e), y = Math.round(q.y0 + ((groundY - Hc * 0.5) - q.y0) * e - Math.sin(u * Math.PI) * 10);
+      const rot = Math.floor(t * 30 + q.fase) % 2;
+      g.globalAlpha = 0.18; g.fillStyle = "#5ef2ff"; g.fillRect(x - Math.round((madre.x - q.x0) * 0.04), y, Math.round((madre.x - q.x0) * 0.04) * 2 || 1, 1); g.globalAlpha = 1; // estela de velocidad
+      g.fillStyle = "#3a4a5e"; g.fillRect(x - 2, y, 5, 2); // casco
+      g.fillStyle = "#5ef2ff"; g.fillRect(x - 1, y - 1, 3, 1); g.fillRect(x, y + 2, 1, 1); // visor y luz
+      g.fillStyle = "#e8f6ff"; g.fillRect(x - 4, y - 2, rot ? 3 : 2, 1); g.fillRect(x + (rot ? 2 : 3), y - 2, rot ? 3 : 2, 1); // rotores
+      g.fillStyle = q.col; g.fillRect(x, y + 3, 1, 1); // el granito de espora que cuelga
     }
   }
   // red de hifas: hilos luminosos bajo el piso desde cada edificio con honguitos hasta el hongo madre, con pulsos que viajan
@@ -3314,7 +3318,7 @@ export function crearEscena(canvas, opciones = {}) {
   function actualizarMontes(dt, state) {
     montesDatos = logiSitios(state);
     hifasN = nivelMej(state, "logi_hifas");
-    actualizarPolillas(dt);
+    actualizarDrones(dt);
     for (const e of logiEventos.splice(0)) { // el motor avisa: esta montaña llegó al tope y colapsa
       const m = monteDe(e.sitio), p = posMonte(e.sitio);
       if (m.h > 1 && p && !m.colapso) {
@@ -3643,7 +3647,7 @@ export function crearEscena(canvas, opciones = {}) {
     if (!OFF.has("mina")) dibujarMina();
     dibujarMontes();
     dibujarHifas();
-    dibujarPolillas();
+    dibujarDrones();
     if (glv) { // WebGL: lo de arriba queda en el lienzo de fondo; madre y edificios son sprites; lo que sigue va en el lienzo del frente
       g.restore();
       glv.inicio();

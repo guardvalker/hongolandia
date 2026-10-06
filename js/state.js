@@ -41,7 +41,7 @@ export function nuevoEstado() {
     esporas: D(0),
     total: D(0), // esporas ganadas en toda la partida (define la etapa)
     logi: { valor: D(0), n: 0, sitios: {}, comp: {} }, // comp: montañas que se están compactando; // esporas sueltas esperando que los básicos las lleven al hongo madre: valor total, cantidad y cuántas hay en la montaña de cada lugar
-    prisma: { nivel: 0, n: 0, tot: 0, comprados: {} }, // compactación de la corrida (nivel 0 a 10), Prismas sin gastar, ganados en total y mejoras prismáticas compradas
+    prisma: { nivel: 0, n: 0, tot: 0, drones: 0, comprados: {} }, // compactación de la corrida (nivel 0 a 10), Prismas sin gastar, ganados en total y mejoras prismáticas compradas
     logros: {}, // logros cumplidos (persisten entre corridas)
     altar: { talentos: [], pacto: null }, // Altar de micelio: talentos equipados y pacto activo (persisten entre corridas)
     pp: 0, // puntos de prestigio sin gastar
@@ -98,6 +98,12 @@ function migrar(raw) {
 
 function deserializar(raw) {
   raw = migrar(raw);
+  // las polillas de esporas se reemplazaron por drones: cada 3 niveles que tenían se vuelven 1 dron
+  if (raw.mejoras && raw.mejoras.logi_polillas) {
+    const k = Math.ceil((+raw.mejoras.logi_polillas || 1) / 3);
+    raw.prisma = { ...raw.prisma, drones: (raw.prisma?.drones || 0) + k };
+    raw.mejoras = { ...raw.mejoras }; delete raw.mejoras.logi_polillas;
+  }
   const base = nuevoEstado();
   return {
     ...base,

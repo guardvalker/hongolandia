@@ -21,7 +21,7 @@ export const LOGROS = [
   { id: "pacto", nombre: "Trato hecho", desc: "Activá un pacto del Altar.", ok: (s) => !!s.altar?.pacto },
   { id: "altar_lleno", nombre: "Altar completo", desc: "Tené todos los espacios de talento ocupados (con al menos 4).", ok: (s) => (s.altar?.talentos.length || 0) >= 4 && s.altar.talentos.length >= 2 + [10, 40, 100, 200, 350].filter((u) => (s.ppTotal || 0) >= u).length },
   { id: "hifas", nombre: "Raíces profundas", desc: "Llevá la Red de hifas al nivel 10.", ok: (s) => nv(s, "logi_hifas") >= 10 },
-  { id: "polillas", nombre: "Nube de alas", desc: "Llevá las Polillas de esporas al nivel 10.", ok: (s) => nv(s, "logi_polillas") >= 10 },
+  { id: "escuadron", nombre: "Escuadrón de drones", desc: "Tené 8 drones de recolección a la vez.", ok: (s) => (s.prisma?.drones || 0) >= 8 },
   { id: "savia", nombre: "Jardín de colores", desc: "Usá una savia del Vivero.", ok: (s) => !!s.flags.savia },
   { id: "rachas", nombre: "Todos en racha", desc: "Tené las 8 rachas de edificio compradas.", ok: (s) => RACHAS.every((t) => nv(s, t + "_racha") >= 1) },
   { id: "artefactos", nombre: "Coleccionista", desc: "Tené 10 artefactos del Mercader a la vez.", ok: (s) => Object.keys(s.arte?.tienen || {}).length >= 10 },

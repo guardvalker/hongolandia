@@ -165,7 +165,7 @@ export function logiInfo(state) {
   const capB = (n * carga) / viaje * azul; // esporas por segundo que llevan los básicos
   const nSitios = Object.keys(emisionPorSitio(state)).length + (state.logi.tasaClick > 0 ? 1 : 0);
   const capH = 0.5 * nivelMej(state, "logi_hifas") * Math.max(1, nSitios); // las hifas bajo el piso
-  const capP = 0.8 * nivelMej(state, "logi_polillas") * azul; // las polillas de la montaña más alta
+  const capP = LOGI.dronVel * (state.prisma.drones || 0) * azul; // los drones: toda la flota va a la montaña más alta, de a una por vez
   const cap = capB + capH + capP; // esporas por segundo que se pueden llevar al hongo madre
   const em = emisionPorSeg(state) + (state.logi.tasaClick || 0);
   return { carga, viaje, vel, recoger, n, cap, capB, capH, capP, em, razon: em > 0 ? Math.min(1, cap / em) : 1 };
@@ -216,8 +216,8 @@ export function logiSitios(state) {
 }
 // Avisos para la escena: una montaña colapsó y el piso se la tragó (no se guardan)
 export const logiEventos = [];
-// vuelos de polillas de esta tanda para la escena (no se guardan)
-export const polillaVuelos = [];
+// vuelos de drones de esta tanda para la escena (no se guardan)
+export const dronVuelos = [];
 // Suma esporas sueltas a la montaña de un lugar (los toques van al hongo madre; los géiseres, al edificio más cercano)
 export function sumarAlPiso(state, sitio, valor, cuenta) {
   const L = state.logi;
@@ -258,7 +258,7 @@ export function logistica(state, dt, valor, llegadas, toques = 0) {
   const LI = logiInfo(state);
   const mov = Math.min(nLibre, LI.cap * dt);
   let parte = D(0), mpMov = 0;
-  // las polillas se llevan primero de la montaña más alta (la más cerca del tope) que no se esté compactando
+  // los drones se llevan primero de la montaña más grande (la más cerca del tope) que no se esté compactando: todos juntos, una por vez
   if (LI.capP > 0 && mov > 0) {
     const emP = emisionPorSitio(state);
     emP.madre = (emP.madre || 0) + L.tasaClick;
@@ -275,7 +275,7 @@ export function logistica(state, dt, valor, llegadas, toques = 0) {
         L.valor = L.valor.sub(vp); L.n -= mp; L.sitios[alto] -= mp;
         state.esporas = state.esporas.add(vp); state.total = state.total.add(vp);
         parte = parte.add(vp); mpMov = mp;
-        if (polillaVuelos.length < 12 && dt <= 2) polillaVuelos.push({ sitio: alto, n: mp });
+        if (dronVuelos.length < 12 && dt <= 2) dronVuelos.push({ sitio: alto, n: mp, d: state.prisma.drones });
         if (L.n <= 1e-9) { L.n = 0; L.valor = D(0); L.sitios = {}; return parte; }
       }
     }
@@ -353,6 +353,14 @@ export function alternarCompactacion(state, id) {
   if (!comp[id]) { comp[id] = true; return { msg: "Compactando: los básicos dejan esta montaña. Tocala de nuevo para cristalizarla (¡antes de que llegue al tope!)." }; }
   const r = cristalizar(state, id);
   return r ? { cristal: r } : { msg: "Todavía no hay esporas en esta montaña." };
+}
+export const costoDron = (state) => 2 + (state.prisma.drones || 0);
+export function comprarDron(state) {
+  const c = costoDron(state);
+  if (state.prisma.n < c) return false;
+  state.prisma.n -= c;
+  state.prisma.drones = (state.prisma.drones || 0) + 1;
+  return true;
 }
 export function comprarPrisma(state, id) {
   const p = PRISMA_POR_ID[id];
@@ -637,7 +645,7 @@ export function activarHabilidad(state, id) {
     state.habil[id] = { hasta: ahora + durBuff(m, n) * 1000, listoEn: ahora + cdHabilidad(m, n) * 1000 };
     state.flags.savia = true;
     emitir({ savia: m.ef === "savia_azul" ? "azul" : "verde" });
-    return m.ef === "savia_azul" ? `Savia azul: los básicos y las polillas van ×2 por ${durBuff(m, n)} s` : `Savia verde: el bono de cristalización es ×1,5 por ${durBuff(m, n)} s`;
+    return m.ef === "savia_azul" ? `Savia azul: los básicos y los drones van ×2 por ${durBuff(m, n)} s` : `Savia verde: el bono de cristalización es ×1,5 por ${durBuff(m, n)} s`;
   }
   if (m.ef === "savia_roja") {
     state.habil[id] = { hasta: 0, listoEn: ahora + cdHabilidad(m, n) * 1000 };
