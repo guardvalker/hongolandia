@@ -1,5 +1,14 @@
 export const CHANGELOG = [
   {
+    v: "0.51.0",
+    fecha: "2026-10-06",
+    cambios: [
+      "Evento arcano nuevo: Géiseres de esporas. Durante ~18 segundos brotan géiseres a lo largo del piso que van soltando esporas en las pilas; hay que tocarlos para que erupcionen en grande (x4 de esporas y una lluvia de esporas al piso). Como las esporas caen al piso, los básicos las tienen que llevar: sirve para ver si tu logística aguanta. Aparece desde el nivel 10 de prestigio y hay más géiseres con más prestigio.",
+      "Dos mejoras de logística nuevas con requisito de cantidad (como en la wiki): Cuadrillas de cargadores (manojos +2% por nivel por cada 10 básicos, necesita 25 básicos) y Relevos en el camino (los viajes duran 5% menos por nivel, necesita 50 básicos).",
+      "10 artefactos nuevos: Hamaca de micelio, Guantes de hoja, Lupa de cristal (más esporas cristalinas), Brújula de esporas, Fuelle de géiser, Tapón de corcho, Red de gasa (Esporada más grande), Corona de rocío, Raíz maestra y el legendario Madre de las esporas (manojos ×2). Ya hay 63 en total.",
+    ],
+  },
+  {
     v: "0.50.2",
     fecha: "2026-10-05",
     cambios: [

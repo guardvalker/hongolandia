@@ -252,6 +252,8 @@ export const MEJ_LOGI = [
   { id: "logi_manojo", ef: "carga", nombre: "Manojos más grandes", max: 30, base: 40, esc: 1.7, desc: (n) => `Cada honguito básico lleva ×${(LOGI.factorCarga ** n).toFixed(2).replace(".", ",")} esporas por viaje (un manojo más alto sobre la cabeza).` },
   { id: "logi_zancada", ef: "vel", nombre: "Zancadas largas", max: 20, base: 60, esc: 1.55, desc: (n) => `Los básicos caminan un ${10 * n}% más rápido.` },
   { id: "logi_senderos", ef: "dist", nombre: "Senderos de micelio", max: 10, base: 150, esc: 2, desc: (n) => `Los caminos entre las esporas y el hongo madre son un ${5 * n}% más cortos.` },
+  { id: "logi_cuadrilla", ef: "cuadrilla", nombre: "Cuadrillas de cargadores", max: 8, base: 400, esc: 2.2, req: 25, desc: (n) => `Por cada 10 honguitos básicos, los manojos son un ${2 * n}% más grandes (necesita 25 básicos).` },
+  { id: "logi_relevo", ef: "relevo", nombre: "Relevos en el camino", max: 8, base: 900, esc: 2.4, req: 50, desc: (n) => `Los básicos se pasan los manojos a mitad de camino: los viajes duran un ${5 * n}% menos (necesita 50 básicos).` },
   { id: "logi_recoger", ef: "recoger", nombre: "Recolección ágil", max: 10, base: 100, esc: 1.9, desc: (n) => `Juntar el manojo lleva un ${7 * n}% menos de tiempo.` },
 ];
 export const MEJ_LOGI_POR_ID = Object.fromEntries(MEJ_LOGI.map((m) => [m.id, m]));

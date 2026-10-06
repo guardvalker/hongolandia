@@ -1344,6 +1344,10 @@ export function crearEscena(canvas, opciones = {}) {
         motas(x, y, 14, 1.3, "#7fe9ff"); aroPart(x, y, 16, 0.5);
         const tv = torresV[0];
         if (e.torre && tv) { tiros.push({ kind: "basica", x0: tv.x, y0: groundY - alturaTorre(tv), x1: x, y1: y, t: 0 }); tv.ang = Math.atan2(y - (groundY - alturaTorre(tv)), x - tv.x); tv.retro = 0.2; }
+      } else if (e.tipo === "geiser") {
+        const col = ["#b48cff", "#5ef2ff", "#ff6bd6", "#b5ff4a"][Math.floor(Math.random() * 4)];
+        motas(x, groundY - 2, e.grande ? 40 : 16, e.grande ? 2.4 : 1.5, col); motas(x, groundY - 2, e.grande ? 14 : 5, 1.2, "#ffffff"); aroPart(x, groundY - 2, e.grande ? 30 : 16, 0.4);
+        for (let k = 0; k < (e.grande ? 6 : 3); k++) cola.push({ t: k * 0.06, fn: () => lanzarEspora(x + (Math.random() - 0.5) * 6, groundY - 14 - Math.random() * 16, PALETA[Math.floor(Math.random() * 6)]) });
       } else if (e.tipo === "espora") {
         const y = groundY - 16, col = e.cristal ? CRISTALES[(e.col || 0) % CRISTALES.length] : PALETA[e.col || 0];
         motas(x, y, e.cristal ? 26 : 14, 1.3, col); motas(x, y, 8, 1, "#ffffff"); aroPart(x, y, e.cristal ? 22 : 14, 0.4);
@@ -1560,6 +1564,14 @@ export function crearEscena(canvas, opciones = {}) {
         for (let k = 22; k >= 1; k--) { const q = clamp(p - k * 0.02, 0, 1); g.globalAlpha = 0.65 * (1 - k / 23); g.fillStyle = k < 8 ? "#ffe14d" : "#ff8a1f"; const sz = Math.round(13 - k * 0.3); g.fillRect(Math.round(x1 + (1 - q) * 160) - (sz >> 1), Math.round(y0 + (groundY - y0) * q * q) - (sz >> 1), sz, sz); }
         g.globalAlpha = 0.25; disco(Math.round(hx), Math.round(hy), 17, "#ff8a1f"); g.globalAlpha = 1;
         g.fillStyle = "#ff8a1f"; g.fillRect(Math.round(hx) - 9, Math.round(hy) - 9, 19, 19); g.fillStyle = "#ffe14d"; g.fillRect(Math.round(hx) - 6, Math.round(hy) - 6, 13, 13); g.fillStyle = "#fff"; g.fillRect(Math.round(hx) - 3, Math.round(hy) - 3, 7, 7);
+      }
+    }
+    if (e && e.tipo === "geiser") {
+      for (const gs of e.geis) {
+        const x = Math.round(madre.x + gs.dx), pul = clamp(gs.prox, 0, 1.5) < 0.35 ? 1 : 0; // se hincha un instante antes de erupcionar
+        g.fillStyle = "#14141d"; g.fillRect(x - 5, groundY - 1, 11, 2); g.fillRect(x - 3, groundY - 2, 7, 1);
+        g.fillStyle = pul ? "#ffffff" : "#6a4aa8"; g.fillRect(x - 2, groundY - 2, 5, 1);
+        g.globalAlpha = 0.2 + 0.2 * pul; disco(x, groundY - 3, 6, "#b48cff"); g.globalAlpha = 1;
       }
     }
     if (e && e.tipo === "esporada") {
@@ -3439,6 +3451,9 @@ export function crearEscena(canvas, opciones = {}) {
       if (Math.abs(cx - (edif.mina.x + n.x)) < 9 && cy > groundY + n.y - 20 && cy < groundY + n.y + 2) return { quien: "puerta" };
     }
     const eA = getEvento();
+    if (eA && eA.tipo === "geiser") for (const gs of eA.geis) {
+      if (Math.abs(cx - (madre.x + gs.dx)) < 9 && cy > groundY - 16 && cy < groundY + 4) return { quien: "geiser", geiser: gs };
+    }
     if (eA && eA.tipo === "esporada") for (const sp of eA.esporasV) {
       if (sp.estado !== "cae" && sp.estado !== "suelo") continue;
       if (Math.abs(cx - espoX(sp)) < 9 && Math.abs(cy - espoY(sp)) < 11) return { quien: "espora", espora: sp };

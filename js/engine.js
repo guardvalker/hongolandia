@@ -152,9 +152,10 @@ export function logiInfo(state) {
   const nB = state.honguitos.basico || 0;
   let carga = LOGI.carga0 * LOGI.factorCarga ** nivelMej(state, "logi_manojo") * arteM(state, "logi_carga") * arteM(state, "prod_basico") * multHitos(nB, state);
   for (const mj of MEJORAS) if (mj.aplica === "basico" && state.mejoras[mj.id]) carga *= mj.mult.toNumber(); // las mejoras «de los básicos» agrandan el manojo
+  carga *= 1 + 0.02 * nivelMej(state, "logi_cuadrilla") * Math.floor(nB / 10); // cuadrillas: más básicos, manojos más grandes
   const vel = LOGI.vel * (1 + 0.1 * nivelMej(state, "logi_zancada") + arteA(state, "logi_vel"));
-  const recoger = LOGI.recoger * Math.max(0.2, 1 - 0.07 * nivelMej(state, "logi_recoger"));
-  const viaje = (2 * distMedia(state)) / vel + recoger; // segundos de ida, vuelta y juntar el manojo
+  const recoger = LOGI.recoger * Math.max(0.2, 1 - 0.07 * nivelMej(state, "logi_recoger") - arteA(state, "logi_recoger"));
+  const viaje = ((2 * distMedia(state)) / vel + recoger) * (1 - Math.min(0.5, 0.05 * nivelMej(state, "logi_relevo"))); // segundos de ida, vuelta y juntar el manojo
   const n = state.honguitos.basico || 0;
   const cap = (n * carga) / viaje; // esporas por segundo que se pueden llevar al hongo madre
   const em = emisionPorSeg(state) + (state.logi.tasaClick || 0);
@@ -179,7 +180,7 @@ export const costoLogi = (state, m) => {
 export function comprarMejoraLogi(state, id) {
   const m = MEJ_LOGI_POR_ID[id];
   const n = m ? nivelMej(state, id) : 0;
-  if (!m || n >= m.max) return false;
+  if (!m || n >= m.max || (m.req && (state.honguitos.basico || 0) < m.req)) return false;
   const c = costoLogi(state, m);
   if (state.esporas.lt(c)) return false;
   state.esporas = state.esporas.sub(c);

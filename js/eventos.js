@@ -97,8 +97,13 @@ function iniciar(state, tipo) {
     ev = { tipo, t: 0, dur: 100, dx: (Math.random() < 0.5 ? -1 : 1) * alcance * 0.9, estado: "llega" };
     ev.meta = (ev.dx < 0 ? -1 : 1) * 70;
   } else if (tipo === "esporada") {
-    const n = Math.min(40, 12 + Math.floor(prestigio(state.total).puntos / 4));
+    const n = Math.round(Math.min(40, 12 + Math.floor(prestigio(state.total).puntos / 4)) * (1 + arteA(state, "esporada_n")));
     ev = { tipo, t: 0, pendientes: n, proximo: 0.4, total: n, esporasV: [], cobradas: 0, cristalinas: 0, esporas: D(0), nextId: 1 };
+  } else if (tipo === "geiser") {
+    const n = Math.min(9, 4 + Math.floor(prestigio(state.total).puntos / 15));
+    const geis = [];
+    for (let i = 0; i < n; i++) geis.push({ id: i + 1, dx: -alcance * 0.85 + (i + 0.5) * ((alcance * 1.7) / n) + rnd(-6, 6), prox: rnd(0.3, 2), cd: 0 });
+    ev = { tipo, t: 0, dur: 18, geis, erupciones: 0, toques: 0, esporas: D(0) };
   } else if (tipo === "invasion") {
     A.invasiones++;
     state.flags.invasion = true; // desbloquea la Barraca hongil
@@ -113,6 +118,7 @@ export const EVENTOS_ARCANOS = [
   { tipo: "tormenta", tier: 1, min: 0, peso: 32 },
   { tipo: "mercader", tier: 1, min: 0, peso: 24 },
   { tipo: "esporada", tier: 2, min: 6, peso: 22 },
+  { tipo: "geiser", tier: 2, min: 10, peso: 20 },
   { tipo: "meteoros", tier: 2, min: 0, peso: 20 },
   { tipo: "invasion", tier: 3, min: 0, peso: 24 },
 ];
@@ -124,6 +130,23 @@ function elegir(state) {
   let r = Math.random() * pool.reduce((t, e) => t + e.peso, 0);
   for (const e of pool) { r -= e.peso; if (r < 0) return e.tipo; }
   return pool[0].tipo;
+}
+
+// Géiser de esporas: brotan géiseres a lo largo del piso y sueltan esporas en las pilas (los básicos las tienen que llevar).
+// Tocar un géiser lo hace erupcionar en grande.
+function erupcion(state, gs, grande) {
+  const v = produccionPorSeg(state).mul((grande ? 12 * arteM(state, "geiser_val") : 3) * rnd(0.8, 1.3)).ceil();
+  const valor = v.lt(6) ? D(6) : v;
+  const n = grande ? 14 : 5;
+  state.logi.valor = state.logi.valor.add(valor); state.logi.n += n; // caen al piso: hay que llevarlas
+  ev.erupciones++; ev.esporas = ev.esporas.add(valor);
+  fxPush({ tipo: "geiser", dx: gs.dx, grande });
+  return valor;
+}
+export function tocarGeiser(state, gs) {
+  if (!ev || ev.tipo !== "geiser" || gs.cd > 0) return null;
+  gs.cd = 0.5; ev.toques++;
+  return erupcion(state, gs, true);
 }
 
 // Esporada: una nube suelta esporas que flotan hacia el piso; tocarlas las junta y da esporas (las que no tocás se pierden).
@@ -147,6 +170,7 @@ function terminar(state) {
   } else if (ev.tipo === "meteoros") {
     resultado = { tipo: "meteoros", interceptados: ev.interceptados, impactos: ev.impactos, total: ev.total, dano: ev.dano };
   } else if (ev.tipo === "tormenta") resultado = { tipo: "tormenta" };
+  else if (ev.tipo === "geiser") resultado = { tipo: "geiser", erupciones: ev.erupciones, toques: ev.toques, esporas: ev.esporas };
   else if (ev.tipo === "esporada") resultado = { tipo: "esporada", cobradas: ev.cobradas, cristalinas: ev.cristalinas, total: ev.total, esporas: ev.esporas };
   ev = null;
   state.arcano.prox = intervalo(state);
@@ -215,11 +239,20 @@ function paso(state, dt) {
     if (ev.pendientes <= 0 && ev.meteoros.every((m) => m.estado === "hecho") && ev.t > 3) terminar(state);
     return;
   }
+  if (ev.tipo === "geiser") {
+    for (const gs of ev.geis) {
+      gs.cd = Math.max(0, gs.cd - dt);
+      gs.prox -= dt;
+      if (gs.prox <= 0 && ev.t < ev.dur) { erupcion(state, gs, false); gs.prox = rnd(1.4, 2.6) / (1 + arteA(state, "geiser_freq")); }
+    }
+    if (ev.t >= ev.dur + 1) terminar(state);
+    return;
+  }
   if (ev.tipo === "esporada") {
     ev.proximo -= dt;
     if (ev.pendientes > 0 && ev.proximo <= 0) {
       ev.pendientes--; ev.proximo = rnd(0.25, 0.9);
-      ev.esporasV.push({ id: ev.nextId++, dx: rnd(-alcance * 0.85, alcance * 0.85), t: 0, caida: rnd(3.2, 5), vida: 8 + Math.random() * 3, estado: "cae", col: Math.floor(Math.random() * 6), cristal: Math.random() < 0.18, ci: Math.floor(Math.random() * 5) });
+      ev.esporasV.push({ id: ev.nextId++, dx: rnd(-alcance * 0.85, alcance * 0.85), t: 0, caida: rnd(3.2, 5), vida: 8 + Math.random() * 3, estado: "cae", col: Math.floor(Math.random() * 6), cristal: Math.random() < 0.18 + arteA(state, "esporada_cristal"), ci: Math.floor(Math.random() * 5) });
     }
     for (const sp of ev.esporasV) {
       if (sp.estado === "hecha" || sp.estado === "perdida") continue;

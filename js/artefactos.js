@@ -1,6 +1,6 @@
 import { puA, puM } from './puData.js';
 
-// Artefactos del Mercader hongil: 53 objetos permanentes (hasta el próximo prestigio). Cada vez que viene
+// Artefactos del Mercader hongil: 63 objetos permanentes (hasta el próximo prestigio). Cada vez que viene
 // el mercader ofrece 5 al azar y se puede quedar con uno solo. No todos suben la producción: abaratan,
 // aceleran la dungeon, protegen de meteoritos, alargan las invasiones, etc.
 //
@@ -8,7 +8,7 @@ import { puA, puM } from './puData.js';
 
 const MULT = new Set([
   "prod_all", "prod_basico", "prod_maestro", "prod_musico", "prod_jardinero", "prod_obrero", "prod_minero", "prod_mago",
-  "prod_atleta", "prod_trader", "prod_astronauta", "inv_vel", "logi_carga", "mina_vel", "mina_regrow", "dorada_val", "cometa_val", "dung_rec",
+  "prod_atleta", "prod_trader", "prod_astronauta", "inv_vel", "logi_carga", "geiser_val", "mina_vel", "mina_regrow", "dorada_val", "cometa_val", "dung_rec",
 ]);
 
 // [id, nombre, descripción, clave, valor, categoría (1-3: cuánto cuesta)]
@@ -65,6 +65,16 @@ const T = [
   ["cesta", "Cesta de mimbre", "Los honguitos básicos llevan manojos ×1,3 más grandes.", "logi_carga", 1.3, 1],
   ["botas_raiz", "Botas de raíz", "Los básicos caminan un 15% más rápido al llevar esporas.", "logi_vel", 0.15, 2],
   ["sendero_musgo", "Sendero de musgo", "Los caminos de las esporas al hongo madre son un 12% más cortos.", "logi_dist", 0.12, 2],
+  ["hamaca", "Hamaca de micelio", "Los honguitos básicos descansan mejor: manojos ×1,2 más grandes.", "logi_carga", 1.2, 1],
+  ["guantes_hoja", "Guantes de hoja", "Juntar el manojo tarda un 25% menos.", "logi_recoger", 0.25, 1],
+  ["lupa_cristal", "Lupa de cristal", "Las esporas cristalinas de la Esporada aparecen un 15% más seguido.", "esporada_cristal", 0.15, 1],
+  ["brujula_esp", "Brújula de esporas", "Los viajes de los básicos al hongo madre son un 10% más cortos.", "logi_dist", 0.1, 2],
+  ["fuelle", "Fuelle de géiser", "Los géiseres de esporas erupcionan un 40% más seguido.", "geiser_freq", 0.4, 2],
+  ["tapon", "Tapón de corcho", "Tocar un géiser de esporas rinde ×1,5.", "geiser_val", 1.5, 2],
+  ["red_gasa", "Red de gasa", "La Esporada suelta un 30% más de esporas.", "esporada_n", 0.3, 2],
+  ["corona_rocio", "Corona de rocío", "Las esporas doradas y los toques de eventos valen ×1,5.", "dorada_val", 1.5, 3],
+  ["raiz_maestra", "Raíz maestra", "Los honguitos básicos llevan manojos ×1,6 más grandes.", "logi_carga", 1.6, 3],
+  ["madre_esporas", "Madre de las esporas", "Los manojos de todos los básicos son ×2 más grandes.", "logi_carga", 2, 3],
   ["pluma", "Pluma de fénix", "Toda la producción ×1,3.", "prod_all", 1.3, 3],
 ];
 
@@ -76,7 +86,7 @@ export const TIERS = [
   { n: 3, nombre: "Épico", peso: 25, color: "#c58aff" },
   { n: 4, nombre: "Legendario", peso: 8, color: "#ffd23f" },
 ];
-const LEGENDARIOS = new Set(["pluma", "mapa_edif", "resonancia", "abaco"]);
+const LEGENDARIOS = new Set(["pluma", "mapa_edif", "resonancia", "abaco", "madre_esporas"]);
 export const ARTEFACTOS = T.map(([id, nombre, desc, k, v, cat]) => {
   const tier = LEGENDARIOS.has(id) ? 4 : cat;
   return { id, nombre, desc, k, v, cat: tier, tier, peso: TIERS[tier - 1].peso };

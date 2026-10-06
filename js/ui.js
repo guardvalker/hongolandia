@@ -470,7 +470,11 @@ export function crearUI(api) {
         for (let k = 0; k < m.max; k++) { const q = document.createElement("i"); if (k < n) q.className = k === n - 1 && f.el.classList.contains("flash") ? "on nuevo" : "on"; pips.append(q); }
         f.el.querySelector(".fila-info").append(pips);
       }
-      f.refresh = (st) => { const c = costoLogi(st, m); f.btn.textContent = fmt(c); f.btn.disabled = st.esporas.lt(c); };
+      f.refresh = (st) => {
+        const c = costoLogi(st, m), faltan = m.req && (st.honguitos.basico || 0) < m.req;
+        f.btn.textContent = faltan ? `${st.honguitos.basico || 0}/${m.req} básicos` : fmt(c);
+        f.btn.disabled = faltan || st.esporas.lt(c);
+      };
       filas.push(f);
     }
   }
@@ -692,6 +696,7 @@ export function crearUI(api) {
     let txt = "";
     if (ev.tipo === "tormenta") txt = `Tormenta de esporas: producción ×${ev.mult.toFixed(1).replace(".", ",")} · ${Math.max(0, Math.ceil(ev.dur - ev.t))} s`;
     else if (ev.tipo === "meteoros") txt = "¡Lluvia de meteoritos!" + (st.torres.length ? " Las torres intentan derribarlos." : "");
+    else if (ev.tipo === "geiser") txt = `¡Géiseres de esporas! Tocalos para que erupcionen en grande · ${Math.max(0, Math.ceil(ev.dur - ev.t))} s`;
     else if (ev.tipo === "esporada") txt = `¡Esporada! Atrapá las esporas antes de que se pierdan · atrapadas ${ev.cobradas}/${ev.total}`;
     else if (ev.tipo === "mercader") txt = ev.estado === "espera" ? "Llegó el Mercader hongil: ¡tocalo!" : ev.estado === "llega" ? "Se acerca un Mercader hongil…" : "El mercader se va…";
     else if (ev.tipo === "invasion") txt = `¡INVASIÓN! ${quedan(ev)} enemigos en el campo · derribados ${ev.derribadas}/${ev.criaturas.length} · tocalos para pegarles`;
@@ -909,7 +914,7 @@ export function crearUI(api) {
       for (const [id, e] of Object.entries(EVENTOS)) {
         adm(e.nombre, () => { api.dispararCielo(id); return `Apareció en el cielo: ${e.nombre}.`; });
       }
-      for (const [id, nombre] of [["tormenta", "Tormenta de esporas"], ["meteoros", "Lluvia de meteoritos"], ["esporada", "Esporada"], ["mercader", "Mercader hongil"], ["invasion", "Invasión"]]) {
+      for (const [id, nombre] of [["tormenta", "Tormenta de esporas"], ["meteoros", "Lluvia de meteoritos"], ["esporada", "Esporada"], ["geiser", "Géiseres de esporas"], ["mercader", "Mercader hongil"], ["invasion", "Invasión"]]) {
         adm(nombre, () => api.dispararArcano(id) ? `Evento iniciado: ${nombre}.` : "Ya hay un evento arcano en curso.");
       }
       hojaCuerpo.append(botAdm, notaAdm);
