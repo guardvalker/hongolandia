@@ -1,5 +1,13 @@
 export const CHANGELOG = [
   {
+    v: "0.56.1",
+    fecha: "2026-10-06",
+    cambios: [
+      "Arreglo de balance de la logística: con los manojos al máximo (×8128 por viaje) un solo honguito básico alcanzaba para llevar todas las esporas, así que la cantidad de básicos no importaba. Ahora cada nivel de «Manojos más grandes» sube ×1,12 (en vez de ×1,35; al máximo ×30) y los hitos de cantidad de básicos agrandan el manojo a medias (×1,41 por hito en vez de ×2). Con eso hacen falta muchos más honguitos básicos para llevar todo, como se pretendía.",
+      "Las partidas anteriores a la logística ahora reciben los honguitos básicos que hagan falta en vez de niveles de mejora. Si tu partida venía con pocos básicos, vas a ver el transporte por debajo del 100% hasta que compres más.",
+    ],
+  },
+  {
     v: "0.56.0",
     fecha: "2026-10-06",
     cambios: [

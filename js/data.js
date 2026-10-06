@@ -256,7 +256,7 @@ export const MEJ_CLICK_POR_ID = Object.fromEntries(MEJ_CLICK.map((m) => [m.id, m
 // Las esporas ya no llegan solas al hongo madre: las producen los honguitos (y tus toques) y quedan sueltas;
 // los honguitos básicos las juntan en manojos y las llevan. El modelo es agregado (cuentan las esporas,
 // no los sprites): cada honguito suelta `emision` esporas por segundo y cada básico lleva `carga` por viaje.
-export const LOGI = { vel: 14, distBase: 14, recoger: 1, carga0: 3, emision: 0.35, factorCarga: 1.35 };
+export const LOGI = { vel: 14, distBase: 14, recoger: 1, carga0: 3, emision: 0.35, factorCarga: 1.12 };
 export const MEJ_LOGI = [
   { id: "logi_manojo", ef: "carga", nombre: "Manojos más grandes", max: 30, base: 40, esc: 1.7, desc: (n) => `Cada honguito básico lleva ×${(LOGI.factorCarga ** n).toFixed(2).replace(".", ",")} esporas por viaje (un manojo más alto sobre la cabeza).` },
   { id: "logi_zancada", ef: "vel", nombre: "Zancadas largas", max: 20, base: 60, esc: 1.55, desc: (n) => `Los básicos caminan un ${10 * n}% más rápido.` },

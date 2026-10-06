@@ -150,7 +150,7 @@ function distMedia(state) {
 }
 export function logiInfo(state) {
   const nB = state.honguitos.basico || 0;
-  let carga = LOGI.carga0 * LOGI.factorCarga ** nivelMej(state, "logi_manojo") * arteM(state, "logi_carga") * arteM(state, "prod_basico") * multHitos(nB, state);
+  let carga = LOGI.carga0 * LOGI.factorCarga ** nivelMej(state, "logi_manojo") * arteM(state, "logi_carga") * arteM(state, "prod_basico") * Math.sqrt(multHitos(nB, state)); // los hitos de cantidad agrandan el manojo, pero a medias: la cantidad de básicos sigue importando
   for (const mj of MEJORAS) if (mj.aplica === "basico" && state.mejoras[mj.id]) carga *= mj.mult.toNumber(); // las mejoras «de los básicos» agrandan el manojo
   carga *= 1 + 0.02 * nivelMej(state, "logi_cuadrilla") * Math.floor(nB / 10); // cuadrillas: más básicos, manojos más grandes
   const vel = LOGI.vel * (1 + 0.1 * nivelMej(state, "logi_zancada") + arteA(state, "logi_vel"));
@@ -161,15 +161,12 @@ export function logiInfo(state) {
   const em = emisionPorSeg(state) + (state.logi.tasaClick || 0);
   return { carga, viaje, vel, recoger, n, cap, em, razon: em > 0 ? Math.min(1, cap / em) : 1 };
 }
-// Partidas anteriores a la logística: se les regalan los niveles de logística justos para que todo siga llegando al hongo madre
+// Partidas anteriores a la logística: se les regalan los honguitos básicos justos para que todo siga llegando al hongo madre
 export function migrarLogistica(state) {
   if (state.flags.logiInicial) return;
   state.flags.logiInicial = true;
-  const orden = ["logi_manojo", "logi_zancada", "logi_senderos", "logi_recoger"];
-  for (let i = 0; i < 400 && logiInfo(state).razon < 1; i++) {
-    const m = MEJ_LOGI_POR_ID[orden[i % orden.length]];
-    if (nivelMej(state, m.id) < m.max) state.mejoras[m.id] = nivelMej(state, m.id) + 1;
-  }
+  const L = logiInfo(state);
+  if (L.razon < 1) state.honguitos.basico = Math.max(state.honguitos.basico || 1, Math.ceil((L.em * L.viaje) / L.carga * 1.05)); // se les regalan los cargadores que hagan falta
 }
 export const costoLogi = (state, m) => {
   const n = nivelMej(state, m.id);
