@@ -1,5 +1,13 @@
 export const CHANGELOG = [
   {
+    v: "0.60.0",
+    fecha: "2026-10-06",
+    cambios: [
+      "Rachas (idea de los combos de los slammers de Gnorp Apologue): 8 mejoras nuevas de edificio (Clase magistral, Gran final, Floración, Turno doble, Derrumbe de cristales, Pócima triple, Maratón y Resplandor encadenado). Cada honguito «actúa» una vez cada ~10 s y cada 10 acciones del tipo (una menos por nivel, hasta 6) una sale ×4: paga de golpe 3 acciones extra en una ráfaga visible (el tipo destella). Piden 15 honguitos del tipo.",
+      "Cadenas: 10 mejoras nuevas, una por edificio, donde la acción de OTRO tipo dispara una ráfaga en éste (Música para las clases, Riego con clase, Cinta de brotes, Picos de la fábrica, Experimento arcano, Brebaje energético, Hinchada compradora, Mapas de la mina, Polvo de estrellas, Aplausos de los alumnos). Cada vez que actúa un honguito de la fuente hay una chance de que el tipo destino cobre 6 s de su producción de golpe; la chance sube con el nivel y escala con la cantidad de honguitos de la fuente. A diferencia de las sinergias de bono plano, estas se ven y se sienten como eventos. Piden 20 del propio tipo y la cantidad indicada del otro. Los valores están a ojo.",
+    ],
+  },
+  {
     v: "0.59.0",
     fecha: "2026-10-06",
     cambios: [

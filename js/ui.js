@@ -171,6 +171,8 @@ export function crearUI(api) {
       case "vel": return `+${pct(m.a)}% de velocidad de los ${p} por nivel (animaciones y ciclos más cortos) y un poco más de producción${ahora ? ` (ahora +${pct(m.a * n)}%)` : ""}.`;
       case "crit": return `Cada segundo, ${num((m.p0 + m.p1 * n) * 100)}% de chance de golpe crítico: ${m.seg} s de ${prod} de los ${p} de golpe. Cada nivel sube la chance.`;
       case "buff": return `Habilidad: ×${m.mult} a los ${p} durante ${durBuff(m, n + 1)} s (recarga ${Math.round(cdHabilidad(m, n + 1))} s). Cada nivel dura más y recarga antes.`;
+      case "racha": { const c = Math.max(3, m.cada0 - m.dc * Math.max(0, n)); return `Racha: cada ${c} acciones de los ${p} (una por honguito cada ~10 s), una sale ×${m.m}: ráfaga de producción visible. Cada nivel acorta la racha.`; }
+      case "cadena": return `Cadena: cada vez que un ${HONGUITOS[m.fuente].nombre.toLowerCase()} actúa (una vez cada ~10 s) hay ${num((m.p0 + m.p1 * n) * 100)}% de chance de que los ${p} cobren ${m.seg} s de su producción de golpe. Cada nivel sube la chance.`;
       case "sinergia": return `Cada ${m.cada} ${plural(m.fuente)}: +${num(m.bono * 100)}% a ${objetivoTxt(m.objetivo)}.`;
       case "descuento": return `El precio de los ${p} sube un ${pct(m.a)}% menos con cada compra, por nivel.`;
       case "autoevento": return `+${pct(m.a)}% de chance por nivel de que los eventos del cielo se recojan solos.`;

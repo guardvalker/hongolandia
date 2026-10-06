@@ -64,6 +64,7 @@ export function nuevoEstado() {
     invest: { actual: null, prog: {} }, // investigación en curso y puntos acumulados por tecnología
     contam: 0, // contaminación (en 'nubes', 0 a 10): la genera la fábrica y la purifican los magos
     evento: { mult: 1, hasta: 0 }, // fiebre del micelio activa
+    rachas: {}, // progreso de cada racha (acciones acumuladas / cada)
     habil: {}, // habilidades activas: { id: { hasta, listoEn } } en ms (reloj real)
     bolsa: { t: 0, n: 0 }, // ciclo de los traders: segundos transcurridos y cuántos cobros hubo
     semilla: Math.floor(Math.random() * 1e6), // define el tamaño relativo de los edificios; cambia con cada prestigio

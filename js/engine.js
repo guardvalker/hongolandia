@@ -487,6 +487,31 @@ export function tick(state, dt) {
     if (cient) puntosInv += tasa * e.seg * veces;
     else ganancia = ganancia.add(tasa.mul(e.seg * veces));
   }
+  // rachas y cadenas: cada honguito «actúa» una vez cada ~10 s (más seguido con la velocidad del tipo). Una racha paga de golpe
+  // (m−1) acciones extra cada N acciones del tipo; una cadena hace que la acción de OTRO tipo dispare una ráfaga en éste.
+  const acciones = (tipo) => cuenta(state, tipo) * 0.1 * velocidad(state, tipo); // acciones por segundo de todo el tipo
+  const rachas = state.rachas || (state.rachas = {});
+  for (const e of MEJ_EDIF) {
+    const n = nivelMej(state, e.id);
+    if (!n || (e.ef !== "racha" && e.ef !== "cadena")) continue;
+    const tasa = produccionPorTipo(state, e.aplica), nTipo = cuenta(state, e.aplica);
+    if (tasa.lte(0) || nTipo <= 0) continue;
+    let veces = 0, valor = D(0);
+    if (e.ef === "racha") {
+      const cada = Math.max(3, e.cada0 - e.dc * (n - 1));
+      rachas[e.id] = (rachas[e.id] || 0) + (acciones(e.aplica) * dt) / cada;
+      veces = Math.floor(rachas[e.id]);
+      rachas[e.id] -= veces;
+      valor = tasa.div(nTipo).mul(10 * (e.m - 1)); // (m−1) acciones extra de un honguito
+    } else {
+      const x = acciones(e.fuente) * (e.p0 + e.p1 * (n - 1)) * dt;
+      veces = Math.floor(x) + (Math.random() < x - Math.floor(x) ? 1 : 0);
+      valor = tasa.mul(e.seg);
+    }
+    if (!veces) continue;
+    ganancia = ganancia.add(valor.mul(veces));
+    if (dt <= 2) emitir({ tipo: e.aplica, crit: true });
+  }
   avanzarInvestigacion(state, puntosInv);
   // autoclick: toques automáticos acumulados con el tiempo
   let cuentaExtra = 0;

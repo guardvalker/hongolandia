@@ -325,6 +325,8 @@ export const TEC_POR_ID = Object.fromEntries(TECNOLOGIAS.map((t) => [t.id, t]));
 //   vel        velocidad ×(1 + a·n): animaciones y ciclos más cortos, y un poco de producción
 //   crit       golpes críticos: cada segundo `p0 + p1·n` de chance de `seg` s de producción de golpe
 //   buff       habilidad activa ×`mult` durante dur0 + dur1·(n−1) s, recarga cd0 − cd1·(n−1) s
+//   racha      cada `cada0 − dc·(n−1)` acciones del tipo (una por honguito cada ~10 s) una sale ×m: ráfaga de (m−1) acciones extra
+//   cadena     cuando un honguito de `fuente` actúa, chance `p0 + p1·(n−1)` de que `aplica` cobre `seg` s de su producción
 //   sinergia   (un solo nivel) cada `cada` honguitos de `fuente`: +`bono` a `objetivo`
 //   descuento  el precio de sus honguitos sube un a·n menos con cada compra
 //   autoevento chance a·n de que los eventos se recojan solos
@@ -419,6 +421,28 @@ export const MEJ_EDIF = [
   M("trader", "patrocinios", "Patrocinios", 120, 20, 1, 1, { ef: "sinergia", fuente: "atleta", cada: 10, bono: 0.03, objetivo: "trader", reqOtro: { tipo: "atleta", n: 20 } }),
   M("astronauta", "cartas_navegacion", "Cartas de navegación", 120, 20, 1, 1, { ef: "sinergia", fuente: "minero", cada: 10, bono: 0.03, objetivo: "astronauta", reqOtro: { tipo: "minero", n: 30 } }),
   M("cristalero", "cristales_estelares", "Cristales estelares", 120, 20, 1, 1, { ef: "sinergia", fuente: "astronauta", cada: 10, bono: 0.03, objetivo: "cristalero", reqOtro: { tipo: "astronauta", n: 20 } }),
+
+  // Rachas (cada tanto una acción del tipo sale ×4, en ráfagas visibles): una por edificio
+  M("maestro", "racha", "Clase magistral", 70, 15, 2, 5, { ef: "racha", cada0: 10, dc: 1, m: 4 }),
+  M("musico", "racha", "Gran final", 70, 15, 2, 5, { ef: "racha", cada0: 10, dc: 1, m: 4 }),
+  M("jardinero", "racha", "Floración", 70, 15, 2, 5, { ef: "racha", cada0: 10, dc: 1, m: 4 }),
+  M("obrero", "racha", "Turno doble", 70, 15, 2, 5, { ef: "racha", cada0: 10, dc: 1, m: 4 }),
+  M("minero", "racha", "Derrumbe de cristales", 70, 15, 2, 5, { ef: "racha", cada0: 10, dc: 1, m: 4 }),
+  M("mago", "racha", "Pócima triple", 70, 15, 2, 5, { ef: "racha", cada0: 10, dc: 1, m: 4 }),
+  M("atleta", "racha", "Maratón", 70, 15, 2, 5, { ef: "racha", cada0: 10, dc: 1, m: 4 }),
+  M("cristalero", "racha", "Resplandor encadenado", 70, 15, 2, 5, { ef: "racha", cada0: 10, dc: 1, m: 4 }),
+
+  // Cadenas: lo que hace un tipo dispara una ráfaga en el siguiente de la cadena (piden cantidad de ambos)
+  M("maestro", "cadena_musica", "Música para las clases", 150, 20, 2, 5, { ef: "cadena", fuente: "musico", p0: 0.006, p1: 0.002, seg: 6, reqOtro: { tipo: "musico", n: 10 } }),
+  M("musico", "cadena_clases", "Aplausos de los alumnos", 150, 20, 2, 5, { ef: "cadena", fuente: "maestro", p0: 0.006, p1: 0.002, seg: 6, reqOtro: { tipo: "maestro", n: 20 } }),
+  M("jardinero", "cadena_huerto", "Riego con clase", 150, 20, 2, 5, { ef: "cadena", fuente: "maestro", p0: 0.006, p1: 0.002, seg: 6, reqOtro: { tipo: "maestro", n: 30 } }),
+  M("obrero", "cadena_cinta", "Cinta de brotes", 150, 20, 2, 5, { ef: "cadena", fuente: "jardinero", p0: 0.006, p1: 0.002, seg: 6, reqOtro: { tipo: "jardinero", n: 20 } }),
+  M("minero", "cadena_taller", "Picos de la fábrica", 150, 20, 2, 5, { ef: "cadena", fuente: "obrero", p0: 0.006, p1: 0.002, seg: 6, reqOtro: { tipo: "obrero", n: 25 } }),
+  M("mago", "cadena_ciencia", "Experimento arcano", 150, 20, 2, 5, { ef: "cadena", fuente: "cientifico", p0: 0.008, p1: 0.002, seg: 6, reqOtro: { tipo: "cientifico", n: 10 } }),
+  M("atleta", "cadena_pocion", "Brebaje energético", 150, 20, 2, 5, { ef: "cadena", fuente: "mago", p0: 0.006, p1: 0.002, seg: 6, reqOtro: { tipo: "mago", n: 20 } }),
+  M("trader", "cadena_fans", "Hinchada compradora", 150, 20, 2, 5, { ef: "cadena", fuente: "atleta", p0: 0.006, p1: 0.002, seg: 6, reqOtro: { tipo: "atleta", n: 20 } }),
+  M("astronauta", "cadena_mapas", "Mapas de la mina", 150, 20, 2, 5, { ef: "cadena", fuente: "minero", p0: 0.006, p1: 0.002, seg: 6, reqOtro: { tipo: "minero", n: 30 } }),
+  M("cristalero", "cadena_estrellas", "Polvo de estrellas", 150, 20, 2, 5, { ef: "cadena", fuente: "astronauta", p0: 0.006, p1: 0.002, seg: 6, reqOtro: { tipo: "astronauta", n: 20 } }),
 ];
 export const MEJ_EDIF_POR_ID = Object.fromEntries(MEJ_EDIF.map((m) => [m.id, m]));
 
