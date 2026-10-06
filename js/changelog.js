@@ -1,5 +1,14 @@
 export const CHANGELOG = [
   {
+    v: "0.47.1",
+    fecha: "2026-10-05",
+    cambios: [
+      "Más optimización del dibujo, sin cambiar cómo se ve: lo que está fuera de la pantalla (hongo madre, edificios, luna, mina) ya no se pinta ni se copia, y lo visible se copia recortado a la pantalla.",
+      "El cuerpo de cada honguito (sprite, lunares y espejo) y el cuerpo de cada edificio (sombrero, manchas, tallo) se arman una sola vez y se copian; las tres capas de la mina se funden en una. Las estructuras cacheadas se comparten entre honguitos (24 patrones de lunares).",
+      "Las mejoras de prestigio se consultan por clave en vez de recorrer la lista completa en cada cuadro. En total, las operaciones de dibujo en el endgame bajaron de ~2,9 millones a ~0,19 millones por segundo.",
+    ],
+  },
+  {
     v: "0.47.0",
     fecha: "2026-10-05",
     cambios: [

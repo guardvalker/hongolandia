@@ -112,19 +112,23 @@ export const costoPU = (p, rango = 0) => (p.max === Infinity ? 2 + Math.floor(ra
 // Avisos para mostrar como cartelitos (los consume main.js)
 export const avisosPU = [];
 
+// efectos agrupados por clave (se consultan miles de veces por segundo)
+const POR_CLAVE = {};
+for (const p of PU) if (p.k) (POR_CLAVE[p.k] ||= []).push(p);
+
 export const puRango = (state, id) => (state.pu && state.pu[id]) || 0;
 // suma de los efectos aditivos de clave k
 export function puA(state, k) {
   if (!state.pu) return 0;
   let x = 0;
-  for (const p of PU) if (p.k === k && !p.m && !p.lin) x += (k === "pp_prod" ? state.ppTotal || 0 : 1) * p.v * puRango(state, p.id);
+  for (const p of POR_CLAVE[k] || []) if (!p.m && !p.lin) x += (k === "pp_prod" ? state.ppTotal || 0 : 1) * p.v * puRango(state, p.id);
   return x;
 }
 // producto de los efectos multiplicativos de clave k
 export function puM(state, k) {
   if (!state.pu) return 1;
   let m = 1;
-  for (const p of PU) if (p.k === k) { if (p.m) m *= p.v ** puRango(state, p.id); else if (p.lin) m *= 1 + p.v * puRango(state, p.id); }
+  for (const p of POR_CLAVE[k] || []) { if (p.m) m *= p.v ** puRango(state, p.id); else if (p.lin) m *= 1 + p.v * puRango(state, p.id); }
   return m;
 }
 const umbralTier = (tier) => (tier === TIER_LIBRE ? 1 : TIER_GASTO[tier - 1]);

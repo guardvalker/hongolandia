@@ -185,7 +185,15 @@ export function crearEscena(canvas, opciones = {}) {
   }
   const spritesHongo = [0, 1].map((pose) => hacerSprite(ROJO, PATAS[pose], false));
   // lunares blancos del sombrero (filas 0-2 del HONGO): 2 o 3 celdas al azar, sin tocarse entre sí
+  const poolLunares = [];
   function lunares() {
+    if (poolLunares.length >= 24) return poolLunares[Math.floor(Math.random() * 24)]; // 24 patrones alcanzan y se comparten (así se pueden cachear los sprites)
+    const o = lunaresNuevos();
+    o.id = poolLunares.length;
+    poolLunares.push(o);
+    return o;
+  }
+  function lunaresNuevos() {
     const celdas = [];
     HONGO.slice(0, 3).forEach((fila, y) => { for (let i = 0; i < HW; i++) if (fila[i] === "c") celdas.push([i, y]); });
     const out = [], n = 2 + (Math.random() < 0.5 ? 1 : 0);
@@ -348,6 +356,16 @@ export function crearEscena(canvas, opciones = {}) {
   });
 
   // ---------- primitivas ----------
+  // ¿se ve algo de este rectángulo del mundo? (en celdas; las coordenadas ya vienen sin la cámara)
+  const visibleRect = (x, y, w, h) => { const vx = -offX(), vy = -offY(); return x < vx + Wc && x + w > vx && y < vy + Hc && y + h > vy; };
+  // copia un lienzo (rect de origen en px) al mundo recortando lo que queda fuera de la pantalla: no se mueven píxeles que nadie ve
+  function blitR(cv, sx, sy, sw, sh, dx, dy, dw, dh) {
+    const vx0 = Math.floor(-offX()), vy0 = Math.floor(-offY());
+    const ix0 = Math.max(dx, vx0), ix1 = Math.min(dx + dw, vx0 + Wc + 1), iy0 = Math.max(dy, vy0), iy1 = Math.min(dy + dh, vy0 + Hc + 1);
+    if (ix1 <= ix0 || iy1 <= iy0) return;
+    const fx = sw / dw, fy = sh / dh;
+    g.drawImage(cv, sx + (ix0 - dx) * fx, sy + (iy0 - dy) * fy, (ix1 - ix0) * fx, (iy1 - iy0) * fy, ix0, iy0, ix1 - ix0, iy1 - iy0);
+  }
   // los discos (luces, esporas, halos) se arman una vez como sprite y después se copian con una sola llamada
   const cacheDiscos = new Map();
   function disco(x, y, r, color) {
@@ -1765,9 +1783,15 @@ export function crearEscena(canvas, opciones = {}) {
   function dibujarMina() {
     if (!mina || !edif.mina) return;
     const x0 = edif.mina.x, frente = (minaP ?? 0) * mina.total, ox = Math.round(x0 - mina.medio - mina.mg);
-    g.drawImage(mina.cvBorde, ox, groundY + 1);
-    g.drawImage(mina.cvHueco, ox, groundY + 1);
-    g.drawImage(mina.cvDet, ox, groundY + 1);
+    const m = mina;
+    if (m.nComp !== m.nDib) { // las tres capas solo cambian cuando se cava: se juntan en una y se copia esa
+      if (!m.cvTodo) { m.cvTodo = document.createElement("canvas"); m.cvTodo.width = m.cvBorde.width; m.cvTodo.height = m.cvBorde.height; }
+      const ct = m.cvTodo.getContext("2d");
+      ct.clearRect(0, 0, m.cvTodo.width, m.cvTodo.height);
+      ct.drawImage(m.cvBorde, 0, 0); ct.drawImage(m.cvHueco, 0, 0); ct.drawImage(m.cvDet, 0, 0);
+      m.nComp = m.nDib;
+    }
+    blitR(m.cvTodo, 0, 0, m.cvTodo.width, m.cvTodo.height, ox, groundY + 1, m.cvTodo.width, m.cvTodo.height);
     // puerta de la dungeon (al fondo de la mina)
     if (puertaT >= 0) {
       const n = mina.nodos[mina.puerta.nodo], X = Math.round(x0 + n.x), Y = groundY + Math.round(n.y);
@@ -2411,9 +2435,9 @@ export function crearEscena(canvas, opciones = {}) {
     }
     const capBase = groundY - m.sh, k = (m.ch - sq) / m.ch, corte = capBase - y0;
     const copiar = (cv) => {
-      if (k > 0.999) { g.drawImage(cv, x0, y0, w, h); return; }
-      g.drawImage(cv, 0, 0, cv.width, corte * K, x0, capBase - corte * k, w, corte * k); // lo de arriba se aplasta contra el tronco
-      g.drawImage(cv, 0, corte * K, cv.width, cv.height - corte * K, x0, capBase, w, h - corte);
+      if (k > 0.999) { blitR(cv, 0, 0, cv.width, cv.height, x0, y0, w, h); return; }
+      blitR(cv, 0, 0, cv.width, corte * K, x0, capBase - corte * k, w, corte * k); // lo de arriba se aplasta contra el tronco
+      blitR(cv, 0, corte * K, cv.width, cv.height - corte * K, x0, capBase, w, h - corte);
     };
     copiar(c.cv);
     if (br > 0.02) { const a = g.globalAlpha; g.globalAlpha = a * br * 0.35; copiar(brilloMadre.cv); g.globalAlpha = a; }
@@ -2515,24 +2539,51 @@ export function crearEscena(canvas, opciones = {}) {
   function dibujarEdificioCache(id, x) {
     const m = tam(id), cx = Math.round(x), c = cachesEdif[id] || (cachesEdif[id] = mkCache());
     const x0 = cx - Math.ceil(m.w / 2) - 40, y0 = groundY - m.sh - m.ch - 70, w = Math.ceil(m.w) + 80, h = groundY + 8 - y0;
+    if (!visibleRect(x0, y0, w, h)) return;
     const clave = [id, x0, y0, w, h, K, m.sw, semilla].join("|");
     if (clave !== c.clave || t - c.t >= CACHE_MADRE_DT || t < c.t) {
       c.clave = clave; c.t = t;
       g = lienzoCache(c, x0, y0, w, h);
       try { dibujarEdificio(id, x); } finally { g = gPrincipal; }
     }
-    g.drawImage(c.cv, x0, y0, w, h);
+    blitR(c.cv, 0, 0, c.cv.width, c.cv.height, x0, y0, w, h);
+  }
+  // El cuerpo de cada edificio (sombrero, manchas, tallo) casi nunca cambia: se pinta una vez por variante y se copia.
+  const cacheCuerpoEd = new Map();
+  function cuerpoEdificio(id, cx, m, col, brillo) {
+    const rx = Math.round(m.w / 2), capBase = groundY - m.sh, ch = m.ch, mitad = Math.round(m.sw / 2);
+    const br = Math.round(brillo * 8) / 8;
+    const clave = [id, m.w, m.ch, m.sh, m.sw, br, semilla, K, m.nivel].join("|");
+    const bx = cx - rx - 6, by = capBase - ch - 6, bw = rx * 2 + 12, bh = groundY + 4 - by;
+    let c = cacheCuerpoEd.get(clave);
+    if (!c) {
+      if (cacheCuerpoEd.size > 120) cacheCuerpoEd.clear();
+      const cv = document.createElement("canvas");
+      cv.width = Math.ceil(bw * K); cv.height = Math.ceil(bh * K);
+      const gc = cv.getContext("2d");
+      gc.setTransform(K, 0, 0, K, -bx * K, -by * K);
+      gc.imageSmoothingEnabled = false;
+      const antes = g;
+      g = gc;
+      try {
+    hongoBase(cx, m, 0, br, col, col);
+    manchasDe(id + ":" + semilla, (id === "conservatorio" ? 5 : id === "vivero" ? 11 : id === "gimnasio" ? 23 : id === "trade" ? 37 : id === "astropuerto" ? 53 : id === "escuela" ? 71 : id === "universidad" ? 97 : id === "torre" ? 101 : 89) + semilla, 7 + m.nivel * 2).forEach((q) => {
+      const c2 = q.v < 0.5 ? mezcla(col, "#ffffff", 0.35) : mezcla(col, "#000000", 0.45);
+      manchaCap(cx, capBase, rx, ch, cx + Math.round(q.u * rx), capBase - 2 - Math.round(q.h * ch), Math.max(1, Math.round(ch * q.f * 0.7)), c2, false);
+    });
+      } finally { g = antes; }
+      c = { cv };
+      cacheCuerpoEd.set(clave, c);
+    }
+    g.drawImage(c.cv, bx, by, bw, bh);
+    return { capBase, ch, rx, mitad };
   }
   function dibujarEdificio(id, x, alfa = 1) {
     const m = tam(id);
     const cx = Math.round(x);
     g.globalAlpha = alfa;
     const col = EDIFICIOS[id].color;
-    const { capBase, ch, rx, mitad } = hongoBase(cx, m, 0, brillos[id] || 0, col, col);
-    manchasDe(id + ":" + semilla, (id === "conservatorio" ? 5 : id === "vivero" ? 11 : id === "gimnasio" ? 23 : id === "trade" ? 37 : id === "astropuerto" ? 53 : id === "escuela" ? 71 : id === "universidad" ? 97 : id === "torre" ? 101 : 89) + semilla, 7 + m.nivel * 2).forEach((q) => {
-      const c2 = q.v < 0.5 ? mezcla(col, "#ffffff", 0.35) : mezcla(col, "#000000", 0.45);
-      manchaCap(cx, capBase, rx, ch, cx + Math.round(q.u * rx), capBase - 2 - Math.round(q.h * ch), Math.max(1, Math.round(ch * q.f * 0.7)), c2, false);
-    });
+    const { capBase, ch, rx, mitad } = cuerpoEdificio(id, cx, m, col, brillos[id] || 0);
     if (id === "conservatorio") {
       // pentagrama con notas de colores y una nota blanca arriba
       g.fillStyle = "#4a4a66";
@@ -2848,13 +2899,14 @@ export function crearEscena(canvas, opciones = {}) {
   const cacheLuna = { cv: document.createElement("canvas"), t: -9, clave: "" };
   function dibujarLunaCache() {
     const L = geomLuna(), x0 = Math.floor(L.x - L.r) - 14, y0 = Math.floor(L.y - L.r) - 14, w = Math.ceil(L.r * 2) + 28, h = w;
+    if (!visibleRect(x0, y0, w, h)) return;
     const c = cacheLuna, clave = [x0, y0, w, K].join("|");
     if (clave !== c.clave || t - c.t >= 0.1 || t < c.t) { // la luna cambia despacio: 10 cuadros por segundo alcanzan
       c.clave = clave; c.t = t;
       g = lienzoCache(c, x0, y0, w, h);
       try { dibujarLuna(); } finally { g = gPrincipal; }
     }
-    g.drawImage(c.cv, x0, y0, w, h);
+    blitR(c.cv, 0, 0, c.cv.width, c.cv.height, x0, y0, w, h);
   }
   function dibujarLuna() {
     const L = geomLuna();
@@ -2963,6 +3015,31 @@ export function crearEscena(canvas, opciones = {}) {
     g.restore();
   }
 
+  const cacheCuerpo = new Map(); // sprite -> (variante -> lienzo)
+  function cuerpoHonguito(spr, lun, alto, espejo) {
+    let porSprite = cacheCuerpo.get(spr);
+    if (!porSprite) { porSprite = new Map(); cacheCuerpo.set(spr, porSprite); }
+    const clave = (lun.id ?? -1) + "|" + alto + "|" + (espejo ? 1 : 0);
+    let cv = porSprite.get(clave);
+    if (!cv) {
+      cv = document.createElement("canvas");
+      cv.width = HW; cv.height = alto;
+      const c = cv.getContext("2d");
+      if (espejo) { c.translate(HW, 0); c.scale(-1, 1); }
+      c.drawImage(spr, 0, 0, HW, alto);
+      c.fillStyle = BLANCO; // lunares blancos sobre el sombrero (acompañan el estiramiento del salto)
+      const esc = alto / HH;
+      for (const [lx, ly] of lun) c.fillRect(lx, Math.round(ly * esc), 1, Math.max(1, Math.round(esc)));
+      porSprite.set(clave, cv);
+    }
+    return cv;
+  }
+  const cacheEspejo = new Map();
+  const espejado = (spr) => {
+    let c = cacheEspejo.get(spr);
+    if (!c) { c = document.createElement("canvas"); c.width = spr.width; c.height = spr.height; const x = c.getContext("2d"); x.translate(spr.width, 0); x.scale(-1, 1); x.drawImage(spr, 0, 0); cacheEspejo.set(spr, c); }
+    return c;
+  };
   function dibujarHonguito(v) {
     if (v.oculto) return;
     if (v.tipo === "maestro" && v.hijos) {
@@ -2970,10 +3047,8 @@ export function crearEscena(canvas, opciones = {}) {
       for (const [j, k] of v.hijos.entries()) {
         const kx = Math.round(k.x), kb = Math.round(groundY - k.hop);
         g.globalAlpha = v.alfa;
-        g.save();
-        if (k.dir < 0) { g.translate(kx, 0); g.scale(-1, 1); g.translate(-kx, 0); }
-        g.drawImage(spritesKid[k.col], kx - 3, kb - 6);
-        g.restore();
+        const kw = spritesKid[k.col].width;
+        g.drawImage(k.dir < 0 ? espejado(spritesKid[k.col]) : spritesKid[k.col], k.dir < 0 ? kx - kw + 3 : kx - 3, kb - 6);
         g.globalAlpha = 1;
         if (v.modo === "diploma" && j === v.graduado) {
           // diploma enrollado con moño rojo sobre la cabeza
@@ -2989,14 +3064,8 @@ export function crearEscena(canvas, opciones = {}) {
     const alto = HH + Math.round(v.estira);
     const x = Math.round(v.x);
     g.globalAlpha = v.alfa;
-    g.save();
-    if (v.dir < 0) { g.translate(x, 0); g.scale(-1, 1); g.translate(-x, 0); }
-    g.drawImage(v.acidoT > 0 ? verde(spr) : spr, x - 4, base - alto, HW, alto);
-    // lunares blancos sobre el sombrero (acompañan el estiramiento del salto)
-    g.fillStyle = BLANCO;
-    const esc = alto / HH;
-    for (const [lx, ly] of v.lunares) g.fillRect(x - 4 + lx, base - alto + Math.round(ly * esc), 1, Math.max(1, Math.round(esc)));
-    g.restore();
+    // el cuerpo (sprite + lunares, espejado si mira a la izquierda) se arma una vez por variante y se copia con una sola llamada
+    g.drawImage(cuerpoHonguito(v.acidoT > 0 ? verde(spr) : spr, v.lunares, alto, v.dir < 0), v.dir < 0 ? x - HW + 4 : x - 4, base - alto);
     g.globalAlpha = 1;
     if (v.tipo === "soldado") {
       // lanza al hombro y escudo redondo; al atacar embiste con la lanza
