@@ -87,7 +87,7 @@ const MADRE = [
 ];
 
 import { EDIFICIOS, HONGUITOS, ACIDO, EVENTOS, EVENTO_CFG } from './data.js';
-import { meteoros as danoMeteoro, improd, velocidad, eventos, buffTipoActivo, efectos, prestigio, logiInfo, logiSitios, logiEventos, dronVuelos, nivelMej } from './engine.js';
+import { meteoros as danoMeteoro, improd, velocidad, eventos, buffTipoActivo, efectos, prestigio, logiInfo, logiSitios, logiEventos, dronVuelos, nivelMej, recogerPrisma } from './engine.js';
 import { getRun } from './dungeon.js';
 import { getEvento, consumirFx, setAlcance, nivelDef } from './eventos.js';
 import { TIPOS_TORRE, statsTorre } from './invasion.js';
@@ -3315,10 +3315,73 @@ export function crearEscena(canvas, opciones = {}) {
       }
     }
   }
+  // ---- Prismas en el piso: caen de la montaña cristalizada y un honguito los junta y los lleva al hongo madre ----
+  const prismasPiso = []; // { x, y, vy, estado: "cae" | "suelo" | "tomado", ci, claim, t }
+  const recolectores = []; // honguitos que van por un Prisma: { x, dir, modo: "va" | "vuelve", prisma, alfa, animT, lunares, base }
+  function soltarPrisma(x, y) {
+    if (prismasPiso.length >= 12) return;
+    prismasPiso.push({ x, y, vy: -30 - Math.random() * 20, vx: (Math.random() - 0.5) * 24, estado: "cae", ci: Math.floor(Math.random() * CRISTALES.length), claim: null, t: 0 });
+  }
+  function actualizarPrismas(dt, state) {
+    const suelo = state.prisma.suelo || 0;
+    // partida cargada con Prismas en el piso (o aparecidos de otra forma): se muestran cerca del hongo madre
+    while (prismasPiso.length < Math.min(suelo, 12)) soltarPrisma(madre.x + (Math.random() < 0.5 ? -1 : 1) * (14 + Math.random() * 50), groundY - 30);
+    // si el motor ya los recogió solo (pestaña oculta, mucho tiempo), los que sobran se desvanecen
+    while (prismasPiso.length > suelo) {
+      const i = prismasPiso.findIndex((q) => q.estado !== "tomado");
+      if (i < 0) break;
+      const q = prismasPiso[i];
+      if (q.claim) { const r = recolectores.indexOf(q.claim); if (r >= 0) recolectores.splice(r, 1); }
+      motas(q.x, q.y, 8, 1, CRISTALES[q.ci]); prismasPiso.splice(i, 1);
+    }
+    for (const q of prismasPiso) {
+      if (q.estado === "cae") {
+        q.t += dt; q.vy += 120 * dt; q.y += q.vy * dt; q.x += q.vx * dt; q.vx *= 1 - Math.min(1, dt * 1.5);
+        if (q.y >= groundY - 5) { q.y = groundY - 5; if (Math.abs(q.vy) > 25) q.vy = -q.vy * 0.4; else { q.estado = "suelo"; q.vy = 0; aroPart(q.x, groundY - 4, 10, 0.4); } }
+      } else if (q.estado === "suelo" && !q.claim && q.t > 0 && recolectores.length < 6) { // sale un honguito del hongo madre a buscarlo
+        const lado = q.x < madre.x ? -1 : 1, r = { x: madre.x + lado * 8, dir: lado, modo: "va", prisma: q, alfa: 1, animT: 0, lunares: lunares() };
+        q.claim = r; recolectores.push(r);
+      }
+      if (q.estado === "suelo") q.t += dt;
+    }
+    for (let i = recolectores.length - 1; i >= 0; i--) {
+      const r = recolectores[i], q = r.prisma;
+      r.animT += dt;
+      if (r.modo === "va") {
+        const d = q.x - r.x, paso = VEL * 1.1 * dt;
+        r.dir = Math.sign(d) || 1;
+        if (Math.abs(d) <= paso) { r.x = q.x; r.modo = "vuelve"; q.estado = "tomado"; motas(q.x, groundY - 6, 8, 1, CRISTALES[q.ci]); } else r.x += r.dir * paso;
+      } else {
+        const meta = madre.x + (r.x < madre.x ? -1 : 1) * 4, d = meta - r.x, paso = VEL * 0.9 * dt;
+        r.dir = Math.sign(d) || 1;
+        q.x = r.x; q.y = groundY - HH - 9;
+        if (Math.abs(d) <= paso) { // entrega: el Prisma entra al hongo madre
+          recogerPrisma(state);
+          volarAMadre(r.x, groundY - HH - 6, CRISTALES[q.ci]); aroPart(madre.x, groundY - 8, 26, 0.6); motas(madre.x, groundY - 10, 22, 1.5, CRISTALES[q.ci]); flash = Math.max(flash, 0.1);
+          const k = prismasPiso.indexOf(q); if (k >= 0) prismasPiso.splice(k, 1);
+          recolectores.splice(i, 1);
+          continue;
+        } else r.x += r.dir * paso;
+      }
+    }
+  }
+  function dibujarPrismas() {
+    for (const q of prismasPiso) {
+      const x = Math.round(q.x), y = Math.round(q.y), a = q.estado === "tomado" ? 0.5 : 0.28 + 0.1 * Math.sin(t * 4 + q.ci);
+      g.globalAlpha = a; disco(x, y - 3, 8, CRISTALES[q.ci]); g.globalAlpha = 1;
+      g.drawImage(spritesCristal[q.ci], x - 4, y - 8);
+      if (Math.floor(t * 3 + q.ci) % 3 === 0) { g.fillStyle = "#ffffff"; g.fillRect(x + 3, y - 9, 1, 1); g.fillRect(x - 4, y - 4, 1, 1); }
+    }
+    for (const r of recolectores) {
+      const pose = r.modo === "va" || r.modo === "vuelve" ? Math.floor(r.animT * 11) % 2 : 0, x = Math.round(r.x), base = groundY;
+      g.drawImage(cuerpoHonguito(spritesHongo[pose], r.lunares, HH, r.dir < 0), r.dir < 0 ? x - HW + 4 : x - 4, base - HH);
+    }
+  }
   function actualizarMontes(dt, state) {
     montesDatos = logiSitios(state);
     hifasN = nivelMej(state, "logi_hifas");
     actualizarDrones(dt);
+    actualizarPrismas(dt, state);
     for (const e of logiEventos.splice(0)) { // el motor avisa: esta montaña llegó al tope y colapsa
       const m = monteDe(e.sitio), p = posMonte(e.sitio);
       if (m.h > 1 && p && !m.colapso) {
@@ -3327,6 +3390,7 @@ export function crearEscena(canvas, opciones = {}) {
         if (e.cristal) { // cristaliza: estallido de destellos de colores y un anillo
           for (let k = 0; k < 40; k++) part(p.x + (Math.random() - 0.5) * p.ancho, groundY - Math.random() * m.h, (Math.random() - 0.5) * 40, -10 - Math.random() * 40, { tipo: "mota", dur: 0.8 + Math.random() * 0.8, col: CRISTALES[k % CRISTALES.length], r: Math.random() < 0.4 ? 2 : 1 });
           aroPart(p.x, groundY - m.h * 0.5, p.ancho * 1.6, 0.6);
+          for (let k = 0; k < (e.prismas || 0); k++) soltarPrisma(p.x + (Math.random() - 0.5) * 10, groundY - m.h * (0.5 + 0.4 * Math.random()));
         }
       }
     }
@@ -3648,6 +3712,7 @@ export function crearEscena(canvas, opciones = {}) {
     dibujarMontes();
     dibujarHifas();
     dibujarDrones();
+    dibujarPrismas();
     if (glv) { // WebGL: lo de arriba queda en el lienzo de fondo; madre y edificios son sprites; lo que sigue va en el lienzo del frente
       g.restore();
       glv.inicio();

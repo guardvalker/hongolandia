@@ -339,11 +339,11 @@ export function cristalizar(state, id) {
   state.total = state.total.add(ganancia);
   let prismas = 0;
   if (f >= 0.5 - arteA(state, "comp_umbral")) { prismas = f >= 0.85 ? 2 + Math.floor(arteA(state, "prisma_extra")) : 1; P.nivel = Math.min(LOGI.compNivelMax, P.nivel + 1); }
-  P.n += prismas; P.tot += prismas;
+  P.suelo = (P.suelo || 0) + prismas; P.tot += prismas; // los Prismas caen al piso: un honguito los junta y los lleva al hongo madre (recogerPrisma)
   if (prismas) state.flags.prismaAlgunaVez = true;
   if (P.nivel >= LOGI.compNivelMax) state.flags.compMax = true;
   if (f >= 0.95) state.flags.cristal95 = true;
-  if (logiEventos.length < 30) logiEventos.push({ sitio: id, n, cristal: true, f });
+  if (logiEventos.length < 30) logiEventos.push({ sitio: id, n, cristal: true, f, prismas });
   return { ganancia, prismas, f, bono };
 }
 // Toque en una montaña: si no se estaba compactando, empieza; si sí, se cristaliza. Devuelve { msg } o { cristal }.
@@ -353,6 +353,13 @@ export function alternarCompactacion(state, id) {
   if (!comp[id]) { comp[id] = true; return { msg: "Compactando: los básicos dejan esta montaña. Tocala de nuevo para cristalizarla (¡antes de que llegue al tope!)." }; }
   const r = cristalizar(state, id);
   return r ? { cristal: r } : { msg: "Todavía no hay esporas en esta montaña." };
+}
+// Un honguito entregó un Prisma al hongo madre
+export function recogerPrisma(state) {
+  const P = state.prisma;
+  if ((P.suelo || 0) < 1) return false;
+  P.suelo--; P.n++; P.sueloT = 0;
+  return true;
 }
 export const costoDron = (state) => 2 + (state.prisma.drones || 0);
 export function comprarDron(state) {
@@ -485,6 +492,13 @@ function expedicionLunar(state) {
 }
 
 export function tick(state, dt) {
+  // Prismas tirados en el piso: si nadie los junta (pestaña oculta, mucho tiempo sin jugar) se recogen solos
+  const Pz = state.prisma;
+  if (Pz.suelo > 0) {
+    Pz.sueloT = (Pz.sueloT || 0) + dt;
+    if (dt > 5) { Pz.n += Pz.suelo; Pz.suelo = 0; Pz.sueloT = 0; }
+    else if (Pz.sueloT > 60) { Pz.suelo--; Pz.n++; Pz.sueloT = 0; }
+  }
   efectos.acidoMenos = Math.min(0.8, sumaNiveles(state, "acido", "a"));
   efectos.paraguas = Math.max(0.3, 1 - sumaNiveles(state, "paraguas", "a"));
   efectos.autoEvento = Math.min(0.9, sumaNiveles(state, "autoevento", "a") + arteA(state, "autoevento"));

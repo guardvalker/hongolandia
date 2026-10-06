@@ -1,5 +1,12 @@
 export const CHANGELOG = [
   {
+    v: "0.64.0",
+    fecha: "2026-10-06",
+    cambios: [
+      "Los Prismas ahora caen al piso: al cristalizar una montaña, los Prismas salen despedidos de la cumbre, rebotan y quedan brillando en el suelo; un honguito sale del hongo madre, camina hasta cada uno, lo levanta sobre la cabeza y lo lleva de vuelta al hongo madre, donde estalla en destellos y recién ahí cuenta como tuyo. Mientras están en el piso no se pueden gastar (la sección Prismas avisa cuántos esperan). Si nadie los junta (pestaña oculta o mucho tiempo sin jugar) se recogen solos, uno por minuto, y todos juntos si estuviste ausente. Se guardan en la partida.",
+    ],
+  },
+  {
     v: "0.63.1",
     fecha: "2026-10-06",
     cambios: [

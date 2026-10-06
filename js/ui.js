@@ -567,7 +567,7 @@ export function crearUI(api) {
     if (!nivelMej(s, "logi_prensa") && !s.prisma.tot) nota("Los Prismas salen de cristalizar montañas de esporas: comprá la «Prensa de micelio» en Logística (más arriba), tocá una montaña para compactarla y volvé a tocarla para cristalizarla. Con Prismas comprás drones y mejoras únicas.");
     const info = nota("");
     filas.push({ refresh: (st) => {
-      info.textContent = `Tenés ${st.prisma.n} ${st.prisma.n === 1 ? "Prisma" : "Prismas"} (ganaste ${st.prisma.tot} en la corrida). Nivel de compactación: ${st.prisma.nivel}/10 (cada cristalización de una montaña al 50% o más lo sube y mejora el bono). Los Prismas no alcanzan para todo: elegí un estilo. Se reinician al prestigiar.`;
+      info.textContent = `Tenés ${st.prisma.n} ${st.prisma.n === 1 ? "Prisma" : "Prismas"}` + (st.prisma.suelo ? ` (y ${st.prisma.suelo} en el piso esperando que un honguito los junte)` : "") + ` · ganaste ${st.prisma.tot} en la corrida. Nivel de compactación: ${st.prisma.nivel}/10 (cada cristalización de una montaña al 50% o más lo sube y mejora el bono). Los Prismas no alcanzan para todo: elegí un estilo. Se reinician al prestigiar.`;
     } });
     const fd = fila("Dron de recolección", "", () => { if (comprarDron(api.estado())) { api.guardar(); abrirMadre(ancla); } }, "#5ef2ff");
     fd.refresh = (st) => {
