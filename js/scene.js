@@ -1380,6 +1380,11 @@ export function crearEscena(canvas, opciones = {}) {
         motas(x, y, 14, 1.3, "#7fe9ff"); aroPart(x, y, 16, 0.5);
         const tv = torresV[0];
         if (e.torre && tv) { tiros.push({ kind: "basica", x0: tv.x, y0: groundY - alturaTorre(tv), x1: x, y1: y, t: 0 }); tv.ang = Math.atan2(y - (groundY - alturaTorre(tv)), x - tv.x); tv.retro = 0.2; }
+      } else if (e.tipo === "cristal") {
+        const col = CRISTALES[e.ci % CRISTALES.length], y = groundY - 8 * (0.5 + e.f);
+        motas(x, y, 20 + Math.round(24 * e.f), 1.5, col); motas(x, y, 8, 1, "#ffffff"); aroPart(x, y, 14 + Math.round(20 * e.f), 0.5);
+      } else if (e.tipo === "cristal_roto") {
+        motas(x, groundY - 6, 14, 1.1, CRISTALES[e.ci % CRISTALES.length]);
       } else if (e.tipo === "geiser") {
         const col = ["#b48cff", "#5ef2ff", "#ff6bd6", "#b5ff4a"][Math.floor(Math.random() * 4)];
         motas(x, groundY - 2, e.grande ? 40 : 16, e.grande ? 2.4 : 1.5, col); motas(x, groundY - 2, e.grande ? 14 : 5, 1.2, "#ffffff"); aroPart(x, groundY - 2, e.grande ? 30 : 16, 0.4);
@@ -1600,6 +1605,20 @@ export function crearEscena(canvas, opciones = {}) {
         for (let k = 22; k >= 1; k--) { const q = clamp(p - k * 0.02, 0, 1); g.globalAlpha = 0.65 * (1 - k / 23); g.fillStyle = k < 8 ? "#ffe14d" : "#ff8a1f"; const sz = Math.round(13 - k * 0.3); g.fillRect(Math.round(x1 + (1 - q) * 160) - (sz >> 1), Math.round(y0 + (groundY - y0) * q * q) - (sz >> 1), sz, sz); }
         g.globalAlpha = 0.25; disco(Math.round(hx), Math.round(hy), 17, "#ff8a1f"); g.globalAlpha = 1;
         g.fillStyle = "#ff8a1f"; g.fillRect(Math.round(hx) - 9, Math.round(hy) - 9, 19, 19); g.fillStyle = "#ffe14d"; g.fillRect(Math.round(hx) - 6, Math.round(hy) - 6, 13, 13); g.fillStyle = "#fff"; g.fillRect(Math.round(hx) - 3, Math.round(hy) - 3, 7, 7);
+      }
+    }
+    if (e && e.tipo === "cristales") {
+      for (const c of e.cris) {
+        if (c.t < 0 || c.estado === "hecha" || c.estado === "rota") continue;
+        const f = clamp(c.t / c.crece, 0, 1), x = Math.round(madre.x + c.dx), fy = groundY, k = (0.3 + 0.7 * f) * (c.gigante ? 1.5 : 1);
+        const frag = c.vida - c.t < 2 && c.estado === "maduro"; // a punto de romperse: tiembla
+        const tiembla = frag ? Math.round(Math.sin(t * 60)) : 0;
+        g.globalAlpha = 0.1 + 0.14 * f; disco(x, fy - 7 * k, Math.max(2, Math.round(9 * k)), CRISTALES[c.ci]); g.globalAlpha = 1;
+        for (const [dx, sc, ci] of [[-5, 1.4, (c.ci + 2) % 5], [5, 1.7, c.ci], [0, 2.1, c.ci]]) {
+          const w = Math.max(3, Math.round(5 * sc * k)), h = Math.max(3, Math.round(6 * sc * k));
+          g.drawImage(spritesCristal[ci], x + Math.round(dx * k) - (w >> 1) + tiembla, fy - h, w, h);
+        }
+        if (f >= 1 && Math.floor(t * 4 + c.id) % 2) { g.fillStyle = BLANCO; g.fillRect(x + Math.round(6 * k), fy - Math.round(14 * k), 1, 1); g.fillRect(x - Math.round(7 * k), fy - Math.round(9 * k), 1, 1); }
       }
     }
     if (e && e.tipo === "geiser") {
@@ -3502,6 +3521,10 @@ export function crearEscena(canvas, opciones = {}) {
       if (Math.abs(cx - (edif.mina.x + n.x)) < 9 && cy > groundY + n.y - 20 && cy < groundY + n.y + 2) return { quien: "puerta" };
     }
     const eA = getEvento();
+    if (eA && eA.tipo === "cristales") for (const c of eA.cris) {
+      if (c.t < 0 || c.estado === "hecha" || c.estado === "rota") continue;
+      if (Math.abs(cx - (madre.x + c.dx)) < 11 && cy > groundY - 22 && cy < groundY + 4) return { quien: "cristal", cristal: c };
+    }
     if (eA && eA.tipo === "geiser") for (const gs of eA.geis) {
       if (Math.abs(cx - (madre.x + gs.dx)) < 9 && cy > groundY - 16 && cy < groundY + 4) return { quien: "geiser", geiser: gs };
     }

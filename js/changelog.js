@@ -1,5 +1,12 @@
 export const CHANGELOG = [
   {
+    v: "0.53.0",
+    fecha: "2026-10-06",
+    cambios: [
+      "Evento arcano nuevo: Brote de cristales (aparece desde el nivel 20 de prestigio). Brotan hongo-cristales por todo el piso y van creciendo: cuanto más grandes los cosechás tocándolos, más esporas rinden (de 10 a 80 segundos de producción), pero si esperás de más tiemblan y se rompen. De vez en cuando brota uno gigante que rinde ×2,5. Hay más cristales con más prestigio.",
+    ],
+  },
+  {
     v: "0.52.0",
     fecha: "2026-10-06",
     cambios: [

@@ -696,6 +696,7 @@ export function crearUI(api) {
     let txt = "";
     if (ev.tipo === "tormenta") txt = `Tormenta de esporas: producción ×${ev.mult.toFixed(1).replace(".", ",")} · ${Math.max(0, Math.ceil(ev.dur - ev.t))} s`;
     else if (ev.tipo === "meteoros") txt = "¡Lluvia de meteoritos!" + (st.torres.length ? " Las torres intentan derribarlos." : "");
+    else if (ev.tipo === "cristales") txt = `¡Brote de cristales! Cuanto más crecen más rinden, pero se rompen · cosechados ${ev.cosechadas}/${ev.cris.length}`;
     else if (ev.tipo === "geiser") txt = `¡Géiseres de esporas! Tocalos para que erupcionen en grande · ${Math.max(0, Math.ceil(ev.dur - ev.t))} s`;
     else if (ev.tipo === "esporada") txt = `¡Esporada! Atrapá las esporas antes de que se pierdan · atrapadas ${ev.cobradas}/${ev.total}`;
     else if (ev.tipo === "mercader") txt = ev.estado === "espera" ? "Llegó el Mercader hongil: ¡tocalo!" : ev.estado === "llega" ? "Se acerca un Mercader hongil…" : "El mercader se va…";
@@ -914,7 +915,7 @@ export function crearUI(api) {
       for (const [id, e] of Object.entries(EVENTOS)) {
         adm(e.nombre, () => { api.dispararCielo(id); return `Apareció en el cielo: ${e.nombre}.`; });
       }
-      for (const [id, nombre] of [["tormenta", "Tormenta de esporas"], ["meteoros", "Lluvia de meteoritos"], ["esporada", "Esporada"], ["geiser", "Géiseres de esporas"], ["mercader", "Mercader hongil"], ["invasion", "Invasión"]]) {
+      for (const [id, nombre] of [["tormenta", "Tormenta de esporas"], ["meteoros", "Lluvia de meteoritos"], ["esporada", "Esporada"], ["geiser", "Géiseres de esporas"], ["cristales", "Brote de cristales"], ["mercader", "Mercader hongil"], ["invasion", "Invasión"]]) {
         adm(nombre, () => api.dispararArcano(id) ? `Evento iniciado: ${nombre}.` : "Ya hay un evento arcano en curso.");
       }
       hojaCuerpo.append(botAdm, notaAdm);

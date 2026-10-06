@@ -4,7 +4,7 @@ import { fmt } from './format.js';
 import { crearEscena } from './scene.js';
 import { crearUI, ajustes } from './ui.js';
 import { tick as tickDungeon, consumirResultado } from './dungeon.js';
-import { tick as tickEventos, consumirResultadoEvento, golpearCriatura, forzarEvento, recolectarEspora, tocarGeiser } from './eventos.js';
+import { tick as tickEventos, consumirResultadoEvento, golpearCriatura, forzarEvento, recolectarEspora, tocarGeiser, cosecharCristal } from './eventos.js';
 import { crearVistaDungeon } from './dungeonVista.js';
 
 import { EDIFICIOS } from './data.js';
@@ -175,6 +175,7 @@ canvas.addEventListener("click", (e) => {
   if (hit && hit.quien === "evento") { escena.tomarEvento(hit.ev); aplicarEvento(hit.ev.tipo); return; }
   if (ui.hojaAbierta()) return;
   if (hit && hit.quien === "criatura") { golpearCriatura(state, hit.c); return; }
+  if (hit && hit.quien === "cristal") { const gan = cosecharCristal(state, hit.cristal); if (gan) numeroFlotante(e.clientX, e.clientY, gan); return; }
   if (hit && hit.quien === "geiser") { const gan = tocarGeiser(state, hit.geiser); if (gan) numeroFlotante(e.clientX, e.clientY, gan); return; }
   if (hit && hit.quien === "espora") { const gan = recolectarEspora(state, hit.espora); if (gan) numeroFlotante(e.clientX, e.clientY, gan); return; }
   if (hit && hit.quien === "torre_def") { ui.abrirTorre(hit.i); return; }
@@ -203,6 +204,7 @@ function resultadoEvento() {
   const r = consumirResultadoEvento();
   if (!r) return;
   if (r.tipo === "invasion") ui.toast(r.robadas ? `Los invasores robaron ${r.perdidoPct}% de tu progreso de prestigio (${r.robadas} de ${r.total} llegaron a la base) · derribados ${r.derribadas} +${fmt(r.esporas)} esporas` : `¡Invasión repelida! ${r.derribadas} enemigos derribados +${fmt(r.esporas)} esporas`);
+  else if (r.tipo === "cristales") ui.toast(`Brote de cristales: cosechaste ${r.cosechadas} de ${r.total}` + (r.rotas ? ` (${r.rotas} se rompieron)` : "") + ` · +${fmt(r.esporas)} esporas`);
   else if (r.tipo === "geiser") ui.toast(`Géiseres de esporas: ${r.erupciones} erupciones (${r.toques} tocadas) · soltaron ${fmt(r.esporas)} esporas al piso`);
   else if (r.tipo === "esporada") ui.toast(`¡Esporada! Atrapaste ${r.cobradas} de ${r.total} esporas` + (r.cristalinas ? ` (${r.cristalinas} cristalinas)` : "") + ` · +${fmt(r.esporas)} esporas`);
   else if (r.tipo === "meteoros") ui.toast(`Lluvia de meteoritos: ${r.interceptados} destruidos, ${r.impactos} impactos` + (r.dano.length ? ` · dañados: ${r.dano.map((id) => id === "basico" ? "los honguitos del hongo madre" : EDIFICIOS[id].nombre).join(", ")} (producción reducida un rato)` : ""));

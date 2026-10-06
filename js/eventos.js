@@ -99,6 +99,12 @@ function iniciar(state, tipo) {
   } else if (tipo === "esporada") {
     const n = Math.round(Math.min(40, 12 + Math.floor(prestigio(state.total).puntos / 4)) * (1 + arteA(state, "esporada_n")));
     ev = { tipo, t: 0, pendientes: n, proximo: 0.4, total: n, esporasV: [], cobradas: 0, cristalinas: 0, esporas: D(0), nextId: 1 };
+  } else if (tipo === "cristales") {
+    const n = Math.min(14, 6 + Math.floor(prestigio(state.total).puntos / 10));
+    const cris = [];
+    for (let i = 0; i < n; i++) cris.push({ id: i + 1, dx: -alcance * 0.85 + (i + 0.5) * ((alcance * 1.7) / n) + rnd(-8, 8), t: -rnd(0, 5), crece: rnd(6, 9), vida: 0, estado: "crece", ci: Math.floor(Math.random() * 5), gigante: Math.random() < 0.12 });
+    for (const c of cris) c.vida = c.crece + rnd(3.5, 5);
+    ev = { tipo, t: 0, cris, cosechadas: 0, rotas: 0, esporas: D(0) };
   } else if (tipo === "geiser") {
     const n = Math.min(9, 4 + Math.floor(prestigio(state.total).puntos / 15));
     const geis = [];
@@ -119,6 +125,7 @@ export const EVENTOS_ARCANOS = [
   { tipo: "mercader", tier: 1, min: 0, peso: 24 },
   { tipo: "esporada", tier: 2, min: 6, peso: 22 },
   { tipo: "geiser", tier: 2, min: 10, peso: 20 },
+  { tipo: "cristales", tier: 3, min: 20, peso: 18 },
   { tipo: "meteoros", tier: 2, min: 0, peso: 20 },
   { tipo: "invasion", tier: 3, min: 0, peso: 24 },
 ];
@@ -130,6 +137,20 @@ function elegir(state) {
   let r = Math.random() * pool.reduce((t, e) => t + e.peso, 0);
   for (const e of pool) { r -= e.peso; if (r < 0) return e.tipo; }
   return pool[0].tipo;
+}
+
+// Brote de cristales: hongo-cristales brotan del piso y crecen; cuanto más grandes los cosechás, más rinden, pero si esperás de más se rompen.
+export const crecimientoCristal = (c) => Math.max(0, Math.min(1, c.t / c.crece));
+export function cosecharCristal(state, c) {
+  if (!ev || ev.tipo !== "cristales" || c.t < 0 || c.estado === "hecha" || c.estado === "rota") return null;
+  const f = Math.max(0.15, crecimientoCristal(c));
+  const v = produccionPorSeg(state).mul((10 + 70 * f * f) * (c.gigante ? 2.5 : 1) * rnd(0.9, 1.1) * arteM(state, "dorada_val")).ceil();
+  const ganancia = v.lt(13) ? D(13) : v;
+  state.esporas = state.esporas.add(ganancia); state.total = state.total.add(ganancia);
+  c.estado = "hecha"; c.f = f;
+  ev.cosechadas++; ev.esporas = ev.esporas.add(ganancia);
+  fxPush({ tipo: "cristal", dx: c.dx, ci: c.ci, f, gigante: c.gigante });
+  return ganancia;
 }
 
 // Géiser de esporas: brotan géiseres a lo largo del piso y sueltan esporas en las pilas (los básicos las tienen que llevar).
@@ -170,6 +191,7 @@ function terminar(state) {
   } else if (ev.tipo === "meteoros") {
     resultado = { tipo: "meteoros", interceptados: ev.interceptados, impactos: ev.impactos, total: ev.total, dano: ev.dano };
   } else if (ev.tipo === "tormenta") resultado = { tipo: "tormenta" };
+  else if (ev.tipo === "cristales") resultado = { tipo: "cristales", cosechadas: ev.cosechadas, rotas: ev.rotas, total: ev.cris.length, esporas: ev.esporas };
   else if (ev.tipo === "geiser") resultado = { tipo: "geiser", erupciones: ev.erupciones, toques: ev.toques, esporas: ev.esporas };
   else if (ev.tipo === "esporada") resultado = { tipo: "esporada", cobradas: ev.cobradas, cristalinas: ev.cristalinas, total: ev.total, esporas: ev.esporas };
   ev = null;
@@ -237,6 +259,16 @@ function paso(state, dt) {
       }
     }
     if (ev.pendientes <= 0 && ev.meteoros.every((m) => m.estado === "hecho") && ev.t > 3) terminar(state);
+    return;
+  }
+  if (ev.tipo === "cristales") {
+    for (const c of ev.cris) {
+      if (c.estado === "hecha" || c.estado === "rota") continue;
+      c.t += dt;
+      if (c.estado === "crece" && c.t >= c.crece) c.estado = "maduro";
+      if (c.t >= c.vida) { c.estado = "rota"; ev.rotas++; fxPush({ tipo: "cristal_roto", dx: c.dx, ci: c.ci }); }
+    }
+    if (ev.cris.every((c) => c.estado === "hecha" || c.estado === "rota") && ev.t > 3) terminar(state);
     return;
   }
   if (ev.tipo === "geiser") {
