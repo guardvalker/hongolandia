@@ -3219,7 +3219,7 @@ export function crearEscena(canvas, opciones = {}) {
       const m = monteDe(e.sitio), p = posMonte(e.sitio);
       if (m.h > 1 && p && !m.colapso) { m.colapso = { t: 0, h0: m.h }; aroPart(p.x, groundY - 1, p.ancho * 1.3, 0.9); flash = Math.max(flash, 0.12); }
     }
-    const alto = Hc * 0.5; // la montaña llena llega a la mitad de la pantalla
+    const alto = Hc0 * 0.5; // la montaña llena mide la mitad de la pantalla al zoom inicial: es un tamaño fijo del mundo, no cambia con el zoom
     for (const d of montesDatos) {
       const m = monteDe(d.id), p = posMonte(d.id);
       if (!p) continue;

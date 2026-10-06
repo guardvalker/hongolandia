@@ -1,5 +1,12 @@
 export const CHANGELOG = [
   {
+    v: "0.56.3",
+    fecha: "2026-10-06",
+    cambios: [
+      "Las montañas de esporas ahora tienen un tamaño fijo en el mundo: antes su altura máxima dependía de cuánto zoom tenías (alejando el zoom las montañas se hacían enormes). Ahora la montaña llena mide la mitad de la pantalla al zoom inicial y no cambia al acercar o alejar.",
+    ],
+  },
+  {
     v: "0.56.2",
     fecha: "2026-10-06",
     cambios: [
