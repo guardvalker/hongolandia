@@ -1,5 +1,13 @@
 export const CHANGELOG = [
   {
+    v: "0.50.1",
+    fecha: "2026-10-05",
+    cambios: [
+      "El honguito básico ahora es un hongo puramente logístico: ya no produce esporas, solo las junta del piso y las lleva al hongo madre. Las esporas salen de tus toques y de los demás honguitos (maestros, músicos, etc.), así que el arranque de la partida depende de tocar el hongo madre hasta comprar la primera escuela.",
+      "Lo que antes mejoraba la producción de los básicos ahora agranda sus manojos: los hitos de cantidad (25, 50, 100… honguitos básicos ×2 la carga), la mejora Rocío, el artefacto Cuenco de micelio dorado y los linajes de básicos de prestigio. El honguito básico ya no aparece en el ranking de esporas/s.",
+    ],
+  },
+  {
     v: "0.50.0",
     fecha: "2026-10-05",
     cambios: [

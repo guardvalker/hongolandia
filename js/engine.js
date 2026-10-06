@@ -149,7 +149,9 @@ function distMedia(state) {
   return (LOGI.distBase + 0.5 * media) * (1 - Math.min(0.6, 0.05 * nivelMej(state, "logi_senderos") + arteA(state, "logi_dist")));
 }
 export function logiInfo(state) {
-  const carga = LOGI.carga0 * LOGI.factorCarga ** nivelMej(state, "logi_manojo") * arteM(state, "logi_carga");
+  const nB = state.honguitos.basico || 0;
+  let carga = LOGI.carga0 * LOGI.factorCarga ** nivelMej(state, "logi_manojo") * arteM(state, "logi_carga") * arteM(state, "prod_basico") * multHitos(nB, state);
+  for (const mj of MEJORAS) if (mj.aplica === "basico" && state.mejoras[mj.id]) carga *= mj.mult.toNumber(); // las mejoras «de los básicos» agrandan el manojo
   const vel = LOGI.vel * (1 + 0.1 * nivelMej(state, "logi_zancada") + arteA(state, "logi_vel"));
   const recoger = LOGI.recoger * Math.max(0.2, 1 - 0.07 * nivelMej(state, "logi_recoger"));
   const viaje = (2 * distMedia(state)) / vel + recoger; // segundos de ida, vuelta y juntar el manojo

@@ -105,9 +105,9 @@ export const PU = [
   { id: "et_toque", tier: 0, max: Infinity, nombre: "Dedos eternos", k: "toque_mult", v: 0.05, lin: true, desc: (n) => `Los toques al hongo madre valen +${pct(0.05 * n)}%.` },
   { id: "et_invocacion", tier: 0, max: Infinity, nombre: "Invocaciones eternas", k: "evt_freq", v: 0.03, desc: (n) => `Los eventos del cielo aparecen un ${pct(0.03 * n)}% más seguido.` },
   { id: "et_dorada", tier: 0, max: Infinity, nombre: "Pepita eterna", k: "dorada_val", v: 0.05, lin: true, desc: (n) => `Las esporas doradas valen +${pct(0.05 * n)}%.` },
-  ...TIPOS.map(([id, plural]) => ({ id: "et_" + id, tier: 0, max: Infinity, nombre: "Linaje eterno: " + plural, k: "prod_" + id, v: 1.01, m: true, desc: (n) => `Los ${plural} producen ${mult(1.01 ** n)}.` })),
+  ...TIPOS.map(([id, plural]) => ({ id: "et_" + id, tier: 0, max: Infinity, nombre: "Linaje eterno: " + plural, k: "prod_" + id, v: 1.01, m: true, desc: (n) => (id === "basico" ? `Los honguitos básicos llevan manojos ${mult(1.01 ** n)} más grandes.` : `Los ${plural} producen ${mult(1.01 ** n)}.`) })),
   // ── Linajes por tipo (como «Ancestor's Picks» de la wiki): +15% por rango para cada tipo de honguito ──
-  ...TIPOS.map(([id, plural, tier]) => ({ id: "li_" + id, tier, max: 4, nombre: "Linaje de " + plural, k: "prod_" + id, v: 0.1, lin: true, desc: (n) => `Los ${plural} producen +${pct(0.1 * n)}%.` })),
+  ...TIPOS.map(([id, plural, tier]) => ({ id: "li_" + id, tier, max: 4, nombre: "Linaje de " + plural, k: "prod_" + id, v: 0.1, lin: true, desc: (n) => (id === "basico" ? `Los honguitos básicos llevan manojos +${pct(0.1 * n)}% más grandes.` : `Los ${plural} producen +${pct(0.1 * n)}%.`) })),
 ];
 export const PU_POR_ID = Object.fromEntries(PU.map((p) => [p.id, p]));
 // las eternas encarecen cada 20 rangos para que sean un pozo de PP y no una escalera infinita

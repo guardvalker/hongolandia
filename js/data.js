@@ -181,7 +181,7 @@ export const PRESTIGIO = { base: D(1000), crecimiento: 1.55 };
 
 // Tipos de honguitos. `sprite` = archivo en assets/ (sin .png). `casa` = edificio donde se compran.
 const HONG_DEF = [
-  { id: "basico", tier: 0, nombre: "Honguito", sprite: "honguito", desc: "Carga esporas al hongo madre.", color: "#e8362f" },
+  { id: "basico", tier: 0, logistico: true, nombre: "Honguito", sprite: "honguito", desc: "Hongo logístico: no produce esporas, las junta del piso en manojos y las lleva al hongo madre.", color: "#e8362f" },
   { id: "maestro", tier: 1, nombre: "Maestro", sprite: "maestro", desc: "Pasea con sus alumnitos y les da clase; tras varias clases alguno se gradúa y salen esporas.", color: "#b5e61d", casa: "escuela" },
   { id: "musico", tier: 2, nombre: "Músico", sprite: "musico", desc: "Canta cada tanto y su música rinde esporas.", color: "#a77bff", casa: "conservatorio" },
   { id: "cientifico", tier: 3.5, tierCosto: 2.5, inv: 1, nombre: "Científico", sprite: "cientifico", desc: "Hace experimentos y genera investigación: cuantos más hay, más rápido se investiga.", color: "#2fd4c4", casa: "universidad" },
@@ -200,7 +200,7 @@ export const HONGUITOS = Object.fromEntries(HONG_DEF.map((h) => {
     ...h,
     costoBase: C(v.costoBase),
     crecimiento: MODO_PRUEBA ? 1 : v.crecimiento,
-    prod: h.inv || h.defensa ? D(0) : D(valoresTier(h.tier).prod), // los científicos dan investigación (`invProd`) y los soldados no producen
+    prod: h.inv || h.defensa || h.logistico ? D(0) : D(valoresTier(h.tier).prod), // los científicos dan investigación (`invProd`) y los soldados no producen
     invProd: h.inv ? D(h.inv) : D(0),
   }];
 }));
@@ -218,7 +218,7 @@ export const MEJORAS = [
   {
     id: "rocio",
     nombre: "Rocío",
-    desc: "Los honguitos básicos producen ×2.",
+    desc: "Los honguitos básicos llevan manojos ×2 más grandes.",
     costo: C(1500),
     aplica: "basico",
     mult: D(2),

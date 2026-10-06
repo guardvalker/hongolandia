@@ -1057,7 +1057,7 @@ export function crearUI(api) {
     // rankings: esporas/s por tipo (de mayor a menor, con barras) y, aparte, investigación/s
     const esp = [], inv = [];
     for (const id in dpsFilas) {
-      const tiene = (s.honguitos[id] || 0) > 0;
+      const tiene = (s.honguitos[id] || 0) > 0 && !HONGUITOS[id].logistico; // el básico no produce: no aparece en el ranking de esporas/s
       dpsFilas[id].el.hidden = !tiene;
       if (!tiene) continue;
       if (HONGUITOS[id].invProd.gt(0)) {

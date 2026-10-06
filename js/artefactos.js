@@ -13,7 +13,7 @@ const MULT = new Set([
 
 // [id, nombre, descripción, clave, valor, categoría (1-3: cuánto cuesta)]
 const T = [
-  ["cuenco", "Cuenco de micelio dorado", "Los honguitos básicos producen ×1,5.", "prod_basico", 1.5, 1],
+  ["cuenco", "Cuenco de micelio dorado", "Los honguitos básicos llevan manojos ×1,5 más grandes.", "prod_basico", 1.5, 1],
   ["pizarra", "Pizarra sin borrar", "Los maestros producen ×1,5.", "prod_maestro", 1.5, 1],
   ["diapason", "Diapasón eterno", "Los músicos producen ×1,5.", "prod_musico", 1.5, 1],
   ["regadera", "Regadera infinita", "Los jardineros producen ×1,5.", "prod_jardinero", 1.5, 1],
