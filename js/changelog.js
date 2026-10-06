@@ -1,5 +1,12 @@
 export const CHANGELOG = [
   {
+    v: "0.49.1",
+    fecha: "2026-10-05",
+    cambios: [
+      "La «Lluvia de gemas» se reemplaza por la «Esporada» (más acorde a la temática del juego): una nube suelta esporas de los colores de los honguitos que bajan flotando y se mecen; tocarlas las atrapa y da 20 a 45 segundos de producción. Algunas son esporas cristalinas (hongo-cristal) y valen el triple. Las que no atrapás se pierden a los ~10 s. Mismas reglas de aparición (desde el nivel 6 de prestigio de la corrida).",
+    ],
+  },
+  {
     v: "0.49.0",
     fecha: "2026-10-05",
     cambios: [

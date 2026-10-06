@@ -1338,9 +1338,9 @@ export function crearEscena(canvas, opciones = {}) {
         motas(x, y, 14, 1.3, "#7fe9ff"); aroPart(x, y, 16, 0.5);
         const tv = torresV[0];
         if (e.torre && tv) { tiros.push({ kind: "basica", x0: tv.x, y0: groundY - alturaTorre(tv), x1: x, y1: y, t: 0 }); tv.ang = Math.atan2(y - (groundY - alturaTorre(tv)), x - tv.x); tv.retro = 0.2; }
-      } else if (e.tipo === "gema") {
-        const y = groundY - 8;
-        motas(x, y, 16, 1.3, GEMAS[e.col][0]); motas(x, y, 8, 1, GEMAS[e.col][1]); aroPart(x, y, 14, 0.4);
+      } else if (e.tipo === "espora") {
+        const y = groundY - 16, col = e.cristal ? CRISTALES[(e.col || 0) % CRISTALES.length] : PALETA[e.col || 0];
+        motas(x, y, e.cristal ? 26 : 14, 1.3, col); motas(x, y, 8, 1, "#ffffff"); aroPart(x, y, e.cristal ? 22 : 14, 0.4);
       } else if (e.tipo === "kill") {
         const yy = groundY - 5 - (e.y || 0);
         motas(x, yy, e.grande ? 36 : 9, e.grande ? 1.8 : 1, "#c58aff"); aroPart(x, yy, e.grande ? 40 : 10, e.grande ? 0.7 : 0.4);
@@ -1537,21 +1537,13 @@ export function crearEscena(canvas, opciones = {}) {
       }
     }
   }
-  // gemas de la lluvia de gemas: un rombo de 7x9 por color, con brillo
-  const GEMAS = [["#4fb4ff", "#bfe6ff"], ["#ff4f7a", "#ffc0d0"], ["#3ddc84", "#c0ffd8"], ["#ffd23f", "#fff2b0"], ["#c58aff", "#ecd8ff"], ["#2fd4c4", "#c0fff6"]];
-  const spritesGema = GEMAS.map(([c, l]) => {
-    const cv = document.createElement("canvas");
-    cv.width = 7; cv.height = 9;
-    const x = cv.getContext("2d");
-    const F = ["...w...", "..wcw..", ".wcccw.", "wcclccw", ".wcccw.", "..wcw..", "...w..."];
-    x.fillStyle = BLANCO;
-    F.forEach((fila, y) => { for (let i = 0; i < 7; i++) { const ch = fila[i]; if (ch === ".") continue; x.fillStyle = ch === "w" ? BLANCO : ch === "l" ? l : c; x.fillRect(i, y + 1, 1, 1); } });
-    return cv;
-  });
-  const gemaY = (gm) => {
-    if (gm.estado === "cae") { const p = clamp(gm.t / gm.caida, 0, 1), y0 = -offY() - 20; return y0 + (groundY - 6 - y0) * p * p; }
-    return groundY - 6 - Math.abs(Math.sin(Math.min(1, (gm.t - gm.caida) * 3) * Math.PI)) * 3 * (gm.t - gm.caida < 0.34 ? 1 : 0);
+  // esporada: esporas que flotan y se mecen hacia el piso (colores de los honguitos); algunas son esporas cristalinas (hongo-cristal)
+  const espoY = (sp) => {
+    const piso = groundY - 16;
+    if (sp.estado === "cae") { const p = clamp(sp.t / sp.caida, 0, 1), y0 = -offY() - 20; return y0 + (piso - y0) * (1 - (1 - p) * (1 - p)); }
+    return piso + Math.sin((sp.t - sp.caida) * 2 + sp.id) * 3;
   };
+  const espoX = (sp) => madre.x + sp.dx + Math.sin(sp.t * 1.6 + sp.id * 1.7) * (sp.estado === "cae" ? 5 : 2);
   function dibujarArcano() {
     for (const c of crateres) { g.globalAlpha = Math.min(1, c.t / 3); g.fillStyle = "#14141d"; g.fillRect(Math.round(c.x) - 11, groundY, 23, 4); g.fillRect(Math.round(c.x) - 8, groundY + 4, 17, 2); g.fillStyle = "#3a2a1a"; g.fillRect(Math.round(c.x) - 7, groundY - 1, 15, 2); g.globalAlpha = 1; }
     const e = getEvento();
@@ -1564,15 +1556,19 @@ export function crearEscena(canvas, opciones = {}) {
         g.fillStyle = "#ff8a1f"; g.fillRect(Math.round(hx) - 9, Math.round(hy) - 9, 19, 19); g.fillStyle = "#ffe14d"; g.fillRect(Math.round(hx) - 6, Math.round(hy) - 6, 13, 13); g.fillStyle = "#fff"; g.fillRect(Math.round(hx) - 3, Math.round(hy) - 3, 7, 7);
       }
     }
-    if (e && e.tipo === "gemas") {
-      for (const gm of e.gemas) {
-        if (gm.estado !== "cae" && gm.estado !== "suelo") continue;
-        const x = Math.round(madre.x + gm.dx), y = Math.round(gemaY(gm));
-        if (gm.estado === "suelo" && gm.caida + gm.vida - gm.t < 2.5 && Math.floor(gm.t * 7) % 2) continue; // titila antes de perderse
-        if (gm.estado === "cae") { g.globalAlpha = 0.5; g.fillStyle = GEMAS[gm.col][1]; for (let k = 1; k <= 4; k++) { g.globalAlpha = 0.5 * (1 - k / 5); g.fillRect(x, y - k * 3, 1, 2); } g.globalAlpha = 1; }
-        g.globalAlpha = 0.22; disco(x, y, 7, GEMAS[gm.col][0]); g.globalAlpha = 1;
-        g.drawImage(spritesGema[gm.col], x - 3, y - 5);
-        if (Math.floor(t * 4 + gm.id) % 2) { g.fillStyle = BLANCO; g.fillRect(x + 4, y - 4, 1, 1); g.fillRect(x - 5, y + 2, 1, 1); }
+    if (e && e.tipo === "esporada") {
+      for (const sp of e.esporasV) {
+        if (sp.estado !== "cae" && sp.estado !== "suelo") continue;
+        if (sp.estado === "suelo" && sp.caida + sp.vida - sp.t < 2.5 && Math.floor(sp.t * 7) % 2) continue; // titila antes de perderse
+        const x = Math.round(espoX(sp)), y = Math.round(espoY(sp)), col = sp.cristal ? CRISTALES[sp.ci] : PALETA[sp.col];
+        g.globalAlpha = 0.18; disco(x, y, sp.cristal ? 9 : 7, col); g.globalAlpha = 1;
+        if (sp.cristal) { g.drawImage(spritesCristal[sp.ci], x - 4, y - 8, 8, 10); }
+        else { g.fillStyle = col; g.fillRect(x - 1, y - 2, 3, 4); g.fillRect(x - 2, y - 1, 5, 2); g.fillStyle = BLANCO; g.fillRect(x - 1, y - 1, 1, 1); }
+        // estela de motitas que suben y rastro de la caída
+        g.fillStyle = col;
+        for (let k = 0; k < 3; k++) { g.globalAlpha = 0.5 - k * 0.15; g.fillRect(x + Math.round(Math.sin(t * 3 + sp.id + k) * 3), y + 4 + k * 3, 1, 1); }
+        g.globalAlpha = 1;
+        if (Math.floor(t * 4 + sp.id) % 2) { g.fillStyle = BLANCO; g.fillRect(x + 5, y - 5, 1, 1); g.fillRect(x - 6, y + 2, 1, 1); }
       }
     }
     if (e && e.tipo === "mercader") dibujarMercader(e);
@@ -3365,9 +3361,9 @@ export function crearEscena(canvas, opciones = {}) {
       if (Math.abs(cx - (edif.mina.x + n.x)) < 9 && cy > groundY + n.y - 20 && cy < groundY + n.y + 2) return { quien: "puerta" };
     }
     const eA = getEvento();
-    if (eA && eA.tipo === "gemas") for (const gm of eA.gemas) {
-      if (gm.estado !== "cae" && gm.estado !== "suelo") continue;
-      if (Math.abs(cx - (madre.x + gm.dx)) < 8 && Math.abs(cy - gemaY(gm)) < 10) return { quien: "gema", gema: gm };
+    if (eA && eA.tipo === "esporada") for (const sp of eA.esporasV) {
+      if (sp.estado !== "cae" && sp.estado !== "suelo") continue;
+      if (Math.abs(cx - espoX(sp)) < 9 && Math.abs(cy - espoY(sp)) < 11) return { quien: "espora", espora: sp };
     }
     if (eA && eA.tipo === "invasion") for (const c of eA.criaturas) {
       if (!c.vivo || c.ret > 0) continue;
