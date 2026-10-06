@@ -77,6 +77,11 @@ html, body {
   background: var(--panel); box-shadow: 0 0 0 2px var(--borde);
 }
 
+#btn-logros {
+  pointer-events: auto; position: absolute; right: 12px; top: calc(env(safe-area-inset-top) + 60px); width: 40px; height: 40px; border: 0; font: inherit; font-size: 22px; color: #ffd23f;
+  background: var(--panel); box-shadow: 0 0 0 2px var(--borde);
+}
+.btn.manteniendo { background-image: linear-gradient(90deg, rgba(255,255,255,.55), rgba(255,255,255,.55)); background-repeat: no-repeat; background-size: calc(var(--hold, 0) * 100%) 100%; }
 #version { position: fixed; left: 8px; bottom: calc(env(safe-area-inset-bottom) + 6px); font-size: 9px; color: var(--dim); opacity: .6; pointer-events: none; z-index: 4; }
 #zoom { position: fixed; right: 12px; bottom: calc(env(safe-area-inset-bottom) + 12px); display: flex; flex-direction: column; gap: 6px; z-index: 5; }
 #zoom button { width: 40px; height: 40px; border: 0; font: inherit; font-size: 22px; color: var(--txt); background: var(--panel); box-shadow: 0 0 0 2px var(--borde); cursor: pointer; }

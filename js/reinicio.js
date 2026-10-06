@@ -18,11 +18,13 @@ export function prestigiar(viejo) {
   n.ppTotal = (viejo.ppTotal || 0) + gana;
   n.prestigios = (viejo.prestigios || 0) + 1;
   n.pu = { ...viejo.pu };
+  n.logros = { ...viejo.logros };
   n.altar = { talentos: [...viejo.altar.talentos], pacto: viejo.altar.pacto };
   n.dungeon = viejo.dungeon;
   n.fondo = viejo.fondo;
   n.flags = { ...viejo.flags };
   delete n.flags.sobrecarga;
+  n.flags.nivelAnterior = prestigio(viejo.total).puntos; // el nivel que se alcanzó en la corrida anterior (la barra de prestigio lo muestra)
   n.arcano = { ...viejo.arcano, tormenta: { mult: 1, hasta: 0 } };
   n.creado = viejo.creado;
   // reliquias: se conservan artefactos (al azar, o los de mayor tier con «Reliquia divina»)

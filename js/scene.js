@@ -961,6 +961,7 @@ export function crearEscena(canvas, opciones = {}) {
   // Tras varias clases un alumno se gradúa con diploma y salen esporas.
   const NKIDS = 3;
   function actualizarMaestro(v, dt) {
+    if (!edif.escuela) return; // recién prestigiado: el edificio ya no está pero el visual dura un cuadro más
     v.alfa = Math.min(1, v.alfa + dt * 2.5);
     v.animT += dt;
     v.hop = 0;

@@ -1,6 +1,7 @@
 import { D } from './decimal.js';
 import { agregarHongoFondo } from './state.js';
 import { PRISMA_POR_ID } from './prismas.js';
+import { BONO_LOGRO, cantLogros } from './logros.js';
 import { arteM, arteA, ARTEFACTOS, ARTE_POR_ID } from './artefactos.js';
 import { puA, buffCrisis, avisosPU } from './puData.js';
 import { HONGUITOS, MEJORAS, EDIFICIOS, PRESTIGIO, BOLSA, LUNA, ACIDO, TECNOLOGIAS, TEC_POR_ID, MEJ_EDIF, MEJ_EDIF_POR_ID, MEJ_CLICK, MEJ_CLICK_POR_ID, MEJ_LOGI, MEJ_LOGI_POR_ID, LOGI, HITOS, MODO_PRUEBA, EVENTOS, EVENTO_CFG } from './data.js';
@@ -123,6 +124,7 @@ export function multiplicador(state, tipoId) {
     const nEd = Object.keys(state.edificios).length;
     m *= 1 + arteA(state, "syn_edif") * nEd + arteA(state, "syn_basico") * Math.floor(cuenta(state, "basico") / 25) + arteA(state, "luna_base") * (state.luna?.bases.length || 0);
   }
+  m *= 1 + BONO_LOGRO * cantLogros(state); // logros
   if (state.prisma && state.prisma.nivel) m *= 1 + arteA(state, "comp_prod") * state.prisma.nivel; // «Resonancia»
   if (state.buffPU && state.buffPU.hasta > Date.now()) m *= state.buffPU.mult; // Reflejos de crisis
   const tor = state.arcano && state.arcano.tormenta;
@@ -307,6 +309,7 @@ export function logistica(state, dt, valor, llegadas, toques = 0) {
       L.n -= n;
       L.sitios[id] = 0;
       comp[id] = false;
+      state.flags.colapso = true;
       if (salvado.gt(0)) { state.esporas = state.esporas.add(salvado); state.total = state.total.add(salvado); parte = parte.add(salvado); }
       if (logiEventos.length < 30) logiEventos.push({ sitio: id, n });
     }
@@ -337,6 +340,9 @@ export function cristalizar(state, id) {
   let prismas = 0;
   if (f >= 0.5 - arteA(state, "comp_umbral")) { prismas = f >= 0.85 ? 2 + Math.floor(arteA(state, "prisma_extra")) : 1; P.nivel = Math.min(LOGI.compNivelMax, P.nivel + 1); }
   P.n += prismas; P.tot += prismas;
+  if (prismas) state.flags.prismaAlgunaVez = true;
+  if (P.nivel >= LOGI.compNivelMax) state.flags.compMax = true;
+  if (f >= 0.95) state.flags.cristal95 = true;
   if (logiEventos.length < 30) logiEventos.push({ sitio: id, n, cristal: true, f });
   return { ganancia, prismas, f, bono };
 }
@@ -374,6 +380,7 @@ export function tocarMadre(state) {
   state.logi.clkV = (state.logi.clkV || D(0)).add(v);
   state.logi.clk = (state.logi.clk || 0) + 1;
   state.flags.toco = true;
+  state.flags.nToques = (state.flags.nToques || 0) + 1;
   return v;
 }
 export function comprarMejoraClick(state, id) {
@@ -628,6 +635,7 @@ export function activarHabilidad(state, id) {
   }
   if (m.ef === "savia_azul" || m.ef === "savia_verde") {
     state.habil[id] = { hasta: ahora + durBuff(m, n) * 1000, listoEn: ahora + cdHabilidad(m, n) * 1000 };
+    state.flags.savia = true;
     emitir({ savia: m.ef === "savia_azul" ? "azul" : "verde" });
     return m.ef === "savia_azul" ? `Savia azul: los básicos y las polillas van ×2 por ${durBuff(m, n)} s` : `Savia verde: el bono de cristalización es ×1,5 por ${durBuff(m, n)} s`;
   }
@@ -641,6 +649,7 @@ export function activarHabilidad(state, id) {
     L.valor = L.valor.sub(L.valor.mul(f)); L.n -= libre;
     for (const sid in L.sitios) if (!comp[sid]) L.sitios[sid] = 0;
     state.esporas = state.esporas.add(valor); state.total = state.total.add(valor);
+    state.flags.savia = true;
     emitir({ savia: "roja" });
     return `¡Onda de choque! +${fmtRapido(valor)} esporas llegaron de golpe al hongo madre`;
   }

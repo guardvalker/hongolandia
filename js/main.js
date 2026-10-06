@@ -9,6 +9,7 @@ import { crearVistaDungeon } from './dungeonVista.js';
 
 import { EDIFICIOS } from './data.js';
 import { prestigiar } from './reinicio.js';
+import { revisarLogros } from './logros.js';
 import { avisosPU } from './puData.js';
 import { construirTorre } from './invasion.js';
 
@@ -272,6 +273,7 @@ function frame(ahora) {
   vista.actualizar(dt);
   if (ahora >= proximoHud) {
     revisarHitos(state);
+    for (const l of revisarLogros(state)) { ui.toast(`🏆 Logro: ${l.nombre} (+2% producción)`); guardar(state); }
     ui.actualizar(false);
     proximoHud = ahora + 250;
   }

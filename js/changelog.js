@@ -1,5 +1,15 @@
 export const CHANGELOG = [
   {
+    v: "0.62.0",
+    fecha: "2026-10-06",
+    cambios: [
+      "Logros (idea de los de Gnorp Apologue): 25 logros con un botón ★ arriba a la derecha, bajo Ajustes. Hay de construcción (Pueblo hongil), de toques (1.000), de la compactación (Corte perfecto: cristalizar al 95% o más; Presión máxima: nivel 10), del Altar, de hifas y polillas, de rachas, de artefactos, de dungeon, de invasiones, de la luna y de prestigio. Cada uno suma +2% a toda la producción y se conserva al prestigiar; al cumplirse avisa con un cartel.",
+      "Prestigio con clic sostenido: el botón «Prestigiar» ahora hay que mantenerlo apretado 1,3 s (ya no se puede prestigiar sin querer). Además la barra de prestigio muestra el nivel que alcanzaste en la corrida anterior («Prestigio 14 · antes 30») para que veas si vas más rápido.",
+      "Música ambiental opcional (Ajustes → Sonido, apagada por defecto, con volumen): un colchón suave hecho con WebAudio, sin archivos, que suma capas con el nivel de prestigio de la corrida (bajo desde el nivel 4, armonía aguda desde el 12, destellos desde el 8, brillo desde el 25). No pude escucharla en la prueba automática: solo verifiqué que no da errores.",
+      "Arreglo: error en consola al prestigiar (los maestros seguían moviéndose un cuadro después de que la escuela desaparecía).",
+    ],
+  },
+  {
     v: "0.61.0",
     fecha: "2026-10-06",
     cambios: [

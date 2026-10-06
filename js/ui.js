@@ -3,6 +3,8 @@ import { iconoObjeto } from './dungeonVista.js';
 import { getEvento, DEF_MEJ, nivelDef, costoDef, comprarDef, ofertasMercader, precioArtefacto, comprarArtefacto, probInterceptar, MAGOS_MIN } from './eventos.js';
 import { TIPOS_TORRE, EVOLUCIONES, ENEMIGOS, TORRES_MAX, SOLD_MAX, costoTorre, costoEvolucion, evolucionarTorre, sumarSoldados, statsTorre, dpsTorre, infoDefensa, quedan } from './invasion.js';
 import { PRISMAS } from './prismas.js';
+import { musica } from './musica.js';
+import { LOGROS, cantLogros, BONO_LOGRO } from './logros.js';
 import { TALENTOS, PACTOS, espaciosAltar, talentoAbierto, UMBRAL_TIER_TALENTO, alternarTalento, elegirPacto, pactoActivo } from './altar.js';
 import { ARTEFACTOS, ARTE_POR_ID, TIERS, iconoArtefacto, cantArte } from './artefactos.js';
 import { OBJETOS, escalaJefes, CLASES, TABERNA_MEJ, costoMerc, contratar, comprarTab, nivelTab, costoTab, sanos, iniciar as iniciarExploracion, getRun, PARTY_MAX, mercStats, CRISTAL_MULT } from './dungeon.js';
@@ -23,6 +25,8 @@ export const ajustes = (() => {
 const guardarAjustes = () => { try { localStorage.setItem(KEY_AJ, JSON.stringify(ajustes)); } catch (_) {} };
 const aplicarAjustes = () => document.body.classList.toggle("transp", !!ajustes.transparencia);
 aplicarAjustes();
+musica.configurar(ajustes.musica, ajustes.volMusica ?? 0.35);
+document.addEventListener("pointerdown", () => musica.despertar());
 
 const $ = (id) => document.getElementById(id);
 
@@ -459,8 +463,22 @@ export function crearUI(api) {
   const elBtnAltar = $("btn-altar");
   elBtnAltar.addEventListener("click", abrirAltar);
 
+  // ---- Logros ----
+  function abrirLogros() {
+    abrir("logros", "Logros", () => {
+      const info = nota("");
+      filas.push({ refresh: (s) => { info.textContent = `${cantLogros(s)}/${LOGROS.length} logros · cada uno suma +${Math.round(BONO_LOGRO * 100)}% a toda la producción (ahora +${Math.round(BONO_LOGRO * 100 * cantLogros(s))}%). Se conservan al prestigiar.`; } });
+      const s0 = api.estado();
+      for (const l of LOGROS) {
+        if (s0.logros[l.id]) nota(`✓ ${l.nombre} — ${l.desc}`).classList.add("hecha");
+      }
+      seccion("Pendientes");
+      for (const l of LOGROS) if (!s0.logros[l.id]) nota(`${l.nombre} — ${l.desc}`);
+    }, null, "#ffd23f");
+  }
+  $("btn-logros").addEventListener("click", abrirLogros);
+
   function abrirPrestigio() {
-    let seguro = false;
     abrir("prestigio", "Prestigio", () => {
       const st = api.estado();
       const info = nota("");
@@ -468,18 +486,32 @@ export function crearUI(api) {
         info.textContent = `PP sin gastar: ${s.pp} · gastados: ${s.ppGastados} · ganados en total: ${s.ppTotal} · prestigios: ${s.prestigios}`;
       } });
       nota("Prestigiar reinicia la corrida (esporas, honguitos, edificios y mejoras) y te da 1 PP por cada nivel de prestigio alcanzado. Se conservan las mejoras de prestigio, la dungeon y el fondo. Los tiers se destraban al gastar PP (12, 45, 120, 180 y 250).");
-      const f = fila("Prestigiar ahora", "", () => {
-        if (!seguro) { seguro = true; return; }
-        api.prestigiar();
-        cerrar();
-        toast("¡Nueva corrida! Gastá tus PP en las mejoras de prestigio.");
-      }, "#ffd23f");
+      const hecho = () => { api.prestigiar(); cerrar(); toast("¡Nueva corrida! Gastá tus PP en las mejoras de prestigio."); };
+      const f = fila("Prestigiar ahora", "", () => {}, "#ffd23f"); // se prestigia manteniendo apretado (así no pasa por accidente)
+      let hold = null;
+      const ini = (ev) => {
+        if (f.btn.disabled || hold) return;
+        ev.preventDefault();
+        const t0 = performance.now();
+        hold = { raf: 0 };
+        f.btn.classList.add("manteniendo");
+        const paso = () => {
+          if (!hold) return;
+          const u = Math.min(1, (performance.now() - t0) / 1300);
+          f.btn.style.setProperty("--hold", u);
+          if (u >= 1) { hold = null; hecho(); return; }
+          hold.raf = requestAnimationFrame(paso);
+        };
+        hold.raf = requestAnimationFrame(paso);
+      };
+      const fin = () => { if (hold) { cancelAnimationFrame(hold.raf); hold = null; } f.btn.classList.remove("manteniendo"); f.btn.style.setProperty("--hold", 0); };
+      f.btn.addEventListener("pointerdown", ini);
+      for (const nom of ["pointerup", "pointerleave", "pointercancel"]) f.btn.addEventListener(nom, fin);
       f.refresh = (s) => {
         const g = ppAlPrestigiar(s);
         f.titulo.textContent = g > 0 ? `Prestigiar: +${g} PP` : "Prestigiar (todavía sin PP)";
-        f.btn.textContent = seguro ? "¿Seguro?" : "Prestigiar";
+        f.btn.textContent = "Mantené apretado";
         f.btn.disabled = g < 1;
-        f.btn.classList.toggle("peligro", seguro);
       };
       filas.push(f);
       for (const tier of TIERS_PU) {
@@ -893,6 +925,34 @@ export function crearUI(api) {
       filaT.append(txt, chk);
       hojaCuerpo.append(filaT);
 
+      seccion("Sonido");
+      const filaM = document.createElement("label");
+      filaM.className = "fila fila-check";
+      const txM = document.createElement("div");
+      txM.className = "fila-info";
+      const tM = document.createElement("b");
+      tM.textContent = "Música ambiental";
+      const dM = document.createElement("span");
+      dM.textContent = "Un colchón suave que suma capas con tu nivel de prestigio (bajo, armonías, destellos).";
+      txM.append(tM, dM);
+      const chkM = document.createElement("input");
+      chkM.type = "checkbox";
+      chkM.checked = !!ajustes.musica;
+      chkM.addEventListener("change", () => { ajustes.musica = chkM.checked; guardarAjustes(); musica.configurar(ajustes.musica, ajustes.volMusica); musica.despertar(); });
+      filaM.append(txM, chkM);
+      hojaCuerpo.append(filaM);
+      const rngM = document.createElement("input");
+      rngM.type = "range"; rngM.min = 0; rngM.max = 100; rngM.value = Math.round((ajustes.volMusica ?? 0.35) * 100);
+      rngM.className = "rango-musica";
+      rngM.addEventListener("input", () => { ajustes.volMusica = rngM.value / 100; guardarAjustes(); musica.configurar(ajustes.musica, ajustes.volMusica); });
+      const filaVM = document.createElement("div");
+      filaVM.className = "fila fila-rango";
+      const infoVM = document.createElement("div"); infoVM.className = "fila-info";
+      const tVM = document.createElement("b"); tVM.textContent = "Volumen de la música";
+      infoVM.append(tVM);
+      filaVM.append(infoVM, rngM);
+      hojaCuerpo.append(filaVM);
+
       seccion("Rendimiento");
       const filaV = document.createElement("div");
       filaV.className = "fila fila-rango";
@@ -1138,7 +1198,8 @@ export function crearUI(api) {
     elBtnAltar.hidden = !(s.ppTotal > 0);
     elBtnPresti.textContent = ppg > 0 ? `Prestigio +${ppg} PP` : s.pp > 0 ? `Prestigio (${s.pp} PP)` : "Prestigio";
     elBtnPresti.classList.toggle("lista", ppg > 0 || s.pp > 0);
-    elNivel.textContent = "Prestigio " + pr.puntos;
+    musica.nivel(pr.puntos);
+    elNivel.textContent = "Prestigio " + pr.puntos + (s.flags.nivelAnterior ? " · antes " + s.flags.nivelAnterior : "");
     elNum.textContent = fmt(pr.cur) + " / " + fmt(pr.need);
     elFill.style.width = pr.frac * 100 + "%";
     if (puntosPrev !== null && pr.puntos > puntosPrev) {
