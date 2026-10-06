@@ -348,3 +348,18 @@ body.gl #juego { opacity: 0; }
 
 .cant-btn.vender.activo { background: #ff5a14; color: #fff; }
 .comprar.vende { background: #ff5a14; color: #fff; }
+
+/* mantener apretado Prestigio: el resto se oscurece y el botón (copia) se va cargando */
+.presti-velo { position: fixed; inset: 0; z-index: 300; background: rgba(2, 2, 10, 0); pointer-events: none; transition: background .25s; }
+.presti-velo.on { background: rgba(2, 2, 10, calc(.35 + var(--u, 0) * .6)); transition: none; }
+.presti-velo.flash { background: #fff8d6; transition: background .35s ease-in; }
+.presti-clon {
+  position: fixed; z-index: 301; pointer-events: none; display: grid; place-items: center; font: inherit; font-size: 13px; color: #272736; background: #ffd23f;
+  transform: translate(var(--tx, 0), var(--ty, 0)) scale(calc(1 + var(--u, 0) * .18));
+  filter: brightness(calc(1 + var(--u, 0) * .7));
+  box-shadow: 0 0 calc(var(--u, 0) * 70px) calc(var(--u, 0) * 18px) rgba(255, 214, 70, calc(.25 + var(--u, 0) * .75)), 0 0 0 2px #fff3b0;
+}
+.presti-clon.fuera, .presti-aviso.fuera { opacity: 0; transition: opacity .25s; }
+.presti-aviso { position: fixed; left: 0; right: 0; top: 18%; z-index: 301; pointer-events: none; text-align: center; color: #ffe9a0; text-shadow: 0 2px 0 #000; display: grid; gap: 6px; }
+.presti-aviso b { font-size: 20px; letter-spacing: .08em; }
+.presti-aviso span { font-size: 13px; color: #c9c0e0; }

@@ -526,22 +526,53 @@ export function crearUI(api) {
       const hecho = () => { api.prestigiar(); cerrar(); toast("¡Nueva corrida! Gastá tus PP en las mejoras de prestigio."); };
       const f = fila("Prestigiar ahora", "", () => {}, "#ffd23f"); // se prestigia manteniendo apretado (así no pasa por accidente)
       let hold = null;
+      // al mantener apretado: todo se oscurece menos el botón (una copia encima), que se va cargando, brillando y temblando
+      const crearCarga = () => {
+        const r = f.btn.getBoundingClientRect();
+        const vel = document.createElement("div"); vel.className = "presti-velo";
+        const clon = document.createElement("div"); clon.className = "presti-clon"; clon.textContent = f.btn.textContent;
+        Object.assign(clon.style, { left: r.left + "px", top: r.top + "px", width: r.width + "px", height: r.height + "px" });
+        const aviso = document.createElement("div"); aviso.className = "presti-aviso";
+        aviso.innerHTML = "<b>Seguí apretando…</b><span>Soltá para cancelar</span>";
+        document.body.append(vel, clon, aviso);
+        requestAnimationFrame(() => vel.classList.add("on"));
+        return { vel, clon, aviso };
+      };
+      const quitarCarga = (c, rapido) => {
+        c.vel.classList.remove("on", "flash");
+        c.clon.classList.add("fuera"); c.aviso.classList.add("fuera");
+        setTimeout(() => { c.vel.remove(); c.clon.remove(); c.aviso.remove(); }, rapido ? 0 : 300);
+      };
       const ini = (ev) => {
         if (f.btn.disabled || hold) return;
         ev.preventDefault();
-        const t0 = performance.now();
-        hold = { raf: 0 };
+        const t0 = performance.now(), c = crearCarga();
+        hold = { raf: 0, c };
         f.btn.classList.add("manteniendo");
         const paso = () => {
           if (!hold) return;
-          const u = Math.min(1, (performance.now() - t0) / 1300);
+          const u = Math.min(1, (performance.now() - t0) / 1800);
           f.btn.style.setProperty("--hold", u);
-          if (u >= 1) { hold = null; hecho(); return; }
+          c.vel.style.setProperty("--u", u);
+          const temblor = u > 0.6 ? (u - 0.6) * 5 : 0;
+          c.clon.style.setProperty("--u", u);
+          c.clon.style.setProperty("--tx", ((Math.random() - 0.5) * temblor).toFixed(2) + "px");
+          c.clon.style.setProperty("--ty", ((Math.random() - 0.5) * temblor).toFixed(2) + "px");
+          if (u >= 1) { // cargado: destello blanco y se prestigia
+            hold = null;
+            c.vel.classList.add("flash");
+            setTimeout(() => { hecho(); quitarCarga(c, true); }, 380);
+            return;
+          }
           hold.raf = requestAnimationFrame(paso);
         };
         hold.raf = requestAnimationFrame(paso);
       };
-      const fin = () => { if (hold) { cancelAnimationFrame(hold.raf); hold = null; } f.btn.classList.remove("manteniendo"); f.btn.style.setProperty("--hold", 0); };
+      const fin = () => {
+        if (hold) { cancelAnimationFrame(hold.raf); quitarCarga(hold.c); hold = null; } // soltó antes de tiempo: se cancela
+        f.btn.classList.remove("manteniendo"); f.btn.style.setProperty("--hold", 0);
+      };
+      addEventListener("keydown", (e) => { if (e.key === "Escape") fin(); });
       f.btn.addEventListener("pointerdown", ini);
       for (const nom of ["pointerup", "pointerleave", "pointercancel"]) f.btn.addEventListener(nom, fin);
       f.refresh = (s) => {

@@ -1,5 +1,12 @@
 export const CHANGELOG = [
   {
+    v: "0.66.0",
+    fecha: "2026-10-06",
+    cambios: [
+      "Nueva animación al mantener apretado «Prestigiar»: la pantalla se va oscureciendo hasta quedar casi negra y solo el botón (una copia encima) queda iluminado; mientras se carga crece, brilla cada vez más y empieza a temblar. Dura 1,8 s. Al completarse hay un destello blanco y se prestigia. Si soltás antes (o apretás Escape) se cancela: el brillo se apaga, todo vuelve a la normalidad y no pasa nada; aparece el cartel «Seguí apretando… / Soltá para cancelar» para que quede claro. La ventana de Prestigio sigue teniendo su ✕ para volver atrás.",
+    ],
+  },
+  {
     v: "0.65.0",
     fecha: "2026-10-06",
     cambios: [
