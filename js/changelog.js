@@ -1,5 +1,13 @@
 export const CHANGELOG = [
   {
+    v: "0.58.0",
+    fecha: "2026-10-06",
+    cambios: [
+      "Compactación de montañas (idea de la Compresión de Gnorp Apologue): con la nueva mejora «Prensa de micelio» (Logística, en el hongo madre) podés tocar una montaña de esporas para compactarla. Mientras se compacta, los básicos dejan de llevársela y puede crecer el triple antes de colapsar (se ve una barra arriba de la cumbre con la marca del 50%, brillo cian y destellos; parpadea en rojo cerca del tope). Volvé a tocarla para cristalizarla: entrega toda su producción de golpe con un bono de (1 + 1,2·f²) × (1 + 4% por nivel de compactación), donde f es lo llena que estaba. Con f ≥ 50% da 1 Prisma y sube el nivel de compactación de la corrida (hasta 10); con f ≥ 85% da 2. Si no la cristalizás a tiempo, colapsa como siempre. «Cristalización asistida» (mejora de Logística) las cristaliza sola al 90%.",
+      "Prismas: moneda rara de cada corrida (se reinicia al prestigiar). Se gastan en el hongo madre en mejoras únicas que no alcanzan para todas, así que hay que elegir un estilo: Lente prismático (producción ×1,5), Facetas pulidas, Hifas veloces, Prensa profunda, Brisa cristalina, Núcleo estable (un colapso salva la mitad), Resonancia (+2% de producción por nivel de compactación), Segunda luz (+1 Prisma al cristalizar casi lleno) y un «Prisma de…» por cada tipo de honguito (×2,5 a su producción). Los costos y el bono de cristalización están puestos a ojo: falta calibrarlos jugando.",
+    ],
+  },
+  {
     v: "0.57.0",
     fecha: "2026-10-06",
     cambios: [

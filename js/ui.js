@@ -2,13 +2,14 @@ import { D } from './decimal.js';
 import { iconoObjeto } from './dungeonVista.js';
 import { getEvento, DEF_MEJ, nivelDef, costoDef, comprarDef, ofertasMercader, precioArtefacto, comprarArtefacto, probInterceptar, MAGOS_MIN } from './eventos.js';
 import { TIPOS_TORRE, EVOLUCIONES, ENEMIGOS, TORRES_MAX, SOLD_MAX, costoTorre, costoEvolucion, evolucionarTorre, sumarSoldados, statsTorre, dpsTorre, infoDefensa, quedan } from './invasion.js';
+import { PRISMAS } from './prismas.js';
 import { ARTEFACTOS, ARTE_POR_ID, TIERS, iconoArtefacto, cantArte } from './artefactos.js';
 import { OBJETOS, escalaJefes, CLASES, TABERNA_MEJ, costoMerc, contratar, comprarTab, nivelTab, costoTab, sanos, iniciar as iniciarExploracion, getRun, PARTY_MAX, mercStats, CRISTAL_MULT } from './dungeon.js';
 import { EVENTOS, HONGUITOS, MEJORAS, EDIFICIOS, TECNOLOGIAS, MEJ_EDIF, MEJ_CLICK, MEJ_LOGI, TEC_POR_ID, HITOS, NIVELES_TEC } from './data.js';
 import { PU, TIERS_PU, nombreTier, umbralDeTier, costoPU, puRango, tierAbierto, comprarPU } from './puData.js';
 import { ppAlPrestigiar } from './reinicio.js';
 import { fmt, fmtRate } from './format.js';
-import { factorAcido, factorMeteoro, produccionPorSeg, produccionPorTipo, prestigio, costoHonguito, costoHonguitos, maxHonguitos, comprarHonguitos, venderHonguitos, reembolsoHonguitos, vendibles, comprarMejora, tecDisponible, pctTec, invPorSeg, proximoHito, costoEdificio, elegirInvestigacion, comprarMejoraEdificio, activarHabilidad, buffActivo, nivelMej, costoMej, valorToque, autoPorSeg, autoFraccion, comprarMejoraClick, logiInfo, costoLogi, comprarMejoraLogi, durBuff, cdHabilidad, alternarSobrecarga, trabajoEf } from './engine.js';
+import { factorAcido, factorMeteoro, produccionPorSeg, produccionPorTipo, prestigio, costoHonguito, costoHonguitos, maxHonguitos, comprarHonguitos, venderHonguitos, reembolsoHonguitos, vendibles, comprarMejora, tecDisponible, pctTec, invPorSeg, proximoHito, costoEdificio, elegirInvestigacion, comprarMejoraEdificio, activarHabilidad, buffActivo, nivelMej, costoMej, valorToque, autoPorSeg, autoFraccion, comprarMejoraClick, logiInfo, costoLogi, comprarMejoraLogi, comprarPrisma, durBuff, cdHabilidad, alternarSobrecarga, trabajoEf } from './engine.js';
 import { exportar, importar, borrarGuardado } from './state.js';
 import { CHANGELOG } from './changelog.js';
 
@@ -482,10 +483,26 @@ export function crearUI(api) {
         f.el.querySelector(".fila-info").append(pips);
       }
       f.refresh = (st) => {
-        const c = costoLogi(st, m), faltan = m.req && (st.honguitos.basico || 0) < m.req;
-        f.btn.textContent = faltan ? `${st.honguitos.basico || 0}/${m.req} básicos` : fmt(c);
-        f.btn.disabled = faltan || st.esporas.lt(c);
+        const c = costoLogi(st, m), faltan = m.req && (st.honguitos.basico || 0) < m.req, sinReq = m.reqMej && !nivelMej(st, m.reqMej);
+        f.btn.textContent = sinReq ? "Falta la Prensa" : faltan ? `${st.honguitos.basico || 0}/${m.req} básicos` : fmt(c);
+        f.btn.disabled = !!sinReq || faltan || st.esporas.lt(c);
       };
+      filas.push(f);
+    }
+  }
+  // ---- Prismas: moneda rara de la corrida, salen de cristalizar montañas compactadas ----
+  function seccionPrismas(ancla) {
+    const s = api.estado();
+    if (!nivelMej(s, "logi_prensa") && !s.prisma.tot) return;
+    seccion("Prismas");
+    const info = nota("");
+    filas.push({ refresh: (st) => {
+      info.textContent = `Tenés ${st.prisma.n} ${st.prisma.n === 1 ? "Prisma" : "Prismas"} (ganaste ${st.prisma.tot} en la corrida). Nivel de compactación: ${st.prisma.nivel}/10 (cada cristalización de una montaña al 50% o más lo sube y mejora el bono). Los Prismas no alcanzan para todo: elegí un estilo. Se reinician al prestigiar.`;
+    } });
+    for (const p of PRISMAS) {
+      if (s.prisma.comprados[p.id]) { nota("✓ " + p.nombre + " — " + p.desc).classList.add("hecha"); continue; }
+      const f = fila(p.nombre, p.desc, () => { if (comprarPrisma(api.estado(), p.id)) { api.guardar(); abrirMadre(ancla); } }, p.color || "#5ef2ff");
+      f.refresh = (st) => { f.btn.textContent = p.costo + " ✦"; f.btn.disabled = st.prisma.n < p.costo; };
       filas.push(f);
     }
   }
@@ -523,6 +540,7 @@ export function crearUI(api) {
       filasHonguitos(undefined);
       seccionToques(ancla);
       seccionLogistica(ancla);
+      seccionPrismas(ancla);
       const edificios = Object.values(EDIFICIOS).filter((e) => !api.estado().edificios[e.id] && api.estado().total.gte(e.desbloqueo) && (!e.requiereFlag || api.estado().flags[e.requiereFlag]) && !e.desdeCasa);
       if (edificios.length) {
         seccion("Edificios");

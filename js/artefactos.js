@@ -1,4 +1,5 @@
 import { puA, puM } from './puData.js';
+import { PRISMA_POR_ID } from './prismas.js';
 
 // Artefactos del Mercader hongil: 63 objetos permanentes (hasta el próximo prestigio). Cada vez que viene
 // el mercader ofrece 5 al azar y se puede quedar con uno solo. No todos suben la producción: abaratan,
@@ -113,17 +114,20 @@ export function sortearOfertas(state, nivelPrestigio) {
 }
 export const ARTE_POR_ID = Object.fromEntries(ARTEFACTOS.map((a) => [a.id, a]));
 
+const prismas = (state) => (state.prisma && state.prisma.comprados) || {};
 const tiene = (state) => (state.arte && state.arte.tienen) || {};
 // producto de los artefactos (y mejoras de prestigio) de clave k (1 si no hay)
 export function arteM(state, k) {
   let m = puM(state, k);
   for (const id in tiene(state)) { const a = ARTE_POR_ID[id]; if (a && a.k === k) m *= a.v; }
+  for (const id in prismas(state)) { const a = PRISMA_POR_ID[id]; if (a && a.k === k) m *= a.v; }
   return m;
 }
 // suma de los artefactos (y mejoras de prestigio) de clave k (0 si no hay)
 export function arteA(state, k) {
   let x = puA(state, k);
   for (const id in tiene(state)) { const a = ARTE_POR_ID[id]; if (a && a.k === k) x += a.v; }
+  for (const id in prismas(state)) { const a = PRISMA_POR_ID[id]; if (a && a.k === k) x += a.v; }
   return x;
 }
 export const esMult = (k) => MULT.has(k);

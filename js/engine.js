@@ -1,5 +1,6 @@
 import { D } from './decimal.js';
 import { agregarHongoFondo } from './state.js';
+import { PRISMA_POR_ID } from './prismas.js';
 import { arteM, arteA, ARTEFACTOS, ARTE_POR_ID } from './artefactos.js';
 import { puA, buffCrisis, avisosPU } from './puData.js';
 import { HONGUITOS, MEJORAS, EDIFICIOS, PRESTIGIO, BOLSA, LUNA, ACIDO, TECNOLOGIAS, TEC_POR_ID, MEJ_EDIF, MEJ_EDIF_POR_ID, MEJ_CLICK, MEJ_CLICK_POR_ID, MEJ_LOGI, MEJ_LOGI_POR_ID, LOGI, HITOS, MODO_PRUEBA, EVENTOS, EVENTO_CFG } from './data.js';
@@ -122,6 +123,7 @@ export function multiplicador(state, tipoId) {
     const nEd = Object.keys(state.edificios).length;
     m *= 1 + arteA(state, "syn_edif") * nEd + arteA(state, "syn_basico") * Math.floor(cuenta(state, "basico") / 25) + arteA(state, "luna_base") * (state.luna?.bases.length || 0);
   }
+  if (state.prisma && state.prisma.nivel) m *= 1 + arteA(state, "comp_prod") * state.prisma.nivel; // «Resonancia»
   if (state.buffPU && state.buffPU.hasta > Date.now()) m *= state.buffPU.mult; // Reflejos de crisis
   const tor = state.arcano && state.arcano.tormenta;
   if (tor && tor.hasta > Date.now()) m *= tor.mult;
@@ -177,7 +179,7 @@ export const costoLogi = (state, m) => {
 export function comprarMejoraLogi(state, id) {
   const m = MEJ_LOGI_POR_ID[id];
   const n = m ? nivelMej(state, id) : 0;
-  if (!m || n >= m.max || (m.req && (state.honguitos.basico || 0) < m.req)) return false;
+  if (!m || n >= m.max || (m.req && (state.honguitos.basico || 0) < m.req) || (m.reqMej && !nivelMej(state, m.reqMej))) return false;
   const c = costoLogi(state, m);
   if (state.esporas.lt(c)) return false;
   state.esporas = state.esporas.sub(c);
@@ -194,13 +196,15 @@ export function emisionPorSitio(state) {
   return o;
 }
 // Cuánto se puede amontonar en un lugar antes de que la montaña colapse: ~45 s de lo que se suelta ahí (mínimo 60 esporas)
-export const cmaxSitio = (tasa) => Math.max(60, 45 * tasa);
+export const cmaxSitio = (tasa, mult = 1) => Math.max(60, 45 * tasa) * mult;
+const altoComp = (state) => LOGI.compAltura + arteA(state, "comp_alt"); // cuánto más alta puede ser una montaña compactada
 // Las montañas de esporas: [{ id, n, cmax }] para la escena y el panel
 export function logiSitios(state) {
   const em = emisionPorSitio(state);
   em.madre = (em.madre || 0) + (state.logi.tasaClick || 0);
   const ids = new Set([...Object.keys(em), ...Object.keys(state.logi.sitios)]);
-  return [...ids].map((id) => ({ id, n: state.logi.sitios[id] || 0, cmax: cmaxSitio(em[id] || 0) }));
+  const comp = state.logi.comp || {};
+  return [...ids].map((id) => ({ id, n: state.logi.sitios[id] || 0, cmax: cmaxSitio(em[id] || 0, comp[id] ? altoComp(state) : 1), comp: !!comp[id] }));
 }
 // Avisos para la escena: una montaña colapsó y el piso se la tragó (no se guardan)
 export const logiEventos = [];
@@ -236,32 +240,83 @@ export function logistica(state, dt, valor, llegadas, toques = 0) {
   for (const id in llegadas) { L.sitios[id] = (L.sitios[id] || 0) + llegadas[id]; cuenta += llegadas[id]; }
   L.n += cuenta;
   if (L.n <= 0) { L.valor = D(0); L.n = 0; L.sitios = {}; return D(0); }
-  const mov = Math.min(L.n, logiInfo(state).cap * dt);
+  // las montañas que se están compactando no se tocan: los básicos solo llevan de las demás
+  const comp = L.comp || (L.comp = {});
+  let nComp = 0;
+  for (const id in comp) if (comp[id]) nComp += L.sitios[id] || 0;
+  const nLibre = Math.max(0, L.n - nComp);
+  const mov = Math.min(nLibre, logiInfo(state).cap * dt);
   let parte = D(0);
   if (mov > 0) {
-    const f = mov / L.n; // los básicos se llevan de todas las montañas en proporción a su tamaño
-    parte = f >= 1 ? L.valor : L.valor.mul(f);
+    const f = mov / nLibre; // los básicos se llevan de todas las montañas libres en proporción a su tamaño
+    parte = mov >= L.n ? L.valor : L.valor.mul(mov / L.n);
     L.valor = L.valor.sub(parte);
     L.n -= mov;
-    for (const id in L.sitios) L.sitios[id] *= 1 - f;
+    for (const id in L.sitios) if (!comp[id]) L.sitios[id] *= 1 - f;
     state.esporas = state.esporas.add(parte);
     state.total = state.total.add(parte);
   }
-  // colapsos: una montaña que llega a su tope se hunde en el piso
+  // colapsos: una montaña que llega a su tope se hunde en el piso (las compactadas, si no se cristalizan a tiempo)
   const em = emisionPorSitio(state);
   em.madre = (em.madre || 0) + L.tasaClick;
+  const auto = nivelMej(state, "logi_cristal_auto") > 0;
   for (const id in L.sitios) {
     const n = L.sitios[id];
-    if (n >= cmaxSitio(em[id] || 0) && L.n > 0) {
-      const frac = Math.min(1, n / L.n);
-      L.valor = L.valor.mul(1 - frac);
+    const mx = cmaxSitio(em[id] || 0, comp[id] ? altoComp(state) : 1);
+    if (comp[id] && auto && n >= mx * 0.9) { cristalizar(state, id); continue; }
+    if (n >= mx && L.n > 0) {
+      const frac = Math.min(1, n / L.n), perdido = L.valor.mul(frac), salvado = perdido.mul(Math.min(1, arteA(state, "colapso_resto")));
+      L.valor = L.valor.sub(perdido);
       L.n -= n;
       L.sitios[id] = 0;
+      comp[id] = false;
+      if (salvado.gt(0)) { state.esporas = state.esporas.add(salvado); state.total = state.total.add(salvado); parte = parte.add(salvado); }
       if (logiEventos.length < 30) logiEventos.push({ sitio: id, n });
     }
   }
   if (L.n < 1e-9) { L.n = 0; L.valor = D(0); L.sitios = {}; }
   return parte;
+}
+
+// ---- Compactación: tocar una montaña la deja crecer sin que se la lleven; tocarla de nuevo la cristaliza ----
+// Bono = (1 + 1,2·f²)·(1 + 0,04·nivel de compactación), con f = lo llena que está (0 a 1). Con f ≥ 0,5 sube el nivel y da un
+// Prisma (dos con f ≥ 0,85, más los de «Segunda luz»).
+export function cristalizar(state, id) {
+  const L = state.logi, P = state.prisma, comp = L.comp || (L.comp = {});
+  comp[id] = false;
+  const n = L.sitios[id] || 0;
+  if (n <= 0 || L.n <= 0) return null;
+  const em = emisionPorSitio(state);
+  em.madre = (em.madre || 0) + (L.tasaClick || 0);
+  const f = Math.min(1, n / cmaxSitio(em[id] || 0, altoComp(state)));
+  const vSitio = L.valor.mul(Math.min(1, n / L.n));
+  const bono = (1 + 1.2 * f * f) * (1 + 0.04 * P.nivel);
+  const ganancia = vSitio.mul(1 + (bono - 1) * arteM(state, "comp_bono"));
+  L.valor = L.valor.sub(vSitio);
+  L.n -= n;
+  L.sitios[id] = 0;
+  state.esporas = state.esporas.add(ganancia);
+  state.total = state.total.add(ganancia);
+  let prismas = 0;
+  if (f >= 0.5) { prismas = f >= 0.85 ? 2 + Math.floor(arteA(state, "prisma_extra")) : 1; P.nivel = Math.min(LOGI.compNivelMax, P.nivel + 1); }
+  P.n += prismas; P.tot += prismas;
+  if (logiEventos.length < 30) logiEventos.push({ sitio: id, n, cristal: true, f });
+  return { ganancia, prismas, f, bono };
+}
+// Toque en una montaña: si no se estaba compactando, empieza; si sí, se cristaliza. Devuelve { msg } o { cristal }.
+export function alternarCompactacion(state, id) {
+  if (!nivelMej(state, "logi_prensa")) return { msg: "Con la Prensa de micelio (hongo madre → Logística) podés compactar y cristalizar las montañas de esporas." };
+  const L = state.logi, comp = L.comp || (L.comp = {});
+  if (!comp[id]) { comp[id] = true; return { msg: "Compactando: los básicos dejan esta montaña. Tocala de nuevo para cristalizarla (¡antes de que llegue al tope!)." }; }
+  const r = cristalizar(state, id);
+  return r ? { cristal: r } : { msg: "Todavía no hay esporas en esta montaña." };
+}
+export function comprarPrisma(state, id) {
+  const p = PRISMA_POR_ID[id];
+  if (!p || state.prisma.comprados[id] || state.prisma.n < p.costo) return false;
+  state.prisma.n -= p.costo;
+  state.prisma.comprados[id] = true;
+  return true;
 }
 
 // ---- Toques en el hongo madre y autoclick ----

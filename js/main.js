@@ -1,5 +1,5 @@
 import { cargar, guardar, nuevoEstado, etapaDe } from './state.js';
-import { tick, colocarEdificio, revisarHitos, cobrarEvento, maxAusencia, tocarMadre, autoToques, migrarLogistica, autoSobreMadre } from './engine.js';
+import { tick, colocarEdificio, revisarHitos, cobrarEvento, maxAusencia, tocarMadre, autoToques, migrarLogistica, autoSobreMadre, alternarCompactacion } from './engine.js';
 import { fmt } from './format.js';
 import { crearEscena } from './scene.js';
 import { crearUI, ajustes } from './ui.js';
@@ -191,6 +191,15 @@ canvas.addEventListener("click", (e) => {
   if (hit && hit.quien === "espora") { const gan = recolectarEspora(state, hit.espora); if (gan) numeroFlotante(e.clientX, e.clientY, gan); return; }
   if (hit && hit.quien === "torre_def") { ui.abrirTorre(hit.i); return; }
   if (hit && hit.quien === "mercader") { ui.mostrarMercader(); return; }
+  if (hit && hit.quien === "monte") {
+    const r = alternarCompactacion(state, hit.id);
+    if (r.msg) ui.toast(r.msg);
+    if (r.cristal) {
+      numeroFlotante(e.clientX, e.clientY, r.cristal.ganancia);
+      ui.toast(`¡Cristalizó al ${Math.round(r.cristal.f * 100)}%! ×${r.cristal.bono.toFixed(2).replace(".", ",")}` + (r.cristal.prismas ? ` · +${r.cristal.prismas} ${r.cristal.prismas === 1 ? "Prisma" : "Prismas"}` : " · (con el 50% o más da Prisma)"));
+    }
+    return;
+  }
   if (hit && hit.quien === "puerta") { ui.mostrarDungeon(false); return; }
   if (hit && hit.quien === "madre") {
     numeroFlotante(e.clientX, e.clientY, tocarMadre(state));

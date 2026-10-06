@@ -3267,7 +3267,14 @@ export function crearEscena(canvas, opciones = {}) {
     montesDatos = logiSitios(state);
     for (const e of logiEventos.splice(0)) { // el motor avisa: esta montaña llegó al tope y colapsa
       const m = monteDe(e.sitio), p = posMonte(e.sitio);
-      if (m.h > 1 && p && !m.colapso) { m.colapso = { t: 0, h0: m.h }; aroPart(p.x, groundY - 1, p.ancho * 1.3, 0.9); flash = Math.max(flash, 0.12); }
+      if (m.h > 1 && p && !m.colapso) {
+        m.colapso = { t: 0, h0: m.h, cristal: !!e.cristal };
+        aroPart(p.x, groundY - 1, p.ancho * 1.3, 0.9); flash = Math.max(flash, e.cristal ? 0.25 : 0.12);
+        if (e.cristal) { // cristaliza: estallido de destellos de colores y un anillo
+          for (let k = 0; k < 40; k++) part(p.x + (Math.random() - 0.5) * p.ancho, groundY - Math.random() * m.h, (Math.random() - 0.5) * 40, -10 - Math.random() * 40, { tipo: "mota", dur: 0.8 + Math.random() * 0.8, col: CRISTALES[k % CRISTALES.length], r: Math.random() < 0.4 ? 2 : 1 });
+          aroPart(p.x, groundY - m.h * 0.5, p.ancho * 1.6, 0.6);
+        }
+      }
     }
     const alto = Hc0 * 0.5; // la montaña llena mide la mitad de la pantalla al zoom inicial: es un tamaño fijo del mundo, no cambia con el zoom
     for (const d of montesDatos) {
@@ -3279,11 +3286,15 @@ export function crearEscena(canvas, opciones = {}) {
         m.h = m.colapso.h0 * (1 - easeM(u));
         if (m.h > 2 && Math.random() < dt * 70) { // el polvo y los granitos se hunden en el piso
           const hw = (m.h / 2 + p.ancho / 2) * 0.9;
-          part(p.x + (Math.random() - 0.5) * hw * 2, groundY - Math.random() * m.h * 0.9, (Math.random() - 0.5) * 10, 8 + Math.random() * 26, { tipo: "mota", dur: 0.5 + Math.random() * 0.4, col: p.color || PALETA[Math.floor(Math.random() * 6)], r: Math.random() < 0.4 ? 2 : 1 });
+          part(p.x + (Math.random() - 0.5) * hw * 2, groundY - Math.random() * m.h * 0.9, (Math.random() - 0.5) * 10, 8 + Math.random() * 26, { tipo: "mota", dur: 0.5 + Math.random() * 0.4, col: m.colapso.cristal ? CRISTALES[Math.floor(Math.random() * CRISTALES.length)] : p.color || PALETA[Math.floor(Math.random() * 6)], r: Math.random() < 0.4 ? 2 : 1 });
         }
         if (u >= 1) { m.colapso = null; m.h = 0; aroPart(p.x, groundY - 1, p.ancho * 0.8, 0.5); }
       } else {
-        const objetivo = d.n >= 0.5 ? Math.max(2, Math.pow(Math.min(1, d.n / d.cmax), 0.7) * alto) : 0;
+        if (d.comp && m.h > 4 && Math.random() < dt * (3 + 12 * Math.min(1, d.n / d.cmax))) { // destellos de cristal sobre la montaña que se compacta
+          const u = Math.random(), hw = (m.h / 2 + p.ancho / 2) * (0.3 + 0.7 * u);
+          part(p.x + (Math.random() - 0.5) * hw * 1.6, groundY - m.h * u, (Math.random() - 0.5) * 6, -6 - Math.random() * 10, { tipo: "mota", dur: 0.6 + Math.random() * 0.5, col: CRISTALES[Math.floor(Math.random() * CRISTALES.length)], r: 1 });
+        }
+        const fm = Math.pow(Math.min(1, d.n / d.cmax), 0.7), objetivo = d.n >= 0.5 ? Math.max(2, (d.comp ? 0.5 + 0.5 * fm : fm) * alto) : 0; // la compactada arranca a media altura y sube hasta el tope
         m.h += (objetivo - m.h) * Math.min(1, dt * 2.5);
         if (Math.abs(objetivo - m.h) < 0.25) m.h = objetivo;
       }
@@ -3301,6 +3312,14 @@ export function crearEscena(canvas, opciones = {}) {
       g.globalAlpha = 1 - 0.4 * u;
       g.drawImage(m.spr, Math.round(p.x - dw / 2), groundY - alto + 1, dw, alto);
       g.globalAlpha = 1;
+      if (d.comp && !m.colapso) { // compactándose: brillo cian y barra de cuánto falta para el tope
+        const f = Math.min(1, d.n / d.cmax), peligro = f >= 0.85, parpadeo = peligro && Math.floor(t * 6) % 2;
+        g.globalAlpha = 0.1 + 0.07 * Math.sin(t * 3); disco(p.x, groundY - alto * 0.45, Math.max(8, alto * 0.7), peligro ? "#ff5a3c" : "#5ef2ff"); g.globalAlpha = 1;
+        const bw = 26, bx = Math.round(p.x - bw / 2), by = groundY - alto - 7;
+        g.fillStyle = "#14141d"; g.fillRect(bx - 1, by - 1, bw + 2, 4);
+        g.fillStyle = parpadeo ? "#ffffff" : peligro ? "#ff5a3c" : f >= 0.5 ? "#ffd23f" : "#5ef2ff"; g.fillRect(bx, by, Math.max(1, Math.round(bw * f)), 2);
+        g.fillStyle = "#ffffff"; g.fillRect(bx + Math.round(bw * 0.5), by - 1, 1, 4); // marca del 50%: desde ahí da Prisma
+      }
     }
   }
   // lugares donde los básicos van a juntar esporas (al pie de cada montaña), con su peso
@@ -3671,6 +3690,14 @@ export function crearEscena(canvas, opciones = {}) {
     const dyCap = groundY - m.sh - cy;
     const enSombrero = dyCap >= -1 && dyCap < m.ch && Math.abs(cx - madre.x) < (m.w / 2) * Math.sqrt(Math.max(0, 1 - (dyCap / m.ch) ** 2));
     if (enTronco || enSombrero) return { quien: "madre" };
+    // montañas de esporas (detrás de todo): su silueta es un triángulo que se ensancha hacia el piso
+    for (const d of montesDatos) {
+      const mo = montes[d.id], p = posMonte(d.id);
+      if (!mo || !p || mo.colapso || mo.h < 4) continue;
+      const alto = Math.round(mo.h), u = (cy - (groundY - alto)) / alto;
+      if (u < 0 || u > 1.1) continue;
+      if (Math.abs(cx - p.x) < ((alto * 2.2 + p.ancho) / 2) * Math.pow(Math.max(u, 0.05), 0.9)) return { quien: "monte", id: d.id };
+    }
     return null;
   }
 
