@@ -4,7 +4,7 @@ import { TIPOS_TORRE, EVOLUCIONES, ENEMIGOS, TORRES_MAX, SOLD_MAX, costoTorre, c
 import { ARTEFACTOS, ARTE_POR_ID, TIERS, iconoArtefacto, cantArte } from './artefactos.js';
 import { OBJETOS, escalaJefes, CLASES, TABERNA_MEJ, costoMerc, contratar, comprarTab, nivelTab, costoTab, sanos, iniciar as iniciarExploracion, getRun, PARTY_MAX, mercStats, CRISTAL_MULT } from './dungeon.js';
 import { EVENTOS, HONGUITOS, MEJORAS, EDIFICIOS, TECNOLOGIAS, MEJ_EDIF, MEJ_CLICK, TEC_POR_ID, HITOS, NIVELES_TEC } from './data.js';
-import { PU, TIER_GASTO, puRango, tierAbierto, comprarPU } from './puData.js';
+import { PU, TIERS_PU, nombreTier, umbralDeTier, costoPU, puRango, tierAbierto, comprarPU } from './puData.js';
 import { ppAlPrestigiar } from './reinicio.js';
 import { fmt, fmtRate } from './format.js';
 import { factorAcido, factorMeteoro, produccionPorSeg, produccionPorTipo, prestigio, costoHonguito, costoHonguitos, maxHonguitos, comprarHonguitos, comprarMejora, tecDisponible, pctTec, invPorSeg, proximoHito, costoEdificio, elegirInvestigacion, comprarMejoraEdificio, activarHabilidad, buffActivo, nivelMej, costoMej, valorToque, autoPorSeg, autoFraccion, comprarMejoraClick, durBuff, cdHabilidad, alternarSobrecarga, trabajoEf } from './engine.js';
@@ -418,7 +418,7 @@ export function crearUI(api) {
       filas.push({ refresh: (s) => {
         info.textContent = `PP sin gastar: ${s.pp} · gastados: ${s.ppGastados} · ganados en total: ${s.ppTotal} · prestigios: ${s.prestigios}`;
       } });
-      nota("Prestigiar reinicia la corrida (esporas, honguitos, edificios y mejoras) y te da 1 PP por cada nivel de prestigio alcanzado. Se conservan las mejoras de prestigio, la dungeon y el fondo. Con 14 PP alcanza para 12 en el tier 1 y un rango del tier 2.");
+      nota("Prestigiar reinicia la corrida (esporas, honguitos, edificios y mejoras) y te da 1 PP por cada nivel de prestigio alcanzado. Se conservan las mejoras de prestigio, la dungeon y el fondo. Los tiers se destraban al gastar PP (12, 45, 120, 180 y 250).");
       const f = fila("Prestigiar ahora", "", () => {
         if (!seguro) { seguro = true; return; }
         api.prestigiar();
@@ -433,14 +433,18 @@ export function crearUI(api) {
         f.btn.classList.toggle("peligro", seguro);
       };
       filas.push(f);
-      for (let tier = 1; tier <= TIER_GASTO.length; tier++) {
+      for (const tier of TIERS_PU) {
         const abierto = tierAbierto(st, tier);
-        seccion(`Tier ${tier} · ${tier} PP por rango` + (abierto ? "" : ` · se destraba al gastar ${TIER_GASTO[tier - 1]} PP`));
-        for (const p of PU.filter((x) => x.tier === tier)) {
+        const lista = PU.filter((x) => x.tier === tier);
+        const costo = tier === 0 ? 2 : tier;
+        seccion(`${nombreTier(tier)} · ${costo} PP por rango` + (abierto ? "" : ` · se destraba al gastar ${umbralDeTier(tier)} PP (te faltan ${Math.max(0, umbralDeTier(tier) - st.ppGastados)})`));
+        if (!abierto) { nota("Contiene: " + lista.map((x) => x.nombre).join(", ") + "."); continue; }
+        for (const p of lista) {
           const n = puRango(st, p.id);
-          if (n >= p.max) { nota(`✓ ${p.nombre} (${p.max}/${p.max}) — ${p.desc(p.max)}`).classList.add("hecha"); continue; }
-          const g = fila(`${p.nombre} · ${n}/${p.max}`, p.desc(n + 1), () => { if (comprarPU(api.estado(), p.id)) { api.guardar(); abrirPrestigio(); } }, "#ffd23f");
-          g.refresh = (s) => { g.btn.textContent = abierto ? `${tier} PP` : "🔒"; g.btn.disabled = !abierto || s.pp < tier; };
+          const sinTope = p.max === Infinity;
+          if (!sinTope && n >= p.max) { nota(`✓ ${p.nombre} (${p.max}/${p.max}) — ${p.desc(p.max)}`).classList.add("hecha"); continue; }
+          const g = fila(`${p.nombre} · ${sinTope ? "rango " + n : n + "/" + p.max}`, p.desc(n + 1), () => { if (comprarPU(api.estado(), p.id)) { api.guardar(); abrirPrestigio(); } }, "#ffd23f");
+          g.refresh = (s) => { g.btn.textContent = costoPU(p) + " PP"; g.btn.disabled = s.pp < costoPU(p); };
           filas.push(g);
         }
       }
@@ -607,7 +611,7 @@ export function crearUI(api) {
   function mostrarMercader() {
     abrir("mercader", "Mercader hongil", () => {
       const st0 = api.estado();
-      nota("«Artefactos únicos, directos del fondo de la mina de los sueños.» Podés quedarte con uno solo de los cinco; los efectos duran hasta el próximo prestigio. Los legendarios son raros, pero con más prestigio aparecen más seguido.").classList.add("hecha");
+      nota("«Artefactos únicos, directos del fondo de la mina de los sueños.» Podés quedarte con uno solo de los que ofrece; los efectos duran hasta el próximo prestigio. Los legendarios son raros, pero con más prestigio aparecen más seguido.").classList.add("hecha");
       seccion("Ofertas");
       const ids = ofertasMercader(st0);
       for (const id of ids) {

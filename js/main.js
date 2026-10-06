@@ -9,6 +9,7 @@ import { crearVistaDungeon } from './dungeonVista.js';
 
 import { EDIFICIOS } from './data.js';
 import { prestigiar } from './reinicio.js';
+import { avisosPU } from './puData.js';
 import { construirTorre } from './invasion.js';
 
 let state = cargar();
@@ -226,6 +227,7 @@ function frame(ahora) {
     escena.pulsoMadre();
     if (r && !document.hidden) numeroFlotante(r.x0 + (r.x1 - r.x0) * (0.3 + Math.random() * 0.4), r.y0 + (r.y1 - r.y0) * 0.3, autoToques.valor, true);
   }
+  if (avisosPU.length) ui.toast(avisosPU.shift());
   vista.actualizar(dt);
   if (ahora >= proximoHud) {
     revisarHitos(state);

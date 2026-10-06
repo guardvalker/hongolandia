@@ -78,16 +78,24 @@ export const ARTEFACTOS = T.map(([id, nombre, desc, k, v, cat]) => {
   const tier = LEGENDARIOS.has(id) ? 4 : cat;
   return { id, nombre, desc, k, v, cat: tier, tier, peso: TIERS[tier - 1].peso };
 });
-// Peso real de una oferta: con más niveles de prestigio los tiers altos pesan más (hasta ×3 a nivel 100)
-export const pesoOferta = (a, nivelPrestigio) => a.peso * (1 + (a.tier - 1) * Math.min(2, nivelPrestigio / 50));
-export function sortearOfertas(state, nivelPrestigio, n = 5) {
+// Peso real de una oferta: con más niveles de prestigio los tiers altos pesan más (hasta ×3 a nivel 100);
+// «Fortuna del mercader» (prestigio) suma peso a los épicos y legendarios.
+export const pesoOferta = (a, nivelPrestigio, extraAlto = 0) => a.peso * (1 + (a.tier - 1) * Math.min(2, nivelPrestigio / 50)) * (a.tier >= 3 ? 1 + extraAlto : 1);
+export function sortearOfertas(state, nivelPrestigio) {
+  const n = 5 + Math.floor(puA(state, "merc_ofertas")), extra = puA(state, "merc_tier");
   const pool = ARTEFACTOS.filter((a) => !state.arte.tienen[a.id]);
   const sel = [];
-  while (sel.length < n && pool.length) {
-    let r = Math.random() * pool.reduce((t, a) => t + pesoOferta(a, nivelPrestigio), 0), i = 0;
-    for (; i < pool.length - 1; i++) { r -= pesoOferta(pool[i], nivelPrestigio); if (r < 0) break; }
-    sel.push(pool.splice(i, 1)[0].id);
-  }
+  const sacar = (lista) => {
+    let r = Math.random() * lista.reduce((t, a) => t + pesoOferta(a, nivelPrestigio, extra), 0), i = 0;
+    for (; i < lista.length - 1; i++) { r -= pesoOferta(lista[i], nivelPrestigio, extra); if (r < 0) break; }
+    const a = lista[i];
+    pool.splice(pool.indexOf(a), 1);
+    sel.push(a.id);
+  };
+  // «Hallazgos garantizados»: las primeras visitas de la corrida traen al menos un épico o legendario
+  state.arte.visitas = (state.arte.visitas || 0) + 1;
+  if (state.arte.visitas <= puA(state, "merc_garantia")) { const altos = pool.filter((a) => a.tier >= 3); if (altos.length) sacar(altos); }
+  while (sel.length < n && pool.length) sacar(pool);
   return sel;
 }
 export const ARTE_POR_ID = Object.fromEntries(ARTEFACTOS.map((a) => [a.id, a]));

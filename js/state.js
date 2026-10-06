@@ -41,6 +41,8 @@ export function nuevoEstado() {
     esporas: D(0),
     total: D(0), // esporas ganadas en toda la partida (define la etapa)
     pp: 0, // puntos de prestigio sin gastar
+    ppExtra: 0, // PP extra ganados en la corrida (Periódico de herencias)
+    nivelVisto: 0, // último nivel de prestigio de la corrida ya procesado por las mejoras de prestigio
     ppGastados: 0, // PP gastados en mejoras de prestigio (destraban los tiers)
     ppTotal: 0, // PP ganados en toda la partida
     prestigios: 0, // cuántas veces se prestigió

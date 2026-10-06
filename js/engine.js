@@ -1,6 +1,7 @@
 import { D } from './decimal.js';
 import { agregarHongoFondo } from './state.js';
-import { arteM, arteA } from './artefactos.js';
+import { arteM, arteA, ARTEFACTOS, ARTE_POR_ID } from './artefactos.js';
+import { puA, buffCrisis, avisosPU } from './puData.js';
 import { HONGUITOS, MEJORAS, EDIFICIOS, PRESTIGIO, BOLSA, LUNA, ACIDO, TECNOLOGIAS, TEC_POR_ID, MEJ_EDIF, MEJ_EDIF_POR_ID, MEJ_CLICK, MEJ_CLICK_POR_ID, HITOS, MODO_PRUEBA, EVENTOS, EVENTO_CFG } from './data.js';
 
 // Lógica pura del juego: nada de DOM ni canvas acá.
@@ -80,6 +81,7 @@ export const trabajoEf = (state, t) => t.trabajo * (1 - Math.min(0.7, sumaNivele
 // ---- Eventos de productividad ----
 export const eventoMult = (state) => (state.evento && state.evento.hasta > Date.now() ? state.evento.mult : 1);
 export function cobrarEvento(state, tipo) {
+  buffCrisis(state);
   if (tipo === "fiebre") {
     state.evento = { mult: EVENTO_CFG.fiebreMult, hasta: Date.now() + EVENTO_CFG.fiebreSeg * 1000 };
     return { texto: `¡Fiebre del micelio! Todo ×${EVENTO_CFG.fiebreMult} por ${EVENTO_CFG.fiebreSeg} s` };
@@ -120,6 +122,7 @@ export function multiplicador(state, tipoId) {
     const nEd = Object.keys(state.edificios).length;
     m *= 1 + arteA(state, "syn_edif") * nEd + arteA(state, "syn_basico") * Math.floor(cuenta(state, "basico") / 25) + arteA(state, "luna_base") * (state.luna?.bases.length || 0);
   }
+  if (state.buffPU && state.buffPU.hasta > Date.now()) m *= state.buffPU.mult; // Reflejos de crisis
   const tor = state.arcano && state.arcano.tormenta;
   if (tor && tor.hasta > Date.now()) m *= tor.mult;
   m *= Math.pow(1.05 + (state.arte ? arteA(state, "cristal_extra") : 0), state.dungeon?.cristales || 0); // cristales radiantes del jefe de la dungeon
@@ -137,11 +140,11 @@ const nivelClick = (state, ef) => { const m = MEJ_CLICK.find((x) => x.ef === ef)
 // toques automáticos pendientes de mostrar (los consume la escena; no se guarda)
 export const autoToques = { n: 0, valor: D(0) };
 export function valorToque(state, prod = produccionPorSeg(state)) {
-  const base = D(1 + nivelClick(state, "fuerza")).add(prod.mul(0.01 * nivelClick(state, "savia")));
+  const base = D(1 + nivelClick(state, "fuerza")).add(prod.mul(0.01 * nivelClick(state, "savia") + arteA(state, "toque_savia")));
   return base.mul(2 ** nivelClick(state, "manos")).mul(arteM(state, "toque_mult")).mul(eventoMult(state));
 }
-export const autoPorSeg = (state) => (nivelClick(state, "auto") ? 1 + 0.5 * nivelClick(state, "autoVel") : 0);
-export const autoFraccion = (state) => 0.5 + 0.1 * nivelClick(state, "autoFuerza");
+export const autoPorSeg = (state) => (nivelClick(state, "auto") ? 1 + 0.5 * nivelClick(state, "autoVel") + arteA(state, "auto_vel_pu") : 0);
+export const autoFraccion = (state) => 0.5 + 0.1 * nivelClick(state, "autoFuerza") + arteA(state, "auto_frac");
 export function tocarMadre(state) {
   const v = valorToque(state);
   state.esporas = state.esporas.add(v);
@@ -177,8 +180,24 @@ export function prestigio(total) {
   return { puntos: n, cur, need, frac: Math.min(1, Math.max(0, cur.div(need).toNumber())) };
 }
 
+// Mejoras de prestigio que saltan con cada nivel nuevo de la corrida (como las de «cada montaña consumida» de la wiki)
+function nivelesNuevos(state) {
+  const lvl = prestigio(state.total).puntos;
+  while ((state.nivelVisto || 0) < lvl) {
+    const n = (state.nivelVisto = (state.nivelVisto || 0) + 1);
+    const rec = puA(state, "recluta_nivel");
+    if (rec > 0 && n % 3 === 0) { state.honguitos.basico = (state.honguitos.basico || 0) + rec; avisosPU.push(`Reclutas de la pradera: +${rec} honguito${rec > 1 ? "s" : ""} básico${rec > 1 ? "s" : ""}`); }
+    if (Math.random() < puA(state, "pp_chance")) { state.ppExtra = (state.ppExtra || 0) + 1; avisosPU.push("Periódico de herencias: ¡+1 PP para el próximo prestigio!"); }
+    if (Math.random() < puA(state, "tesoro_nivel")) {
+      const libres = ARTEFACTOS.filter((a) => !state.arte.tienen[a.id]);
+      if (libres.length) { const a = libres[Math.floor(Math.random() * libres.length)]; state.arte.tienen[a.id] = true; avisosPU.push("Tesoro enterrado: ¡encontraste «" + a.nombre + "»!"); }
+    }
+  }
+}
+
 // Cada 5 niveles de prestigio crece un hongo gigante en el fondo.
 export function revisarHitos(state) {
+  nivelesNuevos(state);
   const n = Math.floor(prestigio(state.total).puntos / 5);
   while (state.hitos < n) {
     state.hitos++;
@@ -373,9 +392,12 @@ export function activarHabilidad(state, id) {
   return null;
 }
 
+// «Aprendices gremiales» (prestigio): los primeros N honguitos de cada tipo (sin contar el primer básico) salen gratis
+const umbralGratis = (state, id) => (id === "basico" ? 1 : 0) + Math.floor(arteA(state, "hong_gratis"));
 export function costoHonguito(state, id) {
   const t = HONGUITOS[id];
   const n = state.honguitos[id] || 0;
+  if (n < umbralGratis(state, id)) return D(0);
   return t.costoBase.mul(D(crecEf(state, id)).pow(Math.max(0, n - 1))).ceil();
 }
 
@@ -383,7 +405,10 @@ export function costoHonguito(state, id) {
 // Los primeros se calculan uno por uno; el resto con la fórmula de la serie geométrica.
 export function costoHonguitos(state, id, k = 1) {
   const t = HONGUITOS[id];
-  const n = state.honguitos[id] || 0;
+  let n = state.honguitos[id] || 0;
+  const libres = Math.min(k, Math.max(0, umbralGratis(state, id) - n));
+  k -= libres; n += libres; // los gratis van primero
+  if (k <= 0) return D(0);
   const g = crecEf(state, id);
   const unit = (i) => t.costoBase.mul(D(g).pow(Math.max(0, n + i - 1))).ceil();
   let total = D(0);
@@ -400,6 +425,12 @@ export function costoHonguitos(state, id, k = 1) {
 // Cuántos honguitos se pueden comprar con las esporas actuales.
 export function maxHonguitos(state, id) {
   const E = state.esporas;
+  const gratis = Math.max(0, umbralGratis(state, id) - (state.honguitos[id] || 0));
+  if (gratis > 0) { // los gratis van primero; con el resto se calcula como si ya los tuvieras
+    const n0 = state.honguitos[id] || 0;
+    state.honguitos[id] = n0 + gratis;
+    try { return gratis + maxHonguitos(state, id); } finally { state.honguitos[id] = n0; }
+  }
   if (E.lt(costoHonguitos(state, id, 1))) return 0;
   const t = HONGUITOS[id], g = crecEf(state, id);
   const c1 = costoHonguitos(state, id, 1);

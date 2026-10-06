@@ -1,5 +1,16 @@
 export const CHANGELOG = [
   {
+    v: "0.45.0",
+    fecha: "2026-10-05",
+    cambios: [
+      "Muchas más mejoras de prestigio (de 15 a más de 80), siguiendo la estructura de la wiki de Dwarf Eats Mountain: 6 tiers que se destraban al gastar 12 / 45 / 120 / 180 / 250 PP y un tier de Eternas (se destraba con el primer PP gastado) con rangos sin tope.",
+      "Arranque de corrida: Semillas heredadas, Herencia de esporas, Reservas brillantes (+1.000 por tier destrabado), Herencia dorada y Legado robusto (según los PP gastados), Reliquia de la abuela (un artefacto común de arranque), Autoclick heredado y Aprendices gremiales (los primeros honguitos de cada tipo salen gratis).",
+      "Efectos que saltan solos: Reclutas de la pradera (honguito gratis cada 3 niveles), Periódico de herencias (chance de +1 PP por nivel), Tesoros enterrados (chance de artefacto gratis por nivel) y Reflejos de crisis (producción extra 6 s al empezar un evento). Los avisos aparecen como cartelitos.",
+      "Artefactos: Reliquia heredada y Bóveda de reyes (conservar artefactos al prestigiar), Reliquia divina (conserva siempre los de mayor tier), Fortuna del mercader, Buscatesoros (más ofertas) y Hallazgos garantizados (las primeras visitas traen un épico o legendario).",
+      "Linajes por tipo (+15% de producción por rango para cada tipo de honguito, estilo «Ancestor's Picks»), Linajes eternos (+3% por rango sin tope), Conquista eterna, Dedos eternos, y mejoras para la dungeon, la mina, la luna, las invasiones, los toques, el autoclick y los eventos del cielo. Los tiers todavía bloqueados muestran qué contienen y cuántos PP faltan para abrirlos.",
+    ],
+  },
+  {
     v: "0.44.0",
     fecha: "2026-10-05",
     cambios: [

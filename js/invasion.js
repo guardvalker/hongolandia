@@ -83,7 +83,7 @@ export function statsTorre(state, t) {
 export const dpsTorre = (state, t) => { const S = statsTorre(state, t); return (S.dano * S.canones) / S.cd; };
 // daño por segundo del ejército de soldados (solo enemigos terrestres cerca de la base)
 export const dpsSoldados = (state) => 0.9 * unidad(state) * Math.pow(nSold(state), 0.8) * multEntrena(state);
-export const hpBase = (state) => 3 * unidad(state) * Math.pow(1.035, nivelPrestigio(state)) * (1 + 0.04 * (state.arcano?.invasiones || 0));
+export const hpBase = (state) => 3 * unidad(state) * Math.pow(1.035, nivelPrestigio(state)) * (1 + 0.04 * (state.arcano?.invasiones || 0)) * (1 - Math.min(0.6, arteA(state, "inv_vida")));
 export const danoClick = (ev) => 0.5 * ev.H;
 
 export function infoDefensa(state) {

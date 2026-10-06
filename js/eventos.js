@@ -3,6 +3,7 @@
 // La primera invasión desbloquea la Barraca hongil. Acá está la lógica; la escena los dibuja.
 
 import { D } from './decimal.js';
+import { buffCrisis } from './puData.js';
 import { prestigio, meteoros, produccionPorSeg } from './engine.js';
 import { HONGUITOS } from './data.js';
 import { ARTEFACTOS, ARTE_POR_ID, arteA, sortearOfertas } from './artefactos.js';
@@ -100,6 +101,7 @@ function iniciar(state, tipo) {
     state.flags.invasion = true; // desbloquea la Barraca hongil
     ev = crearInvasion(state, alcanceVista);
   }
+  buffCrisis(state);
   fxPush({ tipo: "inicio", evento: tipo });
 }
 
