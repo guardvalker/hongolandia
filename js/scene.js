@@ -87,7 +87,7 @@ const MADRE = [
 ];
 
 import { EDIFICIOS, HONGUITOS, ACIDO, EVENTOS, EVENTO_CFG } from './data.js';
-import { meteoros as danoMeteoro, improd, velocidad, eventos, buffTipoActivo, efectos, prestigio, logiInfo } from './engine.js';
+import { meteoros as danoMeteoro, improd, velocidad, eventos, buffTipoActivo, efectos, prestigio, logiInfo, logiSitios, logiEventos } from './engine.js';
 import { getRun } from './dungeon.js';
 import { getEvento, consumirFx, setAlcance, nivelDef } from './eventos.js';
 import { TIPOS_TORRE, statsTorre } from './invasion.js';
@@ -2191,11 +2191,11 @@ export function crearEscena(canvas, opciones = {}) {
     actualizarCohete(dt);
     const mHalf = medidas().w / 2;
     const LI = logiInfo(state);
+    actualizarMontes(dt, state);
     const sitiosPila = sitiosDePila();
     // hay trabajo si hay esporas en el piso o si se están soltando (aunque los básicos las lleven al instante): trabaja la fracción de cargadores que hace falta
     const hayPila = state.logi.n >= 0.5 || LI.em >= 0.05;
     const util = clamp(LI.em / Math.max(LI.cap, 1e-9), 0.12, 1);
-    nPila = state.logi.n + 2 * LI.em; // lo del piso más ~2 s de lo que se está soltando
     const dtG = dt;
     for (const tp of TIPOS_VISUALES) { velTipo[tp] = velocidad(state, tp); buffTipos[tp] = buffTipoActivo(state, tp); }
     cicloBolsa = CICLO_BOLSA / velTipo.trader;
@@ -2241,8 +2241,7 @@ export function crearEscena(canvas, opciones = {}) {
         v.espera -= dt;
         if (v.espera <= 0) {
           if (hayPila && Math.random() < 0.9 * util) {
-            const site = sitiosPila[Math.floor(Math.random() * sitiosPila.length)];
-            v.meta = site + (Math.random() - 0.5) * 8;
+            v.meta = elegirSitio(sitiosPila) + (Math.random() - 0.5) * 8;
             v.dir = Math.sign(v.meta - v.x) || 1;
             v.carga = 0;
             v.modo = "ir";
@@ -3173,27 +3172,100 @@ export function crearEscena(canvas, opciones = {}) {
   // ---- Logística: pilas de esporas sueltas y manojos que cargan los básicos ----
   let nPila = 0; // esporas sueltas en el piso (las informa el motor)
   const manojoVisual = (carga) => clamp(Math.round(1.8 * Math.log2(Math.max(1, carga)) + 0.5), 1, 14); // cuántas esporas se ven en el manojo
-  // lugares donde se amontonan las esporas: al lado del hongo madre (las de los toques) y junto a cada edificio
+  // ---- Montañas de esporas ----
+  // Cada lugar que suelta esporas (el hongo madre por los toques, y cada edificio con honguitos productores) acumula su propia
+  // montaña detrás: crece con las esporas que no se alcanzan a llevar. Al llegar a la mitad de la pantalla colapsa y el piso se la traga.
+  const montes = {}; // sitio -> { h (alto visual en celdas), colapso: { t, h0 } | null, spr, key }
+  let montesDatos = []; // [{ id, n, cmax }] (del motor)
+  const DUR_COLAPSO = 2.8;
+  const easeM = (u) => u * u * (3 - 2 * u);
+  const monteDe = (id) => montes[id] || (montes[id] = { h: 0, colapso: null, spr: null, key: "" });
+  function posMonte(id) {
+    if (id === "madre") return { x: madre.x, ancho: medidas().w * 0.6, color: null };
+    const e = edif[id];
+    return e ? { x: e.x, ancho: tam(id).w * 0.7, color: EDIFICIOS[id].color } : null;
+  }
+  const hashM = (a, b, c) => { let h = Math.imul(a ^ 0x9e3779b9, 0x85ebca6b) ^ Math.imul(b + 0x7f4a7c15, 0xc2b2ae35) ^ Math.imul(c + 0x165667b1, 0x27d4eb2f); h ^= h >>> 15; h = Math.imul(h, 0x2c1b3c6d); return ((h ^ (h >>> 12)) >>> 0) / 4294967296; };
+  const rgbDe = (hex) => [parseInt(hex.slice(1, 3), 16), parseInt(hex.slice(3, 5), 16), parseInt(hex.slice(5, 7), 16)];
+  // silueta de montaña hecha de granitos de espora (a bloques de 2x2), con el borde y la cumbre más claros
+  function spriteMonte(id, H, W, color) {
+    const cv = document.createElement("canvas");
+    cv.width = W; cv.height = H;
+    const x = cv.getContext("2d"), img = x.createImageData(W, H), d = img.data;
+    const paleta = color
+      ? [mezcla(color, "#ffffff", 0.45), color, mezcla(color, "#000000", 0.25), mezcla(color, "#000000", 0.5)].map(rgbDe)
+      : ["#ff6fb5", "#2eaaf5", "#b5e61d", "#ff5a14", "#3fe08a", "#fadc28"].map(rgbDe);
+    const semilla = id.length * 131 + H;
+    for (let py = 0; py < H; py++) {
+      const u = (py + 0.5) / H, hw = (W / 2) * Math.pow(u, 0.9);
+      for (let px = 0; px < W; px++) {
+        const dx = Math.abs(px + 0.5 - W / 2);
+        if (dx > hw) continue;
+        const o = (py * W + px) * 4, r = hashM(px >> 1, py >> 1, semilla);
+        let c;
+        if (color) c = r < 0.1 ? paleta[0] : r < 0.55 ? paleta[1] : r < 0.85 ? paleta[2] : paleta[3];
+        else c = paleta[Math.floor(r * 6) % 6].map((v) => Math.round(v * (0.6 + 0.4 * hashM(px >> 1, py >> 1, semilla + 7))));
+        if (dx > hw - 1.6 || py < 2) c = color ? paleta[0] : [255, 255, 255]; // borde y cumbre claros
+        else if (py > H - 3) c = c.map((v) => Math.round(v * 0.7));
+        d[o] = c[0]; d[o + 1] = c[1]; d[o + 2] = c[2]; d[o + 3] = 255;
+      }
+    }
+    x.putImageData(img, 0, 0);
+    return cv;
+  }
+  function actualizarMontes(dt, state) {
+    montesDatos = logiSitios(state);
+    for (const e of logiEventos.splice(0)) { // el motor avisa: esta montaña llegó al tope y colapsa
+      const m = monteDe(e.sitio), p = posMonte(e.sitio);
+      if (m.h > 1 && p && !m.colapso) { m.colapso = { t: 0, h0: m.h }; aroPart(p.x, groundY - 1, p.ancho * 1.3, 0.9); flash = Math.max(flash, 0.12); }
+    }
+    const alto = Hc * 0.5; // la montaña llena llega a la mitad de la pantalla
+    for (const d of montesDatos) {
+      const m = monteDe(d.id), p = posMonte(d.id);
+      if (!p) continue;
+      if (m.colapso) {
+        m.colapso.t += dt;
+        const u = Math.min(1, m.colapso.t / DUR_COLAPSO);
+        m.h = m.colapso.h0 * (1 - easeM(u));
+        if (m.h > 2 && Math.random() < dt * 70) { // el polvo y los granitos se hunden en el piso
+          const hw = (m.h / 2 + p.ancho / 2) * 0.9;
+          part(p.x + (Math.random() - 0.5) * hw * 2, groundY - Math.random() * m.h * 0.9, (Math.random() - 0.5) * 10, 8 + Math.random() * 26, { tipo: "mota", dur: 0.5 + Math.random() * 0.4, col: p.color || PALETA[Math.floor(Math.random() * 6)], r: Math.random() < 0.4 ? 2 : 1 });
+        }
+        if (u >= 1) { m.colapso = null; m.h = 0; aroPart(p.x, groundY - 1, p.ancho * 0.8, 0.5); }
+      } else {
+        const objetivo = d.n >= 0.5 ? Math.max(2, Math.pow(Math.min(1, d.n / d.cmax), 0.7) * alto) : 0;
+        m.h += (objetivo - m.h) * Math.min(1, dt * 2.5);
+        if (Math.abs(objetivo - m.h) < 0.25) m.h = objetivo;
+      }
+    }
+  }
+  function dibujarMontes() {
+    for (const d of montesDatos) {
+      const m = montes[d.id], p = posMonte(d.id);
+      if (!m || !p || m.h < 1) continue;
+      const alto = Math.max(2, Math.round(m.h)), paso = Math.max(2, Math.round(alto * 0.08)), Hq = Math.max(2, Math.round(alto / paso) * paso);
+      const W = Math.round(Hq * 2.2 + p.ancho), clave = d.id + "|" + Hq + "|" + W;
+      if (m.key !== clave) { m.spr = spriteMonte(d.id, Hq, W, p.color); m.key = clave; }
+      const u = m.colapso ? easeM(Math.min(1, m.colapso.t / DUR_COLAPSO)) : 0, dw = Math.round(W * (1 + 0.25 * u));
+      if (!visibleRect(p.x - dw / 2, groundY - alto, dw, alto)) continue;
+      g.globalAlpha = 1 - 0.4 * u;
+      g.drawImage(m.spr, Math.round(p.x - dw / 2), groundY - alto + 1, dw, alto);
+      g.globalAlpha = 1;
+    }
+  }
+  // lugares donde los básicos van a juntar esporas (al pie de cada montaña), con su peso
   function sitiosDePila() {
-    const out = [madre.x + medidas().w * 0.5 * 0.35 + 14];
-    for (const id in edif) out.push(edif[id].x + tam(id).w / 2 + 6);
+    const out = [];
+    for (const d of montesDatos) {
+      const p = posMonte(d.id);
+      if (!p) continue;
+      out.push({ x: d.id === "madre" ? madre.x + (Math.random() < 0.5 ? -1 : 1) * (medidas().w * 0.2 + 6) : p.x + (Math.random() < 0.5 ? -1 : 1) * (tam(d.id).w / 2 + 4), w: d.n + 1 });
+    }
+    if (!out.length) out.push({ x: madre.x + 16, w: 1 });
     return out;
   }
+  const elegirSitio = (lista) => { let r = Math.random() * lista.reduce((t, q) => t + q.w, 0); for (const q of lista) { r -= q.w; if (r < 0) return q.x; } return lista[0].x; };
   const colorDeDot = (i) => PALETA[(i * 5 + 2) % (PALETA.length - 1)]; // sin el blanco
-  const NIVELES_PILA = [0, 2, 4, 7, 11, 16, 23, 32, 44];
-  const UMBRAL_PILA = [0.5, 2, 5, 12, 30, 80, 250, 800];
-  const spritesPila = NIVELES_PILA.map((n) => {
-    if (!n) return null;
-    const base = Math.ceil(Math.sqrt(2 * n)), cv = document.createElement("canvas");
-    cv.width = base * 2 + 2; cv.height = Math.ceil(n / base) * 2 + 3;
-    const x = cv.getContext("2d");
-    let k = 0;
-    for (let r = 0; k < n; r++) {
-      const w = Math.max(1, base - r);
-      for (let c = 0; c < w && k < n; c++, k++) { x.fillStyle = colorDeDot(k); x.fillRect(1 + (base - w) + c * 2, cv.height - 2 - (r + 1) * 2 + 1, 2, 2); }
-    }
-    return cv;
-  });
   const spritesManojo = Array.from({ length: 15 }, (_, k) => {
     if (!k) return null;
     const caps = [4, 4, 3, 2, 1], cv = document.createElement("canvas");
@@ -3208,15 +3280,6 @@ export function crearEscena(canvas, opciones = {}) {
     }
     return cv;
   });
-  function dibujarPilas() {
-    if (nPila < UMBRAL_PILA[0]) return;
-    const sitios = sitiosDePila(), parte = nPila / sitios.length;
-    let nivel = 0;
-    while (nivel < UMBRAL_PILA.length && parte >= UMBRAL_PILA[nivel]) nivel++;
-    const sp = spritesPila[nivel];
-    if (!sp) return;
-    for (const x of sitios) g.drawImage(sp, Math.round(x - sp.width / 2), groundY - sp.height + 1);
-  }
 
   const cacheCuerpo = new Map(); // sprite -> (variante -> lienzo)
   function cuerpoHonguito(spr, lun, alto, espejo) {
@@ -3459,6 +3522,7 @@ export function crearEscena(canvas, opciones = {}) {
     if (!OFF.has("luna")) dibujarLunaCache();
     dibujarNubes();
     if (!OFF.has("mina")) dibujarMina();
+    dibujarMontes();
     if (glv) { // WebGL: lo de arriba queda en el lienzo de fondo; madre y edificios son sprites; lo que sigue va en el lienzo del frente
       g.restore();
       glv.inicio();
@@ -3482,7 +3546,6 @@ export function crearEscena(canvas, opciones = {}) {
       else if (b.t < 0.5) { g.fillStyle = BLANCO; g.fillRect(b.x, groundY - 2, 1, 2); }
       else g.drawImage(spritesBrote[b.col], b.x - 2, groundY - 4);
     }
-    dibujarPilas();
     if (!OFF.has("hong")) for (const v of visuales) dibujarHonguito(v);
     dibujarMercs();
     dibujarArcano();

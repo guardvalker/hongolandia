@@ -488,7 +488,7 @@ export function crearUI(api) {
     const info = nota("");
     filas.push({ refresh: (st) => {
       const a = autoPorSeg(st);
-      info.textContent = `Cada toque al hongo madre da ${fmt(valorToque(st))} ${valorToque(st).eq(1) ? "espora" : "esporas"}.` + (a ? ` Autoclick: ${a.toLocaleString("es-AR")}/s × ${fmt(valorToque(st).mul(autoFraccion(st)))}.` : "");
+      info.textContent = `Cada toque al hongo madre da ${fmt(valorToque(st))} ${valorToque(st).eq(1) ? "espora" : "esporas"}.` + (a ? ` Autoclick (con el mouse sobre el hongo madre): ${a.toLocaleString("es-AR")}/s × ${fmt(valorToque(st).mul(autoFraccion(st)))}.` : "");
     } });
     const visibles = MEJ_CLICK.filter((m) => nivelMej(s, m.id) < m.max && (!m.requiere || nivelMej(s, m.requiere)) && (nivelMej(s, m.id) > 0 || !m.desde || s.total.gte(m.desde)));
     for (const m of visibles) {

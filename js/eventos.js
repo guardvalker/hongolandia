@@ -4,7 +4,7 @@
 
 import { D } from './decimal.js';
 import { buffCrisis } from './puData.js';
-import { prestigio, meteoros, produccionPorSeg } from './engine.js';
+import { prestigio, meteoros, produccionPorSeg, sumarAlPiso, sitioMasCercano } from './engine.js';
 import { HONGUITOS } from './data.js';
 import { ARTEFACTOS, ARTE_POR_ID, arteA, arteM, sortearOfertas } from './artefactos.js';
 import { crearInvasion, pasoInvasion, terminada, cerrarInvasion, danar, danoClick } from './invasion.js';
@@ -159,7 +159,7 @@ function erupcion(state, gs, grande) {
   const v = produccionPorSeg(state).mul((grande ? 12 * arteM(state, "geiser_val") : 3) * rnd(0.8, 1.3)).ceil();
   const valor = v.lt(6) ? D(6) : v;
   const n = grande ? 14 : 5;
-  state.logi.valor = state.logi.valor.add(valor); state.logi.n += n; // caen al piso: hay que llevarlas
+  sumarAlPiso(state, sitioMasCercano(state, gs.dx), valor, n); // caen al piso: hay que llevarlas
   ev.erupciones++; ev.esporas = ev.esporas.add(valor);
   fxPush({ tipo: "geiser", dx: gs.dx, grande });
   return valor;

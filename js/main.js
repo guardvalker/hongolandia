@@ -1,5 +1,5 @@
 import { cargar, guardar, nuevoEstado, etapaDe } from './state.js';
-import { tick, colocarEdificio, revisarHitos, cobrarEvento, maxAusencia, tocarMadre, autoToques, migrarLogistica } from './engine.js';
+import { tick, colocarEdificio, revisarHitos, cobrarEvento, maxAusencia, tocarMadre, autoToques, migrarLogistica, autoSobreMadre } from './engine.js';
 import { fmt } from './format.js';
 import { crearEscena } from './scene.js';
 import { crearUI, ajustes } from './ui.js';
@@ -113,11 +113,22 @@ const punteros = new Map();
 let arrastro = false, inicioX = 0, inicioY = 0, distPinch = 0;
 const distancia = () => { const [a, b] = [...punteros.values()]; return Math.hypot(a.x - b.x, a.y - b.y); };
 canvas.addEventListener("pointerdown", (e) => {
+  dedoAbajo = true;
+  revisarAutoclick(e);
   punteros.set(e.pointerId, { x: e.clientX, y: e.clientY });
   if (punteros.size === 1) { arrastro = false; inicioX = e.clientX; inicioY = e.clientY; }
   if (punteros.size === 2) { distPinch = distancia(); arrastro = true; }
 });
+// el autoclick toca solo mientras el mouse (o el dedo apoyado) está sobre el hongo madre
+let dedoAbajo = false;
+function revisarAutoclick(e) {
+  if (colocando || moviendo || ui.hojaAbierta()) { autoSobreMadre.on = false; return; }
+  const r = canvas.getBoundingClientRect(), hit = escena.toque(e.clientX - r.left, e.clientY - r.top);
+  autoSobreMadre.on = !!(hit && hit.quien === "madre") && (e.pointerType === "mouse" || dedoAbajo);
+}
+canvas.addEventListener("pointerleave", () => { autoSobreMadre.on = false; });
 canvas.addEventListener("pointermove", (e) => {
+  revisarAutoclick(e);
   if (colocando || moviendo) escena.moverColocacion(e.clientX - canvas.getBoundingClientRect().left);
   const p = punteros.get(e.pointerId);
   if (!p) return;
@@ -132,7 +143,7 @@ canvas.addEventListener("pointermove", (e) => {
     if (arrastro) escena.pan(dx, dy);
   }
 });
-const soltar = (e) => { punteros.delete(e.pointerId); };
+const soltar = (e) => { punteros.delete(e.pointerId); dedoAbajo = false; if (e.pointerType !== "mouse") autoSobreMadre.on = false; };
 canvas.addEventListener("pointerup", soltar);
 canvas.addEventListener("pointercancel", soltar);
 let ultimaRueda = 0;

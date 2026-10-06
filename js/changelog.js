@@ -1,5 +1,14 @@
 export const CHANGELOG = [
   {
+    v: "0.55.0",
+    fecha: "2026-10-06",
+    cambios: [
+      "Montañas de esporas: las esporas que los básicos no alcanzan a llevar ya no son pilitas: cada lugar que suelta esporas (el hongo madre por tus toques, y cada edificio con honguitos productores) va levantando su propia montaña de granitos de espora DETRÁS del edificio, con el color de su honguito. Si falta logística crecen y crecen; cuando una llega a la mitad de la pantalla (~45 segundos de lo que se suelta ahí) colapsa: se hunde en el piso con polvo y granitos que caen, y las esporas que tenía se pierden.",
+      "El autoclick ahora toca solo mientras tenés el mouse (o el dedo apoyado) sobre el hongo madre; podés seguir tocando a mano al mismo tiempo y se suman ambos. Si no lo tenés encima, no hace nada.",
+      "Los básicos ahora van a juntar a las montañas más grandes primero (en proporción a su tamaño) y siguen llevando el manojo al hongo madre.",
+    ],
+  },
+  {
     v: "0.54.0",
     fecha: "2026-10-06",
     cambios: [

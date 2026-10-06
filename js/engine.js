@@ -187,24 +187,79 @@ export function comprarMejoraLogi(state, id) {
   state.mejoras[id] = n + 1;
   return true;
 }
-// Entrega al hongo madre lo que los básicos alcanzan a llevar en `dt` s; el resto queda en el piso.
-// `valor` y `cuenta` son lo recién producido (valor en esporas, cuenta en esporas sueltas).
-export function logistica(state, dt, valor, cuenta, toques = 0) {
+// Esporas sueltas que se suman por segundo en cada lugar (cantidad): cada edificio con honguitos productores tiene su propia montaña.
+export function emisionPorSitio(state) {
+  const o = {};
+  for (const id in HONGUITOS) {
+    const h = HONGUITOS[id];
+    if (h.prod.gt(0) && h.casa && state.edificios[h.casa]) o[h.casa] = (o[h.casa] || 0) + (state.honguitos[id] || 0) * LOGI.emision;
+  }
+  return o;
+}
+// Cuánto se puede amontonar en un lugar antes de que la montaña colapse: ~45 s de lo que se suelta ahí (mínimo 60 esporas)
+export const cmaxSitio = (tasa) => Math.max(60, 45 * tasa);
+// Las montañas de esporas: [{ id, n, cmax }] para la escena y el panel
+export function logiSitios(state) {
+  const em = emisionPorSitio(state);
+  em.madre = (em.madre || 0) + (state.logi.tasaClick || 0);
+  const ids = new Set([...Object.keys(em), ...Object.keys(state.logi.sitios)]);
+  return [...ids].map((id) => ({ id, n: state.logi.sitios[id] || 0, cmax: cmaxSitio(em[id] || 0) }));
+}
+// Avisos para la escena: una montaña colapsó y el piso se la tragó (no se guardan)
+export const logiEventos = [];
+// Suma esporas sueltas a la montaña de un lugar (los toques van al hongo madre; los géiseres, al edificio más cercano)
+export function sumarAlPiso(state, sitio, valor, cuenta) {
+  const L = state.logi;
+  L.valor = L.valor.add(valor);
+  L.n += cuenta;
+  L.sitios[sitio] = (L.sitios[sitio] || 0) + cuenta;
+}
+export function sitioMasCercano(state, dx) {
+  let mejor = "madre", dmin = 40;
+  for (const id in state.edificios) {
+    const d = Math.abs((state.edificios[id].dx ?? 0) - dx);
+    if (d < dmin) { dmin = d; mejor = id; }
+  }
+  return mejor;
+}
+// Entrega al hongo madre lo que los básicos alcanzan a llevar en `dt` s; el resto queda en el piso (cada lugar con su montaña).
+// `valor` es lo recién producido (en esporas) y `llegadas` cuántas esporas sueltas nuevas hay por lugar. Si una montaña llega
+// a su tope, colapsa: el piso se traga las esporas (se pierden).
+export function logistica(state, dt, valor, llegadas, toques = 0) {
   const L = state.logi;
   // ritmo de toques (manuales y automáticos): promedio móvil, para que el panel de transporte también cuente las esporas de los clicks
   L.tasaClick = (L.tasaClick || 0) * (1 - Math.min(1, dt / 5)) + ((toques + (L.clk || 0)) / Math.max(dt, 1e-3)) * Math.min(1, dt / 5);
   L.clk = 0;
   L.valor = L.valor.add(valor);
+  let cuenta = 0;
+  for (const id in llegadas) { L.sitios[id] = (L.sitios[id] || 0) + llegadas[id]; cuenta += llegadas[id]; }
   L.n += cuenta;
-  if (L.n <= 0) { L.valor = D(0); L.n = 0; return D(0); }
+  if (L.n <= 0) { L.valor = D(0); L.n = 0; L.sitios = {}; return D(0); }
   const mov = Math.min(L.n, logiInfo(state).cap * dt);
-  if (mov <= 0) return D(0);
-  const parte = mov >= L.n ? L.valor : L.valor.mul(mov / L.n);
-  L.valor = L.valor.sub(parte);
-  L.n -= mov;
-  if (L.n < 1e-9) { L.n = 0; L.valor = D(0); }
-  state.esporas = state.esporas.add(parte);
-  state.total = state.total.add(parte);
+  let parte = D(0);
+  if (mov > 0) {
+    const f = mov / L.n; // los básicos se llevan de todas las montañas en proporción a su tamaño
+    parte = f >= 1 ? L.valor : L.valor.mul(f);
+    L.valor = L.valor.sub(parte);
+    L.n -= mov;
+    for (const id in L.sitios) L.sitios[id] *= 1 - f;
+    state.esporas = state.esporas.add(parte);
+    state.total = state.total.add(parte);
+  }
+  // colapsos: una montaña que llega a su tope se hunde en el piso
+  const em = emisionPorSitio(state);
+  em.madre = (em.madre || 0) + L.tasaClick;
+  for (const id in L.sitios) {
+    const n = L.sitios[id];
+    if (n >= cmaxSitio(em[id] || 0) && L.n > 0) {
+      const frac = Math.min(1, n / L.n);
+      L.valor = L.valor.mul(1 - frac);
+      L.n -= n;
+      L.sitios[id] = 0;
+      if (logiEventos.length < 30) logiEventos.push({ sitio: id, n });
+    }
+  }
+  if (L.n < 1e-9) { L.n = 0; L.valor = D(0); L.sitios = {}; }
   return parte;
 }
 
@@ -216,12 +271,13 @@ export function valorToque(state, prod = produccionPorSeg(state)) {
   const base = D(1 + nivelClick(state, "fuerza")).add(prod.mul(0.01 * nivelClick(state, "savia") + arteA(state, "toque_savia")));
   return base.mul(2 ** nivelClick(state, "manos")).mul(arteM(state, "toque_mult")).mul(eventoMult(state));
 }
+// capacidad del autoclick (toques/s) y si está actuando: solo toca mientras tenés el mouse (o el dedo) sobre el hongo madre
 export const autoPorSeg = (state) => (nivelClick(state, "auto") ? 1 + 0.5 * nivelClick(state, "autoVel") + arteA(state, "auto_vel_pu") : 0);
+export const autoSobreMadre = { on: false };
 export const autoFraccion = (state) => 0.5 + 0.1 * nivelClick(state, "autoFuerza") + arteA(state, "auto_frac");
 export function tocarMadre(state) {
   const v = valorToque(state);
-  state.logi.valor = state.logi.valor.add(v); // el toque suelta una espora en el piso: un básico la lleva
-  state.logi.n += 1;
+  sumarAlPiso(state, "madre", v, 1); // el toque suelta una espora en el piso: un básico la lleva
   state.logi.clk = (state.logi.clk || 0) + 1;
   state.flags.toco = true;
   return v;
@@ -377,7 +433,7 @@ export function tick(state, dt) {
   avanzarInvestigacion(state, puntosInv);
   // autoclick: toques automáticos acumulados con el tiempo
   let cuentaExtra = 0;
-  const tasaAuto = autoPorSeg(state);
+  const tasaAuto = autoSobreMadre.on ? autoPorSeg(state) : 0;
   if (tasaAuto > 0) {
     state.autoAcc = (state.autoAcc || 0) + dt * tasaAuto;
     const n = Math.floor(state.autoAcc);
@@ -390,7 +446,10 @@ export function tick(state, dt) {
       autoToques.valor = v;
     }
   }
-  logistica(state, dt, ganancia, emisionPorSeg(state) * dt + cuentaExtra, cuentaExtra); // la producción queda en el piso hasta que los básicos la llevan
+  const llegadas = emisionPorSitio(state);
+  for (const id in llegadas) llegadas[id] *= dt;
+  llegadas.madre = (llegadas.madre || 0) + cuentaExtra;
+  logistica(state, dt, ganancia, llegadas, cuentaExtra); // la producción queda en el piso hasta que los básicos la llevan
 }
 
 // Suma puntos a la investigación en curso; al terminar una, sigue con el nivel siguiente del mismo tema.
