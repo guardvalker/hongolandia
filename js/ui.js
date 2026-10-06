@@ -4,6 +4,8 @@ import { TIPOS_TORRE, EVOLUCIONES, ENEMIGOS, TORRES_MAX, SOLD_MAX, costoTorre, c
 import { ARTEFACTOS, ARTE_POR_ID, TIERS, iconoArtefacto, cantArte } from './artefactos.js';
 import { OBJETOS, escalaJefes, CLASES, TABERNA_MEJ, costoMerc, contratar, comprarTab, nivelTab, costoTab, sanos, iniciar as iniciarExploracion, getRun, PARTY_MAX, mercStats, CRISTAL_MULT } from './dungeon.js';
 import { EVENTOS, HONGUITOS, MEJORAS, EDIFICIOS, TECNOLOGIAS, MEJ_EDIF, MEJ_CLICK, TEC_POR_ID, HITOS, NIVELES_TEC } from './data.js';
+import { PU, TIER_GASTO, puRango, tierAbierto, comprarPU } from './puData.js';
+import { ppAlPrestigiar } from './reinicio.js';
 import { fmt, fmtRate } from './format.js';
 import { factorAcido, factorMeteoro, produccionPorSeg, produccionPorTipo, prestigio, costoHonguito, costoHonguitos, maxHonguitos, comprarHonguitos, comprarMejora, tecDisponible, pctTec, invPorSeg, proximoHito, costoEdificio, elegirInvestigacion, comprarMejoraEdificio, activarHabilidad, buffActivo, nivelMej, costoMej, valorToque, autoPorSeg, autoFraccion, comprarMejoraClick, durBuff, cdHabilidad, alternarSobrecarga, trabajoEf } from './engine.js';
 import { exportar, importar, borrarGuardado } from './state.js';
@@ -405,6 +407,44 @@ export function crearUI(api) {
         filas.push(f);
       }
     }, ancla, ed.color);
+  }
+
+  // ---- Prestigio: reiniciar la corrida a cambio de PP y mejoras permanentes ----
+  function abrirPrestigio() {
+    let seguro = false;
+    abrir("prestigio", "Prestigio", () => {
+      const st = api.estado();
+      const info = nota("");
+      filas.push({ refresh: (s) => {
+        info.textContent = `PP sin gastar: ${s.pp} · gastados: ${s.ppGastados} · ganados en total: ${s.ppTotal} · prestigios: ${s.prestigios}`;
+      } });
+      nota("Prestigiar reinicia la corrida (esporas, honguitos, edificios y mejoras) y te da 1 PP por cada nivel de prestigio alcanzado. Se conservan las mejoras de prestigio, la dungeon y el fondo. Con 14 PP alcanza para 12 en el tier 1 y un rango del tier 2.");
+      const f = fila("Prestigiar ahora", "", () => {
+        if (!seguro) { seguro = true; return; }
+        api.prestigiar();
+        cerrar();
+        toast("¡Nueva corrida! Gastá tus PP en las mejoras de prestigio.");
+      }, "#ffd23f");
+      f.refresh = (s) => {
+        const g = ppAlPrestigiar(s);
+        f.titulo.textContent = g > 0 ? `Prestigiar: +${g} PP` : "Prestigiar (todavía sin PP)";
+        f.btn.textContent = seguro ? "¿Seguro?" : "Prestigiar";
+        f.btn.disabled = g < 1;
+        f.btn.classList.toggle("peligro", seguro);
+      };
+      filas.push(f);
+      for (let tier = 1; tier <= TIER_GASTO.length; tier++) {
+        const abierto = tierAbierto(st, tier);
+        seccion(`Tier ${tier} · ${tier} PP por rango` + (abierto ? "" : ` · se destraba al gastar ${TIER_GASTO[tier - 1]} PP`));
+        for (const p of PU.filter((x) => x.tier === tier)) {
+          const n = puRango(st, p.id);
+          if (n >= p.max) { nota(`✓ ${p.nombre} (${p.max}/${p.max}) — ${p.desc(p.max)}`).classList.add("hecha"); continue; }
+          const g = fila(`${p.nombre} · ${n}/${p.max}`, p.desc(n + 1), () => { if (comprarPU(api.estado(), p.id)) { api.guardar(); abrirPrestigio(); } }, "#ffd23f");
+          g.refresh = (s) => { g.btn.textContent = abierto ? `${tier} PP` : "🔒"; g.btn.disabled = !abierto || s.pp < tier; };
+          filas.push(g);
+        }
+      }
+    }, null, "#ffd23f");
   }
 
   // ---- Toques del hongo madre y autoclick ----
@@ -871,6 +911,7 @@ export function crearUI(api) {
   $("hoja-cerrar").addEventListener("click", cerrar);
   $("fondo-hoja").addEventListener("click", cerrar);
   $("btn-ajustes").addEventListener("click", abrirAjustes);
+  $("barra-bloque").addEventListener("click", abrirPrestigio);
   $("btn-cofre").addEventListener("click", abrirCofre);
 
   // ---- Refresco de textos (se llama ~4 veces por segundo) ----

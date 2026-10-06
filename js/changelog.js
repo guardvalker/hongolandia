@@ -1,5 +1,13 @@
 export const CHANGELOG = [
   {
+    v: "0.44.0",
+    fecha: "2026-10-05",
+    cambios: [
+      "¡Prestigio con reset! Tocá la barra de prestigio de arriba para abrir la ventana: «Prestigiar» reinicia la corrida (esporas, honguitos, edificios, torres, mejoras y artefactos) y te da 1 PP por cada nivel de prestigio que alcanzaste (a nivel 14 ya tenés 14 PP). Se conservan tus PP, las mejoras de prestigio, los mercenarios y el progreso de la dungeon, y los hongos del fondo. Pide confirmación.",
+      "Mejoras de prestigio (idea de la wiki de Dwarf Eats Mountain): 4 tiers que se destraban al GASTAR PP (12, 45 y 120) y cada rango cuesta tanto PP como su tier. Tier 1: Semillas heredadas, Herencia de esporas, Micelio profundo, Dedos ancestrales, Cosecha dorada. Tier 2: Autoclick heredado, Hitos tempranos, Regateo, Cuentas claras. Tier 3: Reliquia heredada (conservás artefactos al azar), Memoria del micelio, Sueño largo. Tier 4: Esporas ancestrales, Mercader amigo, Sellos viejos.",
+    ],
+  },
+  {
     v: "0.43.0",
     fecha: "2026-10-05",
     cambios: [

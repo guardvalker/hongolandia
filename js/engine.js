@@ -114,7 +114,7 @@ export function multiplicador(state, tipoId) {
   m *= bonoSinergia(state, tipoId) * bonoSinergia(state, "todos") * eventoMult(state);
   m *= multHitos(cuenta(state, tipoId), state);
   // artefactos del mercader y tormenta de esporas de los magos
-  const ar = state.arte && state.arte.tienen ? arteM(state, "prod_all") * arteM(state, "prod_" + tipoId) : 1;
+  const ar = state.arte && state.arte.tienen ? arteM(state, "prod_all") * arteM(state, "prod_" + tipoId) * (1 + arteA(state, "pp_prod")) : 1;
   m *= ar;
   if (state.arte) {
     const nEd = Object.keys(state.edificios).length;
@@ -138,7 +138,7 @@ const nivelClick = (state, ef) => { const m = MEJ_CLICK.find((x) => x.ef === ef)
 export const autoToques = { n: 0, valor: D(0) };
 export function valorToque(state, prod = produccionPorSeg(state)) {
   const base = D(1 + nivelClick(state, "fuerza")).add(prod.mul(0.01 * nivelClick(state, "savia")));
-  return base.mul(2 ** nivelClick(state, "manos")).mul(eventoMult(state));
+  return base.mul(2 ** nivelClick(state, "manos")).mul(arteM(state, "toque_mult")).mul(eventoMult(state));
 }
 export const autoPorSeg = (state) => (nivelClick(state, "auto") ? 1 + 0.5 * nivelClick(state, "autoVel") : 0);
 export const autoFraccion = (state) => 0.5 + 0.1 * nivelClick(state, "autoFuerza");

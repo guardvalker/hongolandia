@@ -314,3 +314,5 @@ body.transp #hoja-cerrar { background: rgba(45, 45, 64, .6); }
 .num-flota { position: fixed; z-index: 7; pointer-events: none; transform: translate(-50%, 0); font-family: var(--num); font-size: 10px; color: #ffe14d; text-shadow: 0 2px 0 #000; animation: flota .9s steps(9) forwards; }
 .num-flota.auto { color: #bff7f0; font-size: 8px; }
 @keyframes flota { to { transform: translate(-50%, -48px); opacity: 0; } }
+
+#barra-bloque { cursor: pointer; pointer-events: auto; }

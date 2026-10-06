@@ -8,6 +8,7 @@ import { tick as tickEventos, consumirResultadoEvento, golpearCriatura, forzarEv
 import { crearVistaDungeon } from './dungeonVista.js';
 
 import { EDIFICIOS } from './data.js';
+import { prestigiar } from './reinicio.js';
 import { construirTorre } from './invasion.js';
 
 let state = cargar();
@@ -53,6 +54,11 @@ const ui = crearUI({
   dispararCielo: (tipo) => escena.spawnEvento(tipo),
   dispararArcano: (tipo) => forzarEvento(state, tipo),
   guardar: () => guardar(state),
+  prestigiar() {
+    state = prestigiar(state);
+    guardar(state);
+    ui.actualizar(true);
+  },
   reemplazar(nuevo) {
     state = nuevo;
     guardar(state);

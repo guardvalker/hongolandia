@@ -1,3 +1,5 @@
+import { puA, puM } from './puData.js';
+
 // Artefactos del Mercader hongil: 50 objetos permanentes (hasta el próximo prestigio). Cada vez que viene
 // el mercader ofrece 5 al azar y se puede quedar con uno solo. No todos suben la producción: abaratan,
 // aceleran la dungeon, protegen de meteoritos, alargan las invasiones, etc.
@@ -91,15 +93,15 @@ export function sortearOfertas(state, nivelPrestigio, n = 5) {
 export const ARTE_POR_ID = Object.fromEntries(ARTEFACTOS.map((a) => [a.id, a]));
 
 const tiene = (state) => (state.arte && state.arte.tienen) || {};
-// producto de los artefactos de clave k (1 si no hay)
+// producto de los artefactos (y mejoras de prestigio) de clave k (1 si no hay)
 export function arteM(state, k) {
-  let m = 1;
+  let m = puM(state, k);
   for (const id in tiene(state)) { const a = ARTE_POR_ID[id]; if (a && a.k === k) m *= a.v; }
   return m;
 }
-// suma de los artefactos de clave k (0 si no hay)
+// suma de los artefactos (y mejoras de prestigio) de clave k (0 si no hay)
 export function arteA(state, k) {
-  let x = 0;
+  let x = puA(state, k);
   for (const id in tiene(state)) { const a = ARTE_POR_ID[id]; if (a && a.k === k) x += a.v; }
   return x;
 }

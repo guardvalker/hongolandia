@@ -40,6 +40,11 @@ export function nuevoEstado() {
     v: SAVE_VERSION,
     esporas: D(0),
     total: D(0), // esporas ganadas en toda la partida (define la etapa)
+    pp: 0, // puntos de prestigio sin gastar
+    ppGastados: 0, // PP gastados en mejoras de prestigio (destraban los tiers)
+    ppTotal: 0, // PP ganados en toda la partida
+    prestigios: 0, // cuántas veces se prestigió
+    pu: {}, // mejoras de prestigio: id -> rango (persisten entre corridas)
     honguitos: { basico: 1 },
     mejoras: {},
     edificios: {}, // id -> { x } (fracción del ancho de pantalla)
@@ -95,6 +100,7 @@ function deserializar(raw) {
     total: new Dec(raw.total ?? 0),
     honguitos: { ...base.honguitos, ...raw.honguitos },
     mejoras: { ...raw.mejoras },
+    pu: { ...raw.pu },
     edificios: { ...raw.edificios },
     torres: Array.isArray(raw.torres) ? raw.torres.map((t) => ({ dx: t.dx ?? 40, tipo: t.tipo || "basica", sold: Math.min(10, t.sold || 0) })) : [],
     // partidas viejas: un hongo de fondo por cada edificio que ya tenían
