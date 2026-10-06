@@ -48,6 +48,13 @@ const escena = crearEscena(canvas, {
 });
 
 escena.setLimite(ajustes.visibles);
+// dibujo con WebGL (beta): se carga PixiJS recién ahora; si algo falla, el juego sigue con Canvas 2D
+if (ajustes.render === "gl") {
+  import("./glvista.js").then((m) => m.crearGL(canvas)).then((gl) => escena.activarGL(gl)).catch((e) => {
+    console.warn("WebGL no disponible, se usa Canvas 2D:", e);
+    setTimeout(() => ui.toast("WebGL no está disponible acá: se usa el modo clásico."), 1500);
+  });
+}
 
 const ui = crearUI({
   limiteVisibles: (n) => escena.setLimite(n),

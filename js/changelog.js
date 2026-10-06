@@ -1,5 +1,12 @@
 export const CHANGELOG = [
   {
+    v: "0.48.0",
+    fecha: "2026-10-05",
+    cambios: [
+      "Modo de dibujo WebGL (beta), etapa 1: nuevo ajuste «Dibujo (beta)» en Ajustes → Rendimiento (Clásico / WebGL, recarga el juego al cambiar). Con WebGL, el fondo y el frente se pintan como siempre en lienzos y el hongo madre y los edificios pasan a ser sprites de la placa de video entre esas dos capas. PixiJS se carga solo si lo activás (vendor/pixi.min.js). Si WebGL no está disponible, el juego sigue en modo clásico. Por defecto sigue el modo clásico.",
+    ],
+  },
+  {
     v: "0.47.2",
     fecha: "2026-10-05",
     cambios: [

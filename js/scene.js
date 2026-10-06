@@ -99,6 +99,7 @@ export function crearEscena(canvas, opciones = {}) {
   const lo = document.createElement("canvas");
   let g = lo.getContext("2d"); // se cambia un instante por el contexto del caché del hongo madre
   const gPrincipal = g;
+  let glv = null, loFrente = null, gFrente = null; // modo WebGL (beta): ver glvista.js
   let dpr = 1, S = 1, K = 1, Wc = 0, Hc = 0, groundY = 0;
   // cámara: Wc/Hc = celdas visibles; S = px por celda (niveles enteros para que el pixel art quede nítido)
   let groundRef = 220, S0 = 1, Wc0 = 300, Hc0 = 300, niveles = [1], zoomIdx = null, camX = C0, camY = 0, extent = 150;
@@ -514,6 +515,8 @@ export function crearEscena(canvas, opciones = {}) {
     Hc = Math.ceil(canvas.height / S);
     K = Math.min(1, S); // píxeles por celda del buffer: con el zoom alejado de 1 el buffer sigue siendo del tamaño de la pantalla
     lo.width = Math.ceil(Wc * K); lo.height = Math.ceil(Hc * K);
+    if (loFrente) { loFrente.width = lo.width; loFrente.height = lo.height; }
+    if (glv) glv.resize(canvas.width, canvas.height);
     const pisoAntes = groundY;
     groundY = Math.round(Hc * 0.74);
     if (pisoAntes > 0 && groundY !== pisoAntes) { // las partículas en el aire acompañan al piso, no a la pantalla
@@ -2402,6 +2405,7 @@ export function crearEscena(canvas, opciones = {}) {
     const claveGeo = [x0, y0, w, h, K, m.w, m.ch, m.sh, m.sw, coloresMadre.join()].join("|");
     if (claveGeo !== geoMadre.clave) {
       geoMadre.clave = claveGeo;
+      const gAntes = g;
       g = lienzoCache(geoMadre, x0, y0, w, h);
       try {
         const capBase = groundY - m.sh, ch = m.ch;
@@ -2420,20 +2424,34 @@ export function crearEscena(canvas, opciones = {}) {
           g.fillRect(cx + dx, groundY - 2, 1, 2);
           g.fillRect(cx + dx + 1, groundY - 1, 1, 1);
         }
-      } finally { g = gPrincipal; }
+      } finally { g = gAntes; }
+      brilloMadre.ver = (brilloMadre.ver || 0) + 1;
       g = lienzoCache(brilloMadre, x0, y0, w, h); // silueta blanca del sombrero para el brillo del pulso
-      try { semi(cx, groundY - m.sh, rx, m.ch, BLANCO, 1); } finally { g = gPrincipal; }
+      try { semi(cx, groundY - m.sh, rx, m.ch, BLANCO, 1); } finally { g = gAntes; }
     }
     const c = luzMadre;
     if (c.clave !== claveGeo || t - c.t >= CACHE_MADRE_DT || t < c.t) {
-      const dtLuz = Math.min(0.25, Math.max(0.001, t - c.t)), luzAntes = luzDt;
-      c.clave = claveGeo; c.t = t;
+      const dtLuz = Math.min(0.25, Math.max(0.001, t - c.t)), luzAntes = luzDt, gAntes = g;
+      c.clave = claveGeo; c.t = t; c.ver = (c.ver || 0) + 1;
       const gc = lienzoCache(c, x0, y0, w, h);
       gc.drawImage(geoMadre.cv, x0, y0, w, h);
       g = gc; luzDt = dtLuz;
-      try { lucesMadre(cx, groundY - m.sh, rx, m.ch, mitad); } finally { g = gPrincipal; luzDt = luzAntes; }
+      try { lucesMadre(cx, groundY - m.sh, rx, m.ch, mitad); } finally { g = gAntes; luzDt = luzAntes; }
     }
     const capBase = groundY - m.sh, k = (m.ch - sq) / m.ch, corte = capBase - y0;
+    if (glv && glv.cabe(c.cv)) { // WebGL: los lienzos cacheados son texturas; el apretón del pulso corta la textura en dos sprites
+      const corteK = Math.round(corte * K);
+      const poner = (clave, cv, ver, alfa) => {
+        if (k > 0.999) glv.sprite(clave, cv, ver, x0, y0, w, h, null, alfa);
+        else {
+          glv.sprite(clave + "a", cv, ver, x0, capBase - corte * k, w, corte * k, [0, 0, cv.width, corteK], alfa);
+          glv.sprite(clave + "b", cv, ver, x0, capBase, w, h - corte, [0, corteK, cv.width, cv.height - corteK], alfa);
+        }
+      };
+      poner("madre", c.cv, c.ver || 0, 1);
+      if (br > 0.02) poner("madreB", brilloMadre.cv, brilloMadre.ver || 0, br * 0.35);
+      return;
+    }
     const copiar = (cv) => {
       if (k > 0.999) { blitR(cv, 0, 0, cv.width, cv.height, x0, y0, w, h); return; }
       blitR(cv, 0, 0, cv.width, corte * K, x0, capBase - corte * k, w, corte * k); // lo de arriba se aplasta contra el tronco
@@ -2542,11 +2560,13 @@ export function crearEscena(canvas, opciones = {}) {
     if (!visibleRect(x0, y0, w, h)) return;
     const clave = [id, x0, y0, w, h, K, m.sw, semilla].join("|");
     if (clave !== c.clave || t - c.t >= CACHE_MADRE_DT || t < c.t) {
-      c.clave = clave; c.t = t;
+      c.clave = clave; c.t = t; c.ver = (c.ver || 0) + 1;
+      const gAntes = g;
       g = lienzoCache(c, x0, y0, w, h);
-      try { dibujarEdificio(id, x); } finally { g = gPrincipal; }
+      try { dibujarEdificio(id, x); } finally { g = gAntes; }
     }
-    blitR(c.cv, 0, 0, c.cv.width, c.cv.height, x0, y0, w, h);
+    if (glv && glv.cabe(c.cv)) glv.sprite("ed:" + id, c.cv, c.ver, x0, y0, w, h);
+    else blitR(c.cv, 0, 0, c.cv.width, c.cv.height, x0, y0, w, h);
   }
   // El cuerpo de cada edificio (sombrero, manchas, tallo) casi nunca cambia: se pinta una vez por variante y se copia.
   const cacheCuerpoEd = new Map();
@@ -2903,8 +2923,9 @@ export function crearEscena(canvas, opciones = {}) {
     const c = cacheLuna, clave = [x0, y0, w, K].join("|");
     if (clave !== c.clave || t - c.t >= 0.1 || t < c.t) { // la luna cambia despacio: 10 cuadros por segundo alcanzan
       c.clave = clave; c.t = t;
+      const gAntes = g;
       g = lienzoCache(c, x0, y0, w, h);
-      try { dibujarLuna(); } finally { g = gPrincipal; }
+      try { dibujarLuna(); } finally { g = gAntes; }
     }
     blitR(c.cv, 0, 0, c.cv.width, c.cv.height, x0, y0, w, h);
   }
@@ -3251,6 +3272,17 @@ export function crearEscena(canvas, opciones = {}) {
     dibujarLunaCache();
     dibujarNubes();
     dibujarMina();
+    if (glv) { // WebGL: lo de arriba queda en el lienzo de fondo; madre y edificios son sprites; lo que sigue va en el lienzo del frente
+      g.restore();
+      glv.inicio();
+      g = gFrente;
+      g.setTransform(K, 0, 0, K, 0, 0);
+      g.imageSmoothingEnabled = K < 1;
+      g.globalAlpha = 1;
+      g.clearRect(0, 0, Wc, Hc);
+      g.save();
+      g.translate(offX(), oy);
+    }
     dibujarMadre();
     dibujarCristalesMadre();
     for (const id in edif) if (!(colocando?.mover && colocando.id === id)) dibujarEdificioCache(id, edif[id].x);
@@ -3273,9 +3305,22 @@ export function crearEscena(canvas, opciones = {}) {
 
     if (tormentaA > 0.005) { g.globalAlpha = tormentaA; g.fillStyle = "#7a3cc0"; g.fillRect(0, 0, Wc, Hc); g.globalAlpha = 1; }
     if (flash > 0.01) { g.globalAlpha = flash * 0.3; g.fillStyle = BLANCO; g.fillRect(0, 0, Wc, Hc); g.globalAlpha = 1; }
+    if (glv) {
+      g = gPrincipal;
+      glv.fin({ fondo: lo, frente: loFrente, offX: offX(), offY: oy, S, Wc, Hc });
+      return;
+    }
     ctx.imageSmoothingEnabled = false;
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.drawImage(lo, 0, 0, Wc * S, Hc * S);
+  }
+  // activa el dibujo con WebGL (el lienzo de siempre queda invisible solo para recibir los toques)
+  function activarGL(gl) {
+    glv = gl;
+    loFrente = document.createElement("canvas");
+    gFrente = loFrente.getContext("2d");
+    document.body.classList.add("gl");
+    resize();
   }
 
   // ---------- toques ----------
@@ -3370,5 +3415,5 @@ export function crearEscena(canvas, opciones = {}) {
     while (brotes.length > maxBrotes()) brotes.shift();
   }
 
-  return { spawnEvento, tomarEvento: tomar, mostrarPuerta, festejarMercs, zoom, pan, recentrar, setLimite, resize, update, draw, toque, pulsoMadre, rectMadre, rectEdificio, iniciarColocacion, moverColocacion, cancelarColocacion, confirmarColocacion };
+  return { activarGL, spawnEvento, tomarEvento: tomar, mostrarPuerta, festejarMercs, zoom, pan, recentrar, setLimite, resize, update, draw, toque, pulsoMadre, rectMadre, rectEdificio, iniciarColocacion, moverColocacion, cancelarColocacion, confirmarColocacion };
 }

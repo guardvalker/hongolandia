@@ -13,7 +13,7 @@ import { CHANGELOG } from './changelog.js';
 
 // Preferencias de interfaz (no forman parte de la partida): guardadas aparte.
 const KEY_AJ = "hongolandia-ajustes";
-const AJ_BASE = { transparencia: false, dpsPlegado: false, visibles: 20, cantidad: 1, fps: 60 };
+const AJ_BASE = { transparencia: false, dpsPlegado: false, visibles: 20, cantidad: 1, fps: 60, render: "2d" };
 export const ajustes = (() => {
   try { return { ...AJ_BASE, ...JSON.parse(localStorage.getItem(KEY_AJ) || "{}") }; } catch (_) { return { ...AJ_BASE }; }
 })();
@@ -840,6 +840,30 @@ export function crearUI(api) {
       });
       filaF.append(infoF, selF);
       hojaCuerpo.append(filaF);
+
+      const filaR = document.createElement("div");
+      filaR.className = "fila";
+      const infoR = document.createElement("div");
+      infoR.className = "fila-info";
+      const tr = document.createElement("b");
+      tr.textContent = "Dibujo (beta)";
+      const dr = document.createElement("span");
+      dr.textContent = "«WebGL» dibuja con la placa de video en lotes y aguanta muchas más cosas en pantalla. Está en prueba: si algo se ve raro, volvé a «Clásico». Se recarga el juego al cambiar.";
+      infoR.append(tr, dr);
+      const selR = document.createElement("div");
+      selR.className = "cant";
+      const OPR = [["2d", "Clásico"], ["gl", "WebGL"]];
+      const botR = OPR.map(([v, txt]) => {
+        const b = document.createElement("button");
+        b.className = "cant-btn";
+        b.textContent = txt;
+        b.classList.toggle("activo", (ajustes.render || "2d") === v);
+        b.addEventListener("click", () => { if ((ajustes.render || "2d") === v) return; ajustes.render = v; guardarAjustes(); api.guardar(); location.reload(); });
+        selR.append(b);
+        return b;
+      });
+      filaR.append(infoR, selR);
+      hojaCuerpo.append(filaR);
 
       seccion("Admin (pruebas)");
       const notaAdm = document.createElement("p");
