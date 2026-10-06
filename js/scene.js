@@ -3243,7 +3243,10 @@ export function crearEscena(canvas, opciones = {}) {
     }
   }
 
+  // diagnóstico: ?off=madre,edif,hong,part,mina,luna,fondo,todo apaga partes del dibujo para ver cuál gasta placa de video
+  const OFF = new Set((new URLSearchParams(location.search).get("off") || "").split(",").filter(Boolean));
   function draw() {
+    if (OFF.has("todo")) return;
     g.setTransform(K, 0, 0, K, 0, 0);
     g.imageSmoothingEnabled = K < 1;
     g.globalAlpha = 1;
@@ -3252,8 +3255,8 @@ export function crearEscena(canvas, opciones = {}) {
     g.fillRect(0, 0, Wc, Hc);
     const oy = offY();
     if (oy < 0) { g.fillStyle = BG_SUELO; g.fillRect(0, groundY + oy, Wc, Hc); }
-    g.drawImage(fondo, 0, oy, Wc, Hc);
-    for (const gi of gigantes) {
+    if (!OFF.has("fondo")) g.drawImage(fondo, 0, oy, Wc, Hc);
+    if (!OFF.has("fondo")) for (const gi of gigantes) {
       const hT = gi.cv.height, h = Math.max(1, Math.round(hT * suave(gi.p)));
       g.drawImage(gi.cv, 0, hT - h, gi.cv.width, h, Math.round(gi.x * Wc - gi.cv.width / 2), groundY - h + oy, gi.cv.width, h);
     }
@@ -3269,9 +3272,9 @@ export function crearEscena(canvas, opciones = {}) {
 
     g.save();
     g.translate(offX(), oy);
-    dibujarLunaCache();
+    if (!OFF.has("luna")) dibujarLunaCache();
     dibujarNubes();
-    dibujarMina();
+    if (!OFF.has("mina")) dibujarMina();
     if (glv) { // WebGL: lo de arriba queda en el lienzo de fondo; madre y edificios son sprites; lo que sigue va en el lienzo del frente
       g.restore();
       glv.inicio();
@@ -3283,9 +3286,9 @@ export function crearEscena(canvas, opciones = {}) {
       g.save();
       g.translate(offX(), oy);
     }
-    dibujarMadre();
+    if (!OFF.has("madre")) dibujarMadre();
     dibujarCristalesMadre();
-    for (const id in edif) if (!(colocando?.mover && colocando.id === id)) dibujarEdificioCache(id, edif[id].x);
+    if (!OFF.has("edif")) for (const id in edif) if (!(colocando?.mover && colocando.id === id)) dibujarEdificioCache(id, edif[id].x);
     for (const v of torresV) dibujarTorre(v);
     dibujarCoheteEnVuelo();
     for (const b of brotes) {
@@ -3295,10 +3298,10 @@ export function crearEscena(canvas, opciones = {}) {
       else if (b.t < 0.5) { g.fillStyle = BLANCO; g.fillRect(b.x, groundY - 2, 1, 2); }
       else g.drawImage(spritesBrote[b.col], b.x - 2, groundY - 4);
     }
-    for (const v of visuales) dibujarHonguito(v);
+    if (!OFF.has("hong")) for (const v of visuales) dibujarHonguito(v);
     dibujarMercs();
     dibujarArcano();
-    dibujarParticulas();
+    if (!OFF.has("part")) dibujarParticulas();
     dibujarEventos();
     if (colocando) { const px = xLibre(colocando.x, tam(colocando.id).w, obstaculos(altoEdif(colocando.id), false)); if (colocando.id === "torre_def") dibujarTorre({ x: px, t: { tipo: "basica", sold: 0 }, ang: -0.6, retro: 0 }, 0.55); else dibujarEdificio(colocando.id, px, 0.55); }
     g.restore();

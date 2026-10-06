@@ -1,5 +1,12 @@
 export const CHANGELOG = [
   {
+    v: "0.48.1",
+    fecha: "2026-10-05",
+    cambios: [
+      "Herramienta de diagnóstico de rendimiento: se puede abrir el juego con ?off=madre,edif,hong,part,mina,luna,fondo,todo en la dirección para apagar partes del dibujo y ver cuál gasta más placa de video (por ejemplo ?off=hong,part).",
+    ],
+  },
+  {
     v: "0.48.0",
     fecha: "2026-10-05",
     cambios: [
