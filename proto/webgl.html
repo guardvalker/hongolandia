@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="es"><head><meta charset="utf-8"><title>Prototipo WebGL</title>
+<style>html,body{margin:0;background:#272736;color:#fff;font:14px monospace;overflow:hidden}#hud{position:fixed;left:8px;top:8px;background:#000a;padding:6px;z-index:2}canvas{display:block}</style>
+</head><body>
+<div id="hud">cargando…</div>
+<script src="pixi.min.js"></script>
+<script>
+// Prototipo: la misma escena con Canvas 2D (como hoy) y con WebGL (PixiJS), para comparar.
+// ?r=2d|gl  &n=cantidad de honguitos  &p=cantidad de partículas
+const Q = new URLSearchParams(location.search);
+const MODO = Q.get("r") || "gl", N = +(Q.get("n") || 2000), NP = +(Q.get("p") || 3000);
+const W = 480, H = 270, S = Math.max(1, Math.floor(Math.min(innerWidth / W, innerHeight / H)));
+const hud = document.getElementById("hud");
+const rnd = (a, b) => a + Math.random() * (b - a);
+
+// --- sprites horneados en canvas (igual que el juego hoy) ---
+const COLORES = ["#ff4d4d", "#b5e61d", "#a77bff", "#2fd4c4", "#ffb347", "#4fb4ff", "#ff7bd0", "#ffd23f"];
+function honguito(col, pose) {
+  const c = document.createElement("canvas"); c.width = 9; c.height = 9; const x = c.getContext("2d");
+  x.fillStyle = "#fff"; x.fillRect(1, 0, 7, 1); x.fillRect(0, 1, 9, 4); x.fillStyle = col; x.fillRect(1, 1, 7, 3);
+  x.fillStyle = "#fff"; x.fillRect(2, 1, 1, 1); x.fillRect(6, 2, 1, 1);
+  x.fillRect(3, 5, 3, 3); x.fillStyle = "#14141d"; x.fillRect(4, 6, 1, 1);
+  x.fillStyle = "#fff"; if (pose) { x.fillRect(3, 8, 1, 1); x.fillRect(5, 8, 1, 1); } else x.fillRect(3, 8, 3, 1);
+  return c;
+}
+const SPR = COLORES.flatMap((c) => [honguito(c, 0), honguito(c, 1)]);
+// "madre": un sombrero grande horneado una vez
+function madreCanvas() {
+  const c = document.createElement("canvas"); c.width = 400; c.height = 220; const x = c.getContext("2d");
+  x.fillStyle = "#fff"; x.beginPath(); x.ellipse(200, 200, 200, 190, 0, Math.PI, 0); x.fill();
+  x.fillStyle = "#2e2e45"; x.beginPath(); x.ellipse(200, 200, 196, 186, 0, Math.PI, 0); x.fill();
+  for (let i = 0; i < 14; i++) { x.fillStyle = COLORES[i % COLORES.length]; x.beginPath(); x.arc(rnd(60, 340), rnd(60, 190), rnd(8, 26), 0, 7); x.fill(); }
+  return c;
+}
+const MADRE = madreCanvas();
+// capa de luz chica (se agranda de una vez) que cambia cada cuadro
+const LUZ = document.createElement("canvas"); LUZ.width = 84; LUZ.height = 44;
+const lctx = LUZ.getContext("2d"), limg = lctx.createImageData(84, 44);
+function actualizarLuz(t) {
+  const d = limg.data;
+  for (let j = 0; j < 44; j++) for (let i = 0; i < 84; i++) {
+    const o = (j * 84 + i) * 4, f = Math.sin(i * 0.2 + j * 0.3 + t * 2) * 0.5 + 0.5;
+    d[o] = 120 + 135 * f; d[o + 1] = 80 + 80 * (1 - f); d[o + 2] = 255 * (1 - f); d[o + 3] = 70;
+  }
+  lctx.putImageData(limg, 0, 0);
+}
+
+// --- entidades ---
+const E = Array.from({ length: N }, () => ({ x: rnd(0, W), y: rnd(150, 250), vx: rnd(-10, 10), s: Math.floor(Math.random() * SPR.length), ph: rnd(0, 6.28) }));
+const P = Array.from({ length: NP }, () => ({ x: rnd(0, W), y: rnd(0, H), vx: rnd(-8, 8), vy: rnd(-12, -2), c: Math.floor(Math.random() * COLORES.length) }));
+
+let frames = 0, t0 = performance.now(), cpu = 0, calls = 0, ult = performance.now();
+function tick(dt, t) {
+  for (const e of E) { e.x += e.vx * dt; if (e.x < 0 || e.x > W) e.vx *= -1; }
+  for (const p of P) { p.x += p.vx * dt; p.y += p.vy * dt; if (p.y < 0) { p.y = H; p.x = rnd(0, W); } }
+}
+function reportar() {
+  const now = performance.now();
+  if (now - t0 >= 2000) {
+    const fps = frames / ((now - t0) / 1000);
+    hud.textContent = `${MODO.toUpperCase()} · ${N} honguitos + ${NP} partículas · ${fps.toFixed(0)} fps · CPU/cuadro ${(cpu / frames).toFixed(2)} ms · llamadas de dibujo/cuadro ${Math.round(calls / frames)}`;
+    window.__r = { modo: MODO, n: N, np: NP, fps, cpuMs: cpu / frames, llamadas: calls / frames };
+    frames = 0; cpu = 0; calls = 0; t0 = now;
+  }
+}
+
+if (MODO === "2d") {
+  const cv = document.createElement("canvas"); cv.width = W * S; cv.height = H * S; document.body.append(cv);
+  const lo = document.createElement("canvas"); lo.width = W; lo.height = H;
+  const g = lo.getContext("2d"), ctx = cv.getContext("2d");
+  const P2 = CanvasRenderingContext2D.prototype;
+  for (const f of ["fillRect", "drawImage"]) { const o = P2[f]; P2[f] = function (...a) { calls++; return o.apply(this, a); }; }
+  const cols = COLORES;
+  (function f(now) {
+    const dt = Math.min(0.05, (now - ult) / 1000); ult = now; const t = now / 1000, a = performance.now();
+    tick(dt, t); actualizarLuz(t);
+    g.fillStyle = "#272736"; g.fillRect(0, 0, W, H);
+    g.drawImage(MADRE, 40, 30); g.drawImage(LUZ, 60, 60, 340, 150);
+    for (const p of P) { g.fillStyle = cols[p.c]; g.fillRect(p.x | 0, p.y | 0, 1, 1); }
+    for (const e of E) g.drawImage(SPR[e.s * 0 + ((e.s + (Math.floor(t * 8 + e.ph) & 1)) % SPR.length)], e.x | 0, (e.y | 0) + (Math.sin(t * 6 + e.ph) > 0.8 ? -1 : 0));
+    ctx.imageSmoothingEnabled = false; ctx.drawImage(lo, 0, 0, W * S, H * S);
+    cpu += performance.now() - a; frames++; reportar(); requestAnimationFrame(f);
+  })(performance.now());
+} else {
+  (async () => {
+    const { Application, Texture, Sprite, Container, ParticleContainer, Particle, TextureSource, Graphics } = PIXI;
+    TextureSource.defaultOptions.scaleMode = "nearest";
+    const app = new Application();
+    await app.init({ width: W * S, height: H * S, background: "#272736", antialias: false, resolution: 1, roundPixels: true, preference: "webgl" });
+    document.body.append(app.canvas);
+    const mundo = new Container(); mundo.scale.set(S); app.stage.addChild(mundo);
+    // contar llamadas de dibujo reales de WebGL
+    const gl = app.renderer.gl;
+    for (const f of ["drawElements", "drawArrays", "drawElementsInstanced", "drawArraysInstanced"]) { const o = gl[f].bind(gl); gl[f] = (...a) => { calls++; return o(...a); }; }
+    const madre = new Sprite(Texture.from(MADRE)); madre.position.set(40, 30); mundo.addChild(madre);
+    const luzTex = Texture.from(LUZ); const luz = new Sprite(luzTex); luz.position.set(60, 60); luz.width = 340; luz.height = 150; mundo.addChild(luz);
+    // partículas: un ParticleContainer con una textura de 1 píxel tintada
+    const px = (() => { const c = document.createElement("canvas"); c.width = 1; c.height = 1; c.getContext("2d").fillStyle = "#fff"; c.getContext("2d").fillRect(0, 0, 1, 1); return Texture.from(c); })();
+    const pc = new ParticleContainer({ dynamicProperties: { position: true, color: false, vertex: false, rotation: false } });
+    mundo.addChild(pc);
+    const parts = P.map((p) => { const q = new Particle({ texture: px, x: p.x, y: p.y, tint: parseInt(COLORES[p.c].slice(1), 16) }); pc.addParticle(q); return q; });
+    // honguitos: un ParticleContainer con 16 texturas (se agrupan en un solo lote por textura)
+    const texs = SPR.map((c) => Texture.from(c));
+    const hc = new Container(); mundo.addChild(hc);
+    const spr = E.map((e) => { const s = new Sprite(texs[e.s]); hc.addChild(s); return s; });
+    app.ticker.add(() => {
+      const now = performance.now(), dt = Math.min(0.05, (now - ult) / 1000); ult = now; const t = now / 1000, a = performance.now();
+      tick(dt, t); actualizarLuz(t); luzTex.source.update();
+      for (let i = 0; i < P.length; i++) { parts[i].x = P[i].x | 0; parts[i].y = P[i].y | 0; }
+      for (let i = 0; i < E.length; i++) { const e = E[i], s = spr[i]; s.texture = texs[(e.s + (Math.floor(t * 8 + e.ph) & 1)) % texs.length]; s.x = e.x | 0; s.y = (e.y | 0) + (Math.sin(t * 6 + e.ph) > 0.8 ? -1 : 0); }
+      cpu += performance.now() - a; frames++; reportar();
+    });
+    app.ticker.add(() => {}, null, -50);
+  })();
+}
+</script></body></html>

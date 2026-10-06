@@ -1,5 +1,12 @@
 export const CHANGELOG = [
   {
+    v: "0.47.2",
+    fecha: "2026-10-05",
+    cambios: [
+      "Prototipo de prueba de WebGL (no afecta al juego): proto/webgl.html compara la misma escena dibujada con Canvas 2D y con WebGL. Se abre con ?r=2d o ?r=gl, y ?n=cantidad de honguitos&p=cantidad de partículas.",
+    ],
+  },
+  {
     v: "0.47.1",
     fecha: "2026-10-05",
     cambios: [
