@@ -594,6 +594,27 @@ export function comprarHonguitos(state, id, k = 1) {
 
 export const comprarHonguito = (state, id) => comprarHonguitos(state, id, 1);
 
+// ---- Vender honguitos (por si se compró uno por error): se devuelve todo lo que costó ----
+// El honguito básico nunca baja de 1: es el único que lleva las esporas.
+export const vendibles = (state, id) => Math.max(0, (state.honguitos[id] || 0) - (id === "basico" ? 1 : 0));
+export function reembolsoHonguitos(state, id, k) {
+  k = Math.min(k, vendibles(state, id));
+  if (k < 1) return D(0);
+  const n0 = state.honguitos[id] || 0;
+  state.honguitos[id] = n0 - k; // lo que costaría volver a comprarlos desde ahí
+  try { return costoHonguitos(state, id, k); } finally { state.honguitos[id] = n0; }
+}
+export function venderHonguitos(state, id, k = 1) {
+  if (k === "max") k = vendibles(state, id);
+  k = Math.min(k, vendibles(state, id));
+  if (k < 1) return false;
+  const r = reembolsoHonguitos(state, id, k);
+  state.honguitos[id] = (state.honguitos[id] || 0) - k;
+  if (state.honguitos[id] <= 0 && id !== "basico") delete state.honguitos[id];
+  state.esporas = state.esporas.add(r); // el total histórico no cambia: solo se devuelve lo gastado
+  return true;
+}
+
 // Se paga al ubicarlo en el piso (dx = celdas a la derecha del hongo madre).
 export function colocarEdificio(state, id, dx) {
   const e = EDIFICIOS[id];

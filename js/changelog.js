@@ -1,5 +1,12 @@
 export const CHANGELOG = [
   {
+    v: "0.56.0",
+    fecha: "2026-10-06",
+    cambios: [
+      "Se pueden vender honguitos: nuevo botón «+/−» junto a ×1, ×10, ×100 y Máx en las ventanas de honguitos. Con el modo en «−» (botón naranja) los botones de cada honguito se ponen rojos y, en vez de comprar, venden la cantidad elegida y te devuelven TODO lo que costaron esas unidades (por si compraste uno por error). El honguito básico nunca baja de 1 porque es el único que lleva las esporas. El modo vuelve a «+» cada vez que abrís una ventana.",
+    ],
+  },
+  {
     v: "0.55.1",
     fecha: "2026-10-06",
     cambios: [

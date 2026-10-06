@@ -8,7 +8,7 @@ import { EVENTOS, HONGUITOS, MEJORAS, EDIFICIOS, TECNOLOGIAS, MEJ_EDIF, MEJ_CLIC
 import { PU, TIERS_PU, nombreTier, umbralDeTier, costoPU, puRango, tierAbierto, comprarPU } from './puData.js';
 import { ppAlPrestigiar } from './reinicio.js';
 import { fmt, fmtRate } from './format.js';
-import { factorAcido, factorMeteoro, produccionPorSeg, produccionPorTipo, prestigio, costoHonguito, costoHonguitos, maxHonguitos, comprarHonguitos, comprarMejora, tecDisponible, pctTec, invPorSeg, proximoHito, costoEdificio, elegirInvestigacion, comprarMejoraEdificio, activarHabilidad, buffActivo, nivelMej, costoMej, valorToque, autoPorSeg, autoFraccion, comprarMejoraClick, logiInfo, costoLogi, comprarMejoraLogi, durBuff, cdHabilidad, alternarSobrecarga, trabajoEf } from './engine.js';
+import { factorAcido, factorMeteoro, produccionPorSeg, produccionPorTipo, prestigio, costoHonguito, costoHonguitos, maxHonguitos, comprarHonguitos, venderHonguitos, reembolsoHonguitos, vendibles, comprarMejora, tecDisponible, pctTec, invPorSeg, proximoHito, costoEdificio, elegirInvestigacion, comprarMejoraEdificio, activarHabilidad, buffActivo, nivelMej, costoMej, valorToque, autoPorSeg, autoFraccion, comprarMejoraClick, logiInfo, costoLogi, comprarMejoraLogi, durBuff, cdHabilidad, alternarSobrecarga, trabajoEf } from './engine.js';
 import { exportar, importar, borrarGuardado } from './state.js';
 import { CHANGELOG } from './changelog.js';
 
@@ -115,7 +115,9 @@ export function crearUI(api) {
     hojaCuerpo.append(h);
   }
 
+  let modoVender = false; // «+/−»: con el modo en «−» los botones de los honguitos venden en vez de comprar
   function filasHonguitos(casa) {
+    if (entrar) modoVender = false;
     seccion("Honguitos");
     const sel = document.createElement("div");
     sel.className = "cant";
@@ -134,12 +136,19 @@ export function crearUI(api) {
       sel.append(b);
       return b;
     });
+    const bVender = document.createElement("button");
+    bVender.className = "cant-btn vender" + (modoVender ? " activo" : "");
+    bVender.textContent = "+/−";
+    bVender.title = "Vender: devuelve lo que costaron";
+    bVender.addEventListener("click", () => { modoVender = !modoVender; bVender.classList.toggle("activo", modoVender); actualizar(true); });
+    sel.append(bVender);
     hojaCuerpo.append(sel);
     for (const id in HONGUITOS) {
       const tipo = HONGUITOS[id];
       if (tipo.casa !== casa) continue;
       const f = fila(tipo.nombre, tipo.desc, () => {
-        if (comprarHonguitos(api.estado(), id, ajustes.cantidad || 1)) api.guardar();
+        const cant = ajustes.cantidad || 1;
+        if (modoVender ? venderHonguitos(api.estado(), id, cant) : comprarHonguitos(api.estado(), id, cant)) api.guardar();
         actualizar(true);
       }, tipo.color);
       filas.push({ tipo: "honguito", id, ...f });
@@ -1148,11 +1157,18 @@ export function crearUI(api) {
         const k = cant === "max" ? Math.max(1, maxHonguitos(s, f.id)) : cant;
         const c = costoHonguitos(s, f.id, k);
         const antes = f.titulo.textContent;
+        f.btn.classList.toggle("vende", modoVender);
         f.titulo.textContent = `${HONGUITOS[f.id].nombre} ×${fmt(s.honguitos[f.id] || 0)}`;
         if (antes && antes !== f.titulo.textContent && f.titulo.dataset.vis) { f.titulo.classList.remove("bump"); void f.titulo.offsetWidth; f.titulo.classList.add("bump"); }
         f.titulo.dataset.vis = "1";
-        f.btn.textContent = cant === "max" ? `×${fmt(k)} · ${fmt(c)}` : fmt(c);
-        f.btn.disabled = s.esporas.lt(c);
+        if (modoVender) { // vender: el botón muestra cuánto se devuelve
+          const kv = cant === "max" ? vendibles(s, f.id) : Math.min(cant, vendibles(s, f.id));
+          f.btn.textContent = kv > 0 ? `−${cant === "max" ? "×" + fmt(kv) + " · " : ""}${fmt(reembolsoHonguitos(s, f.id, kv))}` : "−";
+          f.btn.disabled = kv < 1;
+        } else {
+          f.btn.textContent = cant === "max" ? `×${fmt(k)} · ${fmt(c)}` : fmt(c);
+          f.btn.disabled = s.esporas.lt(c);
+        }
       } else if (f.tipo === "edificio") {
         const bloq = f.ed.requiere && !s.mejoras[f.ed.requiere];
         const rq = f.ed.reqHong, faltan = rq && (s.honguitos[rq.tipo] || 0) < rq.n;

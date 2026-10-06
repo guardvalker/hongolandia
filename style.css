@@ -327,3 +327,6 @@ body.gl #juego { opacity: 0; }
 
 #dps.plegado #dps-logi, #dps.plegado #dps-piso, #dps.plegado #dps-log { display: none; }
 #dps-logi.cuello b { color: #ff7a7a; }
+
+.cant-btn.vender.activo { background: #ff5a14; color: #fff; }
+.comprar.vende { background: #ff5a14; color: #fff; }
