@@ -43,7 +43,6 @@ export function crearUI(api) {
     hoja.style.cssText = "";
     hoja.style.setProperty("--ac", acentoActual);
     hoja.classList.remove("anclada");
-    if (!anclaFn && abierta !== "dungeon" && abierta !== "ajustes" && abierta !== "cofre") return;
     const vw = window.innerWidth, vh = window.innerHeight, margen = 10;
     const w = Math.min(300, vw - 2 * margen);
     hoja.classList.add("anclada");
@@ -916,6 +915,8 @@ export function crearUI(api) {
   $("fondo-hoja").addEventListener("click", cerrar);
   $("btn-ajustes").addEventListener("click", abrirAjustes);
   $("barra-bloque").addEventListener("click", abrirPrestigio);
+  const elBtnPresti = $("btn-prestigio");
+  elBtnPresti.addEventListener("click", abrirPrestigio);
   $("btn-cofre").addEventListener("click", abrirCofre);
 
   // ---- Refresco de textos (se llama ~4 veces por segundo) ----
@@ -964,6 +965,9 @@ export function crearUI(api) {
     elEsporas.textContent = fmt(s.esporas);
 
     const pr = prestigio(s.total);
+    const ppg = ppAlPrestigiar(s);
+    elBtnPresti.textContent = ppg > 0 ? `Prestigio +${ppg} PP` : s.pp > 0 ? `Prestigio (${s.pp} PP)` : "Prestigio";
+    elBtnPresti.classList.toggle("lista", ppg > 0 || s.pp > 0);
     elNivel.textContent = "Prestigio " + pr.puntos;
     elNum.textContent = fmt(pr.cur) + " / " + fmt(pr.need);
     elFill.style.width = pr.frac * 100 + "%";

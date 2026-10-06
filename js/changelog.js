@@ -1,5 +1,14 @@
 export const CHANGELOG = [
   {
+    v: "0.46.1",
+    fecha: "2026-10-05",
+    cambios: [
+      "Las ventanas siempre quedan por encima de todo lo demás (cartelitos de aviso, números flotantes, HUD y botones).",
+      "Todas las ventanas ahora se abren centradas en la pantalla, como las de Ajustes y Cofre; antes algunas (como Prestigio) salían abajo.",
+      "Botón «Prestigio» abajo a la izquierda, encima de «Hongo madre»: se ilumina y muestra los PP que ganarías al prestigiar. Tocar la barra de arriba sigue funcionando.",
+    ],
+  },
+  {
     v: "0.46.0",
     fecha: "2026-10-05",
     cambios: [
