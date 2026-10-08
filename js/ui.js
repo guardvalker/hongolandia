@@ -13,7 +13,8 @@ import { EVENTOS, HONGUITOS, MEJORAS, EDIFICIOS, TECNOLOGIAS, MEJ_EDIF, MEJ_CLIC
 import { PU, TIERS_PU, nombreTier, umbralDeTier, costoPU, puRango, tierAbierto, comprarPU } from './puData.js';
 import { ppAlPrestigiar } from './reinicio.js';
 import { fmt, fmtRate } from './format.js';
-import { factorAcido, factorMeteoro, produccionPorSeg, produccionPorTipo, prestigio, costoHonguito, costoHonguitos, maxHonguitos, comprarHonguitos, venderHonguitos, reembolsoHonguitos, vendibles, comprarMejora, tecDisponible, pctTec, invPorSeg, proximoHito, costoEdificio, elegirInvestigacion, comprarMejoraEdificio, activarHabilidad, buffActivo, nivelMej, costoMej, valorToque, autoPorSeg, autoFraccion, comprarMejoraClick, logiInfo, costoLogi, comprarMejoraLogi, comprarPrisma, comprarDron, venderDron, costoDron, durBuff, cdHabilidad, alternarSobrecarga, trabajoEf } from './engine.js';
+import { factorAcido, factorMeteoro, produccionPorSeg, produccionPorTipo, prestigio, costoHonguito, costoHonguitos, maxHonguitos, comprarHonguitos, venderHonguitos, reembolsoHonguitos, vendibles, comprarMejora, tecDisponible, pctTec, invPorSeg, proximoHito, costoEdificio, elegirInvestigacion, comprarMejoraEdificio, activarHabilidad, buffActivo, nivelMej, costoMej, valorToque, autoPorSeg, autoFraccion, comprarMejoraClick, logiInfo, costoLogi, comprarMejoraLogi, comprarPrisma, comprarDron, venderDron, costoDron, durBuff, cdHabilidad, alternarSobrecarga, trabajoEf, jardinerosCamas, costoCama, costoPurga, sembrarCama, purgarCama } from './engine.js';
+import { CAMAS, camasMax } from './camas.js';
 import { exportar, importar, borrarGuardado } from './state.js';
 import { CHANGELOG } from './changelog.js';
 
@@ -316,6 +317,54 @@ export function crearUI(api) {
     }
   }
 
+  // ---- Vivero: camas de sustrato ----
+  function seccionCamas(reabrir) {
+    const s = api.estado();
+    seccion("Camas de sustrato");
+    nota("Cada cama colonizada suma +2% a la producción de los Jardineros. La lluvia ácida daña las camas sin paraguas.");
+    const cupo = nota("");
+    filas.push({ refresh: (st) => {
+      const max = camasMax(jardinerosCamas(st));
+      cupo.textContent = `Cupo: ${st.camas.length}/${max}. ${jardinerosCamas(st)} jardineros: cada 5 abren una cama más.`;
+    } });
+    const n0 = s.camas.length;
+    for (let i = 0; i < s.camas.length; i++) {
+      const f = fila("Cama " + (i + 1), "", () => {
+        if (purgarCama(api.estado(), i)) { api.guardar(); reabrir(); }
+      }, EDIFICIOS.vivero.color);
+      f.refresh = (st) => {
+        if (st.camas.length !== n0) { reabrir(); return; }
+        const cama = st.camas[i];
+        if (cama.estado === "dañada") {
+          f.btn.textContent = fmt(costoPurga(st));
+          f.btn.disabled = st.esporas.lt(costoPurga(st));
+        } else if (cama.estado === "sembrada") {
+          f.btn.textContent = Math.floor(100 * cama.t / CAMAS.tColonizar) + "%";
+          f.btn.disabled = true;
+        } else {
+          f.btn.textContent = "Colonizada";
+          f.btn.disabled = true;
+        }
+      };
+      filas.push(f);
+    }
+    const f = fila("Sembrar una cama", "", () => {
+      if (sembrarCama(api.estado())) { api.guardar(); reabrir(); }
+    }, EDIFICIOS.vivero.color);
+    f.refresh = (st) => {
+      const max = camasMax(jardinerosCamas(st));
+      f.desc.textContent = `${jardinerosCamas(st)} jardineros: cada 5 abren una cama más`;
+      if (st.camas.length >= max) {
+        f.btn.textContent = "Sin lugar";
+        f.btn.disabled = true;
+        return;
+      }
+      f.btn.textContent = fmt(costoCama(st));
+      f.btn.disabled = st.esporas.lt(costoCama(st));
+    };
+    filas.push(f);
+  }
+
   // ---- Universidad: investigación con científicos ----
   function seccionInvestigacion(reabrir) {
     const s = api.estado();
@@ -379,6 +428,7 @@ export function crearUI(api) {
       filasHonguitos(id);
       notasHitos(id);
       if (id === "universidad") seccionInvestigacion(reabrir);
+      if (id === "vivero") seccionCamas(reabrir);
       filasMejorasEdificio(id, reabrir);
       const tecs = TECNOLOGIAS.filter((t) => t.edificio === id && t.target !== "todos" && !t.carrera && api.estado().mejoras[t.id]);
       if (tecs.length && id !== "universidad") {

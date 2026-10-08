@@ -4,7 +4,7 @@ import { PRISMA_POR_ID } from './prismas.js';
 import { BONO_LOGRO, cantLogros } from './logros.js';
 import { arteM, arteA, ARTEFACTOS, ARTE_POR_ID } from './artefactos.js';
 import { puA, buffCrisis, avisosPU } from './puData.js';
-import { bonoCamas, tickCamas } from './camas.js';
+import { bonoCamas, tickCamas, sembrar, purgar, camasMax } from './camas.js';
 import { HONGUITOS, MEJORAS, EDIFICIOS, PRESTIGIO, BOLSA, LUNA, ACIDO, TECNOLOGIAS, TEC_POR_ID, MEJ_EDIF, MEJ_EDIF_POR_ID, MEJ_CLICK, MEJ_CLICK_POR_ID, MEJ_LOGI, MEJ_LOGI_POR_ID, LOGI, HITOS, MODO_PRUEBA, EVENTOS, EVENTO_CFG } from './data.js';
 
 // Lógica pura del juego: nada de DOM ni canvas acá.
@@ -644,6 +644,36 @@ export function comprarMejoraEdificio(state, id) {
   if (!m || n >= m.max || !state.edificios[m.edificio] || cuenta(state, m.tipo) < m.req || (m.reqOtro && cuenta(state, m.reqOtro.tipo) < m.reqOtro.n) || state.esporas.lt(costo)) return false;
   state.esporas = state.esporas.sub(costo);
   state.mejoras[id] = n + 1;
+  return true;
+}
+
+// ---- Camas de sustrato ----
+// los jardineros desbloquean las camas
+export const jardinerosCamas = (state) => cuenta(state, "jardinero");
+
+// cada cama nueva cuesta 4 veces más que la anterior
+export const costoCama = (state) => D(50000).mul(Math.pow(4, state.camas.length));
+
+// purgar una cama cuesta el 20% de una cama nueva
+export const costoPurga = (state) => costoCama(state).mul(0.2);
+
+// Sembrar una cama de sustrato (hace falta el Vivero y los jardineros suficientes).
+export function sembrarCama(state) {
+  const n = jardinerosCamas(state);
+  const costo = costoCama(state);
+  if (!state.edificios.vivero || state.camas.length >= camasMax(n) || state.esporas.lt(costo)) return false;
+  state.esporas = state.esporas.sub(costo);
+  sembrar(state.camas, n);
+  return true;
+}
+
+// Purgar una cama dañada: el costo se calcula antes de cambiar nada.
+export function purgarCama(state, i) {
+  const cama = state.camas[i];
+  const costo = costoPurga(state);
+  if (!cama || cama.estado !== "dañada" || state.esporas.lt(costo)) return false;
+  state.esporas = state.esporas.sub(costo);
+  purgar(state.camas, i);
   return true;
 }
 

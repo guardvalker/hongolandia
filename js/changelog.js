@@ -1,5 +1,13 @@
 export const CHANGELOG = [
   {
+    v: "0.68.0",
+    fecha: "2026-10-08",
+    cambios: [
+      "Camas de sustrato en el Vivero hongil: sembrá camas de sustrato desde la ventana del Vivero (sección «Camas de sustrato»). Cada cama tarda 5 minutos en colonizarse y, ya colonizada, suma +2% a la producción de los Jardineros. Cada 5 jardineros se abre una cama más (hasta 6). Cada cama nueva cuesta 4 veces más que la anterior.",
+      "La lluvia ácida daña las camas colonizadas si no tenés paraguas: una cama dañada no aporta nada hasta que la purgás (cuesta el 20% de una cama nueva y vuelve a empezar desde cero). Las camas se reinician con cada prestigio. Los números están a ojo, sin calibrar.",
+    ],
+  },
+  {
     v: "0.67.1",
     fecha: "2026-10-06",
     cambios: [
