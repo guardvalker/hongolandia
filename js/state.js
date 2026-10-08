@@ -42,6 +42,7 @@ export function nuevoEstado() {
     total: D(0), // esporas ganadas en toda la partida (define la etapa)
     logi: { valor: D(0), n: 0, sitios: {}, comp: {} }, // comp: montañas que se están compactando; // esporas sueltas esperando que los honguitos logísticos las lleven al hongo madre: valor total, cantidad y cuántas hay en la montaña de cada lugar
     prisma: { nivel: 0, n: 0, tot: 0, drones: 0, suelo: 0, sueloT: 0, comprados: {} }, // suelo: Prismas tirados en el piso esperando que un honguito los junte; // compactación de la corrida (nivel 0 a 10), Prismas sin gastar, ganados en total y mejoras prismáticas compradas
+    camas: [], // Camas de sustrato del Vivero: [{estado:'sembrada'|'colonizada'|'dañada', t}] (se reinician con cada prestigio)
     logros: {}, // logros cumplidos (persisten entre corridas)
     altar: { talentos: [], pacto: null }, // Altar de micelio: talentos equipados y pacto activo (persisten entre corridas)
     pp: 0, // puntos de prestigio sin gastar
@@ -113,6 +114,7 @@ function deserializar(raw) {
     total: new Dec(raw.total ?? 0),
     logi: { valor: new Dec(raw.logi?.valor ?? 0), n: raw.logi?.n ?? 0, sitios: raw.logi?.sitios ? { ...raw.logi.sitios } : (raw.logi?.n ? { madre: raw.logi.n } : {}), comp: { ...raw.logi?.comp } },
     prisma: { ...base.prisma, ...raw.prisma, comprados: { ...raw.prisma?.comprados } },
+    camas: Array.isArray(raw.camas) ? raw.camas.map((c) => ({ estado: ["sembrada", "colonizada", "dañada"].includes(c.estado) ? c.estado : "sembrada", t: +c.t || 0 })) : [],
     logros: { ...raw.logros },
     altar: { talentos: Array.isArray(raw.altar?.talentos) ? [...raw.altar.talentos] : [], pacto: raw.altar?.pacto ?? null },
     honguitos: { ...base.honguitos, ...raw.honguitos },

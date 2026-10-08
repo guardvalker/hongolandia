@@ -4,6 +4,7 @@ import { PRISMA_POR_ID } from './prismas.js';
 import { BONO_LOGRO, cantLogros } from './logros.js';
 import { arteM, arteA, ARTEFACTOS, ARTE_POR_ID } from './artefactos.js';
 import { puA, buffCrisis, avisosPU } from './puData.js';
+import { bonoCamas, tickCamas } from './camas.js';
 import { HONGUITOS, MEJORAS, EDIFICIOS, PRESTIGIO, BOLSA, LUNA, ACIDO, TECNOLOGIAS, TEC_POR_ID, MEJ_EDIF, MEJ_EDIF_POR_ID, MEJ_CLICK, MEJ_CLICK_POR_ID, MEJ_LOGI, MEJ_LOGI_POR_ID, LOGI, HITOS, MODO_PRUEBA, EVENTOS, EVENTO_CFG } from './data.js';
 
 // Lógica pura del juego: nada de DOM ni canvas acá.
@@ -126,6 +127,7 @@ export function multiplicador(state, tipoId) {
   }
   m *= 1 + BONO_LOGRO * cantLogros(state); // logros
   if (state.prisma && state.prisma.nivel) m *= 1 + arteA(state, "comp_prod") * state.prisma.nivel; // «Resonancia»
+  if (tipoId === "jardinero") m *= bonoCamas(state.camas || []); // Camas de sustrato
   if (state.buffPU && state.buffPU.hasta > Date.now()) m *= state.buffPU.mult; // Reflejos de crisis
   const tor = state.arcano && state.arcano.tormenta;
   if (tor && tor.hasta > Date.now()) m *= tor.mult;
@@ -499,6 +501,8 @@ export function tick(state, dt) {
     if (dt > 5) { Pz.n += Pz.suelo; Pz.suelo = 0; Pz.sueloT = 0; }
     else if (Pz.sueloT > 60) { Pz.suelo--; Pz.n++; Pz.sueloT = 0; }
   }
+  const llueve = Object.values(improd).some((m) => m.hasta > Date.now()); // hay algún edificio bajo lluvia ácida
+  tickCamas(state.camas, dt, llueve, efectos.paraguas < 1); // Camas de sustrato
   efectos.acidoMenos = Math.min(0.8, sumaNiveles(state, "acido", "a"));
   efectos.paraguas = Math.max(0.3, 1 - sumaNiveles(state, "paraguas", "a"));
   efectos.autoEvento = Math.min(0.9, sumaNiveles(state, "autoevento", "a") + arteA(state, "autoevento"));
