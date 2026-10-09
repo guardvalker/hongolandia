@@ -89,6 +89,7 @@ const MADRE = [
 import { EDIFICIOS, HONGUITOS, ACIDO, EVENTOS, EVENTO_CFG } from './data.js';
 import { meteoros as danoMeteoro, improd, velocidad, eventos, buffTipoActivo, efectos, prestigio, logiInfo, logiSitios, logiEventos, dronVuelos, nivelMej, recogerPrisma } from './engine.js';
 import { getRun } from './dungeon.js';
+import { CAMAS } from './camas.js';
 import { getEvento, consumirFx, setAlcance, nivelDef } from './eventos.js';
 import { TIPOS_TORRE, statsTorre } from './invasion.js';
 import { dibujarMerc } from './dungeonVista.js';
@@ -143,6 +144,7 @@ export function crearEscena(canvas, opciones = {}) {
   let contam = 0, nMagos = 0, evT = /evento/.test(location.search) ? 2 : 40 + Math.random() * 60;
   const cielo = []; // eventos del cielo: { tipo, x, y, vx, t, vida, ph, auto }
   let nObreros = 0, humoAcum = 0, cicloBolsa = CICLO_BOLSA;
+  let camasVis = []; // reflejo de state.camas para dibujar las camas de sustrato junto al vivero
   const velTipo = {}, buffTipos = {}; // velocidad y buff activo por tipo (de las mejoras de edificio)
   const nubes = []; // nubes de contaminación sobre la fábrica: { x0, y, w, ph, p, llueve }
   const lluvia = { activa: false, t: 0, prox: 25, zonas: [] };
@@ -2251,6 +2253,7 @@ export function crearEscena(canvas, opciones = {}) {
     for (const tp of TIPOS_VISUALES) { velTipo[tp] = velocidad(state, tp); buffTipos[tp] = buffTipoActivo(state, tp); }
     cicloBolsa = CICLO_BOLSA / velTipo.trader;
     nObreros = state.honguitos.obrero || 0;
+    camasVis = state.camas || [];
     contam = state.contam || 0;
     nMagos = state.honguitos.mago || 0;
     nMineros = state.honguitos.minero || 0;
@@ -2770,6 +2773,27 @@ export function crearEscena(canvas, opciones = {}) {
     g.drawImage(c.cv, bx, by, bw, bh);
     return { capBase, ch, rx, mitad };
   }
+  // Camas de sustrato: parcelitas de tierra pegadas al piso a los costados del vivero (3 de cada lado como mucho).
+  // Sembrada: brote que crece con el avance; colonizada: honguitos verdes; dañada: marchita con manchas ácidas.
+  function dibujarCamas(cx, rx) {
+    for (let i = 0; i < camasVis.length && i < CAMAS.max; i++) {
+      const lado = i % 2 ? -1 : 1, k = Math.floor(i / 2);
+      const bx = lado > 0 ? cx + rx + 3 + k * 9 : cx - rx - 3 - k * 9 - 7; // esquina izquierda de la cama (7 de ancho)
+      const cama = camasVis[i], by = groundY - 4;
+      g.fillStyle = "#3b2a1e"; g.fillRect(bx, by, 8, 4);
+      g.fillStyle = "#5a4030"; g.fillRect(bx, by, 8, 1);
+      if (cama.estado === "sembrada") {
+        const h = 1 + Math.floor(2 * Math.min(1, cama.t / CAMAS.tColonizar));
+        g.fillStyle = "#7fc9a0"; g.fillRect(bx + 3, by - h, 1, h); g.fillRect(bx + 5, by - Math.max(1, h - 1), 1, Math.max(1, h - 1));
+      } else if (cama.estado === "colonizada") {
+        g.fillStyle = "#3fe08a"; g.fillRect(bx + 1, by - 2, 2, 1); g.fillRect(bx + 2, by - 1, 1, 1); g.fillRect(bx + 5, by - 3, 2, 1); g.fillRect(bx + 6, by - 2, 1, 2);
+        g.fillStyle = "#c9ffe0"; g.fillRect(bx + 1, by - 2, 1, 1); g.fillRect(bx + 5, by - 3, 1, 1);
+      } else {
+        g.fillStyle = "#8a6a4a"; g.fillRect(bx + 2, by - 2, 1, 2); g.fillRect(bx + 3, by - 1, 1, 1); g.fillRect(bx + 5, by - 1, 2, 1);
+        g.fillStyle = "#b5e61d"; g.fillRect(bx + 1, by + 1, 1, 1); g.fillRect(bx + 4, by + 2, 1, 1); g.fillRect(bx + 6, by + 1, 1, 1);
+      }
+    }
+  }
   function dibujarEdificio(id, x, alfa = 1) {
     const m = tam(id);
     const cx = Math.round(x);
@@ -3070,6 +3094,7 @@ export function crearEscena(canvas, opciones = {}) {
       g.fillRect(cx + mitad + 3, groundY - 3, 5, 3);
       g.fillStyle = "#3fe08a";
       g.fillRect(cx + mitad + 5, groundY - 7, 1, 4); g.fillRect(cx + mitad + 4, groundY - 6, 1, 1); g.fillRect(cx + mitad + 6, groundY - 7, 1, 1);
+      dibujarCamas(cx, rx);
     }
     // edificios más grandes: ramas con hongos chiquitos saliendo del tallo
     if (m.nivel >= 1) ramaHongo(cx, capBase, mitad, m.lado, col, 5);

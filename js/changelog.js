@@ -1,5 +1,12 @@
 export const CHANGELOG = [
   {
+    v: "0.68.1",
+    fecha: "2026-10-08",
+    cambios: [
+      "Las camas de sustrato ahora se ven en el mundo: parcelitas de tierra a los costados del Vivero (hasta 3 de cada lado). Sembrada: un brote que crece con el avance; colonizada: honguitos verdes; dañada: marchita y con manchas ácidas. Se dibujan dentro del caché del edificio, así que no suman costo de dibujo.",
+    ],
+  },
+  {
     v: "0.68.0",
     fecha: "2026-10-08",
     cambios: [
