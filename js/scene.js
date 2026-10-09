@@ -2773,24 +2773,24 @@ export function crearEscena(canvas, opciones = {}) {
     g.drawImage(c.cv, bx, by, bw, bh);
     return { capBase, ch, rx, mitad };
   }
-  // Camas de sustrato: parcelitas de tierra pegadas al piso a los costados del vivero (3 de cada lado como mucho).
+  // Camas de sustrato: parcelas en un corte de suelo, justo debajo del piso del vivero (ahí no pasan honguitos por delante).
   // Sembrada: brote que crece con el avance; colonizada: honguitos verdes; dañada: marchita con manchas ácidas.
-  function dibujarCamas(cx, rx) {
-    for (let i = 0; i < camasVis.length && i < CAMAS.max; i++) {
-      const lado = i % 2 ? -1 : 1, k = Math.floor(i / 2);
-      const bx = lado > 0 ? cx + rx + 3 + k * 9 : cx - rx - 3 - k * 9 - 7; // esquina izquierda de la cama (7 de ancho)
-      const cama = camasVis[i], by = groundY - 4;
-      g.fillStyle = "#3b2a1e"; g.fillRect(bx, by, 8, 4);
-      g.fillStyle = "#5a4030"; g.fillRect(bx, by, 8, 1);
+  function dibujarCamas(cx) {
+    const n = Math.min(camasVis.length, CAMAS.max), x0 = cx - Math.floor((n * 11 - 2) / 2), by = groundY + 3;
+    for (let i = 0; i < n; i++) {
+      const cama = camasVis[i], bx = x0 + i * 11;
+      g.fillStyle = "#5a4030"; g.fillRect(bx, by, 9, 6);
+      g.fillStyle = "#241810"; g.fillRect(bx + 1, by + 1, 7, 4);
       if (cama.estado === "sembrada") {
-        const h = 1 + Math.floor(2 * Math.min(1, cama.t / CAMAS.tColonizar));
-        g.fillStyle = "#7fc9a0"; g.fillRect(bx + 3, by - h, 1, h); g.fillRect(bx + 5, by - Math.max(1, h - 1), 1, Math.max(1, h - 1));
+        const h = 1 + Math.floor(3 * Math.min(1, cama.t / CAMAS.tColonizar));
+        g.fillStyle = "#7fc9a0"; g.fillRect(bx + 4, by + 5 - h, 1, h); if (h > 1) g.fillRect(bx + 3, by + 5 - h, 1, 1);
       } else if (cama.estado === "colonizada") {
-        g.fillStyle = "#3fe08a"; g.fillRect(bx + 1, by - 2, 2, 1); g.fillRect(bx + 2, by - 1, 1, 1); g.fillRect(bx + 5, by - 3, 2, 1); g.fillRect(bx + 6, by - 2, 1, 2);
-        g.fillStyle = "#c9ffe0"; g.fillRect(bx + 1, by - 2, 1, 1); g.fillRect(bx + 5, by - 3, 1, 1);
+        g.fillStyle = "#3fe08a"; g.fillRect(bx + 1, by + 2, 3, 1); g.fillRect(bx + 5, by + 1, 3, 1);
+        g.fillStyle = "#c9ffe0"; g.fillRect(bx + 2, by + 2, 1, 1); g.fillRect(bx + 6, by + 1, 1, 1);
+        g.fillStyle = "#7fc9a0"; g.fillRect(bx + 2, by + 3, 1, 2); g.fillRect(bx + 6, by + 2, 1, 3);
       } else {
-        g.fillStyle = "#8a6a4a"; g.fillRect(bx + 2, by - 2, 1, 2); g.fillRect(bx + 3, by - 1, 1, 1); g.fillRect(bx + 5, by - 1, 2, 1);
-        g.fillStyle = "#b5e61d"; g.fillRect(bx + 1, by + 1, 1, 1); g.fillRect(bx + 4, by + 2, 1, 1); g.fillRect(bx + 6, by + 1, 1, 1);
+        g.fillStyle = "#8a6a4a"; g.fillRect(bx + 2, by + 3, 1, 2); g.fillRect(bx + 3, by + 3, 2, 1); g.fillRect(bx + 6, by + 4, 1, 1);
+        g.fillStyle = "#b5e61d"; g.fillRect(bx + 1, by + 1, 1, 1); g.fillRect(bx + 5, by + 2, 1, 1); g.fillRect(bx + 7, by + 3, 1, 1);
       }
     }
   }
@@ -3094,7 +3094,6 @@ export function crearEscena(canvas, opciones = {}) {
       g.fillRect(cx + mitad + 3, groundY - 3, 5, 3);
       g.fillStyle = "#3fe08a";
       g.fillRect(cx + mitad + 5, groundY - 7, 1, 4); g.fillRect(cx + mitad + 4, groundY - 6, 1, 1); g.fillRect(cx + mitad + 6, groundY - 7, 1, 1);
-      dibujarCamas(cx, rx);
     }
     // edificios más grandes: ramas con hongos chiquitos saliendo del tallo
     if (m.nivel >= 1) ramaHongo(cx, capBase, mitad, m.lado, col, 5);
@@ -3752,6 +3751,7 @@ export function crearEscena(canvas, opciones = {}) {
     if (!OFF.has("madre")) dibujarMadre();
     dibujarCristalesMadre();
     if (!OFF.has("edif")) for (const id in edif) if (!(colocando?.mover && colocando.id === id)) dibujarEdificioCache(id, edif[id].x);
+    if (edif.vivero && camasVis.length && !OFF.has("edif") && !(colocando?.mover && colocando.id === "vivero")) dibujarCamas(Math.round(edif.vivero.x));
     for (const v of torresV) dibujarTorre(v);
     dibujarCoheteEnVuelo();
     for (const b of brotes) {

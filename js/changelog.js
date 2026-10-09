@@ -1,5 +1,12 @@
 export const CHANGELOG = [
   {
+    v: "0.68.2",
+    fecha: "2026-10-08",
+    cambios: [
+      "Arreglo: las camas de sustrato no se veían (quedaban tapadas por los honguitos y los edificios vecinos). Ahora se dibujan como parcelas en un corte de suelo, justo debajo del piso del Vivero, en una fila centrada. Sembrada: brote que crece; colonizada: honguitos verdes; dañada: marchita con manchas ácidas.",
+    ],
+  },
+  {
     v: "0.68.1",
     fecha: "2026-10-08",
     cambios: [
